@@ -144,6 +144,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // 分離向量更新幀計數器
   private separationFrameCount: number = 0;
 
+  // ── 精英怪事件 flag（每局各觸發一次）──────────────────────────────────
+  /** 2:30（150 秒）精英怪是否已生成 */
+  private eliteSpawned150: boolean = false;
+  /** 5:00（300 秒）精英怪是否已生成 */
+  private eliteSpawned300: boolean = false;
+  /** 7:30（450 秒）精英怪是否已生成 */
+  private eliteSpawned450: boolean = false;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -168,6 +176,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.isPortrait = false;
     this.separationCache = new Map();
     this.separationFrameCount = 0;
+
+    // 重置精英怪 flag
+    this.eliteSpawned150 = false;
+    this.eliteSpawned300 = false;
+    this.eliteSpawned450 = false;
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
@@ -338,6 +351,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           }
         }
       }
+    }
+
+    // ── 精英怪事件觸發（2:30 / 5:00 / 7:30）──────────────────────────
+    if (!this.eliteSpawned150 && this.elapsedSeconds >= 150) {
+      this.eliteSpawned150 = true;
+      this.spawnEliteEnemy(1);
+    }
+    if (!this.eliteSpawned300 && this.elapsedSeconds >= 300) {
+      this.eliteSpawned300 = true;
+      this.spawnEliteEnemy(2);
+    }
+    if (!this.eliteSpawned450 && this.elapsedSeconds >= 450) {
+      this.eliteSpawned450 = true;
+      this.spawnEliteEnemy(3);
     }
 
     // 勝利判定優先：存活達 10 分鐘（即使同幀 HP 歸零也以勝利為準）
@@ -714,8 +741,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 播放死亡特效（特效完成後自動銷毀物件）
     enemy.playDeathEffect();
 
-    // 在死亡位置生成 XPGem
-    this.spawnXPGem(deathX, deathY, expValue);
+    // 精英怪掉落多顆 XP gem（散落在死亡位置附近）
+    if (enemy.isElite) {
+      const gemCount = 12;
+      for (let i = 0; i < gemCount; i++) {
+        const angle = (i / gemCount) * Math.PI * 2;
+        const r = 10 + Math.random() * 20;
+        this.spawnXPGem(
+          deathX + Math.cos(angle) * r,
+          deathY + Math.sin(angle) * r,
+          30
+        );
+      }
+    } else {
+      // 在死亡位置生成 XPGem
+      this.spawnXPGem(deathX, deathY, expValue);
+    }
 
     // 更新擊殺計數器
     this.killCount++;
@@ -958,6 +999,68 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         this.separationCache.delete(e);
       }
     }
+  }
+
+  /**
+   * 生成精英怪（2:30 / 5:00 / 7:30 各一隻）
+   * @param wave 第幾波精英（1/2/3），用於縮放能力
+   */
+  private spawnEliteEnemy(wave: number): void {
+    // 取得當前難度狀態作為基準
+    const state = this.difficultyScaler.getState(this.elapsedSeconds);
+
+    // 精英怪使用 'tank' 的 EnemyData 作為基底（厚血型）
+    const baseData = getEnemyById('tank');
+    if (!baseData) return;
+
+    // 計算生成位置（畫面外）
+    const { x, y } = this.calcSpawnPosition();
+
+    // 精英怪能力倍率（隨波次遞增）
+    // wave 1: HP×8, 傷害×1.5, 速度 55
+    // wave 2: HP×12, 傷害×1.8, 速度 55
+    // wave 3: HP×18, 傷害×2.2, 速度 60
+    const hpScale = [8, 12, 18][wave - 1] ?? 8;
+    const dmgScale = [1.5, 1.8, 2.2][wave - 1] ?? 1.5;
+    const eliteSpeed = wave >= 3 ? 60 : 55;
+
+    // 建立精英怪（使用難度倍率 × 精英倍率）
+    const elite = new Enemy(
+      this,
+      x,
+      y,
+      baseData,
+      state.hpMultiplier * hpScale,
+      state.damageMultiplier * dmgScale
+    );
+
+    // 標記為精英、覆寫速度、放大碰撞體
+    elite.isElite = true;
+    elite.moveSpeed = eliteSpeed;
+    elite.collisionRadius = 28; // 比 tank(20) 更大
+
+    this.enemyGroup.add(elite);
+
+    // 顯示精英怪出現提示文字（畫面中央，短暫顯示）
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const waveNames = ['初階精英', '中階精英', '高階精英'];
+    const label = this.add.text(W * 0.5, H * 0.3, `⚠ ${waveNames[wave - 1] ?? '精英'}出現！`, {
+      fontSize: '22px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(50);
+
+    this.tweens.add({
+      targets: label,
+      y: H * 0.25,
+      alpha: 0,
+      duration: 2200,
+      ease: 'Power2',
+      onComplete: () => label.destroy(),
+    });
   }
 
   /**

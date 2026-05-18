@@ -27,6 +27,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public contactDamage: number;
   public collisionRadius: number;
 
+  /** 是否為精英怪（影響外觀與掉落） */
+  public isElite: boolean = false;
+
   /** 視覺圖形 */
   private visual!: Phaser.GameObjects.Graphics;
 
@@ -221,7 +224,40 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const g = this.visual;
     g.clear();
 
-    if (enemyId === 'basic') {
+    if (enemyId === 'elite') {
+      // ── 精英怪外觀：金色大型武將 ──────────────────────────────────────
+      // 外圈金色光暈（半透明，半徑 32px）
+      g.fillStyle(0xffd700, 0.18);
+      g.fillCircle(0, 0, 32);
+      // 中圈橙色光暈（半透明，半徑 24px）
+      g.fillStyle(0xff8800, 0.22);
+      g.fillCircle(0, 0, 24);
+      // 腿部（深紅）
+      g.fillStyle(0x660000, 1);
+      g.fillRect(-10, 12, 7, 14);
+      g.fillRect(3, 12, 7, 14);
+      // 身體（深紅）
+      g.fillStyle(0x990000, 1);
+      g.fillRect(-13, -6, 26, 20);
+      // 頭部（膚色）
+      g.fillStyle(0xddccaa, 1);
+      g.fillCircle(0, -16, 12);
+      // 金色頭盔
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(-12, -24, 24, 10);
+      g.fillRect(-4, -30, 8, 8);
+      // 大刀（金色）
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(14, -28, 5, 38);
+      g.fillRect(10, -28, 14, 6);
+      // 腰帶（金色）
+      g.fillStyle(0xffd700, 0.9);
+      g.fillRect(-13, 6, 26, 4);
+      // 金色外框線
+      g.lineStyle(2, 0xffd700, 0.7);
+      g.strokeCircle(0, 0, 26);
+
+    } else if (enemyId === 'basic') {
       g.fillStyle(0xcc2222, 0.2);
       g.fillCircle(0, 0, 18);
       g.fillStyle(0x881111, 1);
