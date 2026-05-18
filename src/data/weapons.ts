@@ -13,8 +13,8 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'swift_blade',
     name: '疾風刃',
-    // 直線投射型，高速低傷害
-    baseDamagePerLevel: [10, 15, 21, 28, 36, 46, 58, 72],
+    // 直線投射型，Lv1 傷害小幅提高（前期平衡調整）
+    baseDamagePerLevel: [12, 15, 21, 28, 36, 46, 58, 72],
     baseAttackInterval: 0.8,
     baseAttackRange: 200,
     projectileSpeed: 400,
