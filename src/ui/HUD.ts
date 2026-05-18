@@ -240,21 +240,22 @@ export class HUD {
     const slotGap = 2;
 
     // 左側武器欄：從畫面 22% 高度開始，避開左上角 HUD 面板
-    this.weaponColX = W * 0.005;
+    // 往內側移動 16px，避開手機安全區
+    this.weaponColX = W * 0.005 + 16;
     this.slotsStartY = H * 0.22;
 
-    // 右側被動欄：靠右邊界，不超過暫停/屬性按鈕區域（右側留 8% 空間）
-    this.passiveColX = W - this.slotW - W * 0.005;
+    // 右側被動欄：靠右邊界，往內側移動 16px，不超過暫停/屬性按鈕區域
+    this.passiveColX = W - this.slotW - W * 0.005 - 16;
 
-    // ── 武器欄背景面板（透明度降低至 0.35）──────────────────────────
+    // ── 武器欄背景面板（透明度降低至 0.28）──────────────────────────
     const weaponPanelH = MAX_SLOTS * (this.slotH + slotGap) + 20;
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.weaponPanelBg.fillStyle(0x000000, 0.35);
+    this.weaponPanelBg.fillStyle(0x000000, 0.28);
     this.weaponPanelBg.fillRoundedRect(
       this.weaponColX - 2, this.slotsStartY - 18,
       this.slotW + 4, weaponPanelH, 4
     );
-    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.2);
+    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.15);
     this.weaponPanelBg.strokeRoundedRect(
       this.weaponColX - 2, this.slotsStartY - 18,
       this.slotW + 4, weaponPanelH, 4
@@ -268,15 +269,15 @@ export class HUD {
       { fontSize: '10px', color: '#ccaa44' }
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
-    // ── 被動欄背景面板（透明度降低至 0.35）──────────────────────────
+    // ── 被動欄背景面板（透明度降低至 0.28）──────────────────────────
     const passivePanelH = MAX_SLOTS * (this.slotH + slotGap) + 20;
     this.passivePanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.passivePanelBg.fillStyle(0x000000, 0.35);
+    this.passivePanelBg.fillStyle(0x000000, 0.28);
     this.passivePanelBg.fillRoundedRect(
       this.passiveColX - 2, this.slotsStartY - 18,
       this.slotW + 4, passivePanelH, 4
     );
-    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.2);
+    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.15);
     this.passivePanelBg.strokeRoundedRect(
       this.passiveColX - 2, this.slotsStartY - 18,
       this.slotW + 4, passivePanelH, 4
@@ -306,7 +307,7 @@ export class HUD {
         this.weaponColX + this.slotW / 2,
         slotY + this.slotH / 2,
         '--',
-        { fontSize: '10px', color: '#333333' }
+        { fontSize: '10px', color: '#222222' }
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.weaponSlotTexts.push(txt);
     }
@@ -327,7 +328,7 @@ export class HUD {
         this.passiveColX + this.slotW / 2,
         slotY + this.slotH / 2,
         '--',
-        { fontSize: '10px', color: '#333333' }
+        { fontSize: '10px', color: '#222222' }
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.passiveSlotTexts.push(txt);
     }
@@ -348,7 +349,7 @@ export class HUD {
         this.weaponSlotTexts[i].setFontSize('10px');
       } else {
         this.weaponSlotTexts[i].setText('--');
-        this.weaponSlotTexts[i].setColor('#333333');
+        this.weaponSlotTexts[i].setColor('#222222');
         this.weaponSlotTexts[i].setFontSize('10px');
       }
     }
@@ -364,7 +365,7 @@ export class HUD {
         this.passiveSlotTexts[i].setFontSize('10px');
       } else {
         this.passiveSlotTexts[i].setText('--');
-        this.passiveSlotTexts[i].setColor('#333333');
+        this.passiveSlotTexts[i].setColor('#222222');
         this.passiveSlotTexts[i].setFontSize('10px');
       }
     }
