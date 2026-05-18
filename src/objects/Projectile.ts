@@ -40,6 +40,12 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
    */
   public hitEnemies: Set<Enemy>;
 
+  /**
+   * 毒霧持續時間（毫秒，毒霧散用）
+   * 投射物到達目標後生成的 PoisonCloud 使用此值
+   */
+  public cloudDuration: number;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -72,6 +78,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.hasExploded = false;
     this.pierceRemaining = pierceRemaining;
     this.hitEnemies = new Set<Enemy>();
+    this.cloudDuration = 0;
 
     scene.add.existing(this);
     this.setDepth(6);

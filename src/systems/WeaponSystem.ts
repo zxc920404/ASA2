@@ -28,7 +28,7 @@ const FLAME_EXPLOSION_RADIUS = 80;
 const MAX_HIT_EFFECTS = 30;
 
 /** 同時存在的毒霧數量上限 */
-const MAX_POISON_CLOUDS = 12;
+const MAX_POISON_CLOUDS = 8;
 
 /**
  * 守心環環繞體
@@ -271,8 +271,11 @@ export class WeaponSystem {
               const pierceCount = stats.pierce ?? 1;
               this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
             } else if (inst.weaponId === 'poison_mist') {
-              // 毒霧散：發射投射物飛向目標，到達後生成毒霧區域
-              this.firePoisonMist(player, target, finalDamage, projSpeed, finalRange);
+              // 毒霧散：依 count 發射多個毒霧投射物，到達後生成毒霧區域
+              const cloudCount = stats.count ?? 1;
+              const cloudRadius = stats.radius ?? 45;
+              const cloudDuration = (stats.duration ?? 2.2) * 1000; // 秒轉毫秒
+              this.firePoisonMist(player, finalDamage, projSpeed, finalRange, cloudCount, cloudRadius, cloudDuration, enemies);
             } else {
               // 其他武器：預設直線投射
               this.fireLinearProjectile(player, target, finalDamage, projSpeed, finalRange, inst.weaponId);
@@ -298,7 +301,7 @@ export class WeaponSystem {
         }
         // 毒霧散到期時，在當前位置生成毒霧（防止飛過頭導致毒霧不生成）
         if (proj.weaponId === 'poison_mist') {
-          this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius);
+          this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius, proj.cloudDuration);
         }
         toRemove.push(proj);
         continue;
@@ -330,7 +333,7 @@ export class WeaponSystem {
 
         if (distToTarget < 20) {
           // 到達目標，生成毒霧
-          this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius);
+          this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius, proj.cloudDuration);
           toRemove.push(proj);
           continue;
         }
@@ -756,59 +759,93 @@ export class WeaponSystem {
   }
 
   /**
-   * 發射毒霧散投射物（飛向目標，到達後生成毒霧區域）
-   * 投射物本身不造成傷害，到達目標位置後呼叫 spawnPoisonCloud
+   * 發射毒霧散投射物（支援多發，依 count 決定數量）
+   * 優先選擇 range 內不同敵人作為目標；敵人不足時在第一目標附近加隨機偏移
+   * 投射物到達目標位置後生成 PoisonCloud
    */
   private firePoisonMist(
     player: Player,
-    target: Enemy,
     damage: number,
     speed: number,
-    range: number
+    range: number,
+    count: number,
+    cloudRadius: number,
+    cloudDuration: number,
+    enemies: Enemy[]
   ): void {
-    const dx = target.x - player.x;
-    const dy = target.y - player.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 1) return;
+    // 收集 range 內所有敵人（依距離排序，已由 cachedEnemies 排好）
+    const targetsInRange: Enemy[] = [];
+    for (const enemy of this.cachedEnemies) {
+      if (enemy.isDying) continue;
+      const dx = enemy.x - player.x;
+      const dy = enemy.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= range) {
+        targetsInRange.push(enemy);
+      }
+    }
 
-    const nx = dx / dist;
-    const ny = dy / dist;
+    if (targetsInRange.length === 0) return; // 沒有目標，不發射
 
-    // 存活時間：足夠飛到目標（加一點餘裕）
-    const lifeTime = (dist / speed) * 1000 + 300;
+    for (let i = 0; i < count; i++) {
+      let targetX: number;
+      let targetY: number;
 
-    // 使用 explosionRadius 欄位儲存毒霧半徑（range 即為毒霧範圍）
-    // 投射物 damage 傳遞給毒霧，投射物本身不命中敵人
-    const proj = new Projectile(
-      this.scene,
-      player.x,
-      player.y,
-      damage,
-      nx * speed,
-      ny * speed,
-      lifeTime,
-      'poison_mist',
-      0x44ff66,  // 綠色
-      false,     // 非爆炸型（由 weaponId 判斷，不走赤焰印邏輯）
-      range,     // 用 explosionRadius 欄位儲存毒霧半徑
-      target.x,  // targetX
-      target.y   // targetY
-    );
+      if (i < targetsInRange.length) {
+        // 優先選擇不同敵人
+        targetX = targetsInRange[i].x;
+        targetY = targetsInRange[i].y;
+      } else {
+        // 敵人不足：在第一目標附近加隨機偏移（30～70px）
+        const baseTarget = targetsInRange[0];
+        const offsetDist = 30 + Math.random() * 40; // 30～70px
+        const offsetAngle = Math.random() * Math.PI * 2;
+        targetX = baseTarget.x + Math.cos(offsetAngle) * offsetDist;
+        targetY = baseTarget.y + Math.sin(offsetAngle) * offsetDist;
+      }
 
-    this.addProjectile(proj);
+      const dx = targetX - player.x;
+      const dy = targetY - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) continue;
+
+      const nx = dx / dist;
+      const ny = dy / dist;
+
+      // 存活時間：足夠飛到目標（加一點餘裕）
+      const lifeTime = (dist / speed) * 1000 + 300;
+
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        'poison_mist',
+        0x44ff66,    // 綠色
+        false,       // 非爆炸型
+        cloudRadius, // 用 explosionRadius 欄位儲存毒霧半徑
+        targetX,     // targetX
+        targetY      // targetY
+      );
+      proj.cloudDuration = cloudDuration; // 毒霧持續時間
+
+      this.addProjectile(proj);
+    }
   }
 
   /**
    * 在指定位置生成毒霧區域
    * 超過上限時移除最舊的毒霧
    */
-  private spawnPoisonCloud(x: number, y: number, damage: number, radius: number): void {
+  private spawnPoisonCloud(x: number, y: number, damage: number, radius: number, durationMs: number): void {
     if (this.poisonClouds.length >= MAX_POISON_CLOUDS) {
       const oldest = this.poisonClouds.shift();
       if (oldest) oldest.destroy();
     }
 
-    const cloud = new PoisonCloud(this.scene, x, y, radius, damage);
+    const cloud = new PoisonCloud(this.scene, x, y, radius, damage, durationMs);
     this.poisonClouds.push(cloud);
   }
 

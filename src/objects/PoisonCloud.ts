@@ -1,15 +1,13 @@
 import Phaser from 'phaser';
 import { Enemy } from './Enemy';
 
-/** 毒霧持續時間（毫秒） */
-const CLOUD_DURATION_MS = 2500;
-
-/** 毒霧 tick 間隔（毫秒）：每 0.5 秒造成一次傷害 */
+/** 毒霧 tick 間隔（毫秒）：每 0.5 秒造成一次傷害，固定不變 */
 const CLOUD_TICK_MS = 500;
 
 /**
  * PoisonCloud — 毒霧散的毒霧區域
- * 在指定位置生成半透明綠色圓形，持續 2.5 秒
+ * 在指定位置生成半透明綠色圓形
+ * 持續時間由外部傳入（對應 levelStats.duration）
  * 每 0.5 秒對範圍內所有敵人造成一次傷害
  * 持續時間結束後自動銷毀
  */
@@ -23,6 +21,8 @@ export class PoisonCloud {
   /** 每次 tick 造成的傷害 */
   public readonly damage: number;
 
+  /** 總持續時間（毫秒），用於計算淡出比例 */
+  private readonly totalDuration: number;
   /** 剩餘存活時間（毫秒） */
   private lifeRemaining: number;
   /** 距離下次 tick 的剩餘時間（毫秒） */
@@ -38,13 +38,15 @@ export class PoisonCloud {
     x: number,
     y: number,
     radius: number,
-    damage: number
+    damage: number,
+    durationMs: number
   ) {
     this.x = x;
     this.y = y;
     this.radius = radius;
     this.damage = damage;
-    this.lifeRemaining = CLOUD_DURATION_MS;
+    this.totalDuration = durationMs;
+    this.lifeRemaining = durationMs;
     this.tickTimer = 0; // 生成後立即觸發第一次 tick
 
     // 半透明綠色圓形視覺
@@ -58,7 +60,7 @@ export class PoisonCloud {
    * @param delta 幀時間差（毫秒）
    * @param enemies 場上所有存活敵人
    * @param deadEnemies 本幀已死亡的敵人（避免重複處理）
-   * @returns false 表示毒霧應被移除
+   * @returns { alive, newDead }
    */
   public update(
     delta: number,
@@ -92,7 +94,7 @@ export class PoisonCloud {
     }
 
     // 更新視覺透明度（隨時間淡出）
-    const lifeRatio = Math.max(0, this.lifeRemaining / CLOUD_DURATION_MS);
+    const lifeRatio = Math.max(0, this.lifeRemaining / this.totalDuration);
     this.drawVisual(lifeRatio);
 
     if (this.lifeRemaining <= 0) {
