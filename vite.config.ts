@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/ASA2/',
+  base: process.env.GITHUB_PAGES === 'true' ? '/ASA2/' : './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',

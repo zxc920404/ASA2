@@ -40,9 +40,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. 執行 Vite 打包
+      # 4. 執行 Vite 打包（帶入 GITHUB_PAGES=true，使 base 為 /ASA2/）
       - name: Build
         run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
 
       # 5. 設定 GitHub Pages
       - name: Setup Pages
