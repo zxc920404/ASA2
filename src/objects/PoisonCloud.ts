@@ -10,6 +10,9 @@ const CLOUD_TICK_MS = 500;
  * 持續時間由外部傳入（對應 levelStats.duration）
  * 每 0.5 秒對範圍內所有敵人造成一次傷害
  * 持續時間結束後自動銷毀
+ *
+ * 視覺優化：建立時只畫一次圓形，之後用 setAlpha() 淡出
+ * 避免每幀 clear+redraw 造成手機 FPS 下降
  */
 export class PoisonCloud {
   /** 中心 X */
@@ -30,7 +33,7 @@ export class PoisonCloud {
   /** 是否已銷毀 */
   private destroyed: boolean = false;
 
-  /** 視覺圖形 */
+  /** 視覺圖形（建立後只調整 alpha，不重繪） */
   private visual: Phaser.GameObjects.Graphics;
 
   constructor(
@@ -49,10 +52,14 @@ export class PoisonCloud {
     this.lifeRemaining = durationMs;
     this.tickTimer = 0; // 生成後立即觸發第一次 tick
 
-    // 半透明綠色圓形視覺
+    // 建立視覺圖形，只畫一次，之後只改 alpha
     this.visual = scene.add.graphics();
-    this.visual.setDepth(4); // 在地面之上、玩家之下
-    this.drawVisual(1.0);
+    this.visual.setDepth(4);
+    this.visual.fillStyle(0x22ff44, 0.35);
+    this.visual.fillCircle(x, y, radius);
+    this.visual.lineStyle(2, 0x44ff66, 0.6);
+    this.visual.strokeCircle(x, y, radius);
+    this.visual.setAlpha(1.0);
   }
 
   /**
@@ -93,9 +100,9 @@ export class PoisonCloud {
       }
     }
 
-    // 更新視覺透明度（隨時間淡出）
+    // 視覺淡出：只用 setAlpha()，不重繪圓形
     const lifeRatio = Math.max(0, this.lifeRemaining / this.totalDuration);
-    this.drawVisual(lifeRatio);
+    this.visual.setAlpha(lifeRatio);
 
     if (this.lifeRemaining <= 0) {
       return { alive: false, newDead };
@@ -109,20 +116,5 @@ export class PoisonCloud {
     if (this.destroyed) return;
     this.destroyed = true;
     this.visual.destroy();
-  }
-
-  /** 繪製半透明綠色圓形，alpha 隨生命週期淡出 */
-  private drawVisual(lifeRatio: number): void {
-    this.visual.clear();
-    const alpha = lifeRatio * 0.35;
-    const borderAlpha = lifeRatio * 0.6;
-
-    // 填充：半透明綠色
-    this.visual.fillStyle(0x22ff44, alpha);
-    this.visual.fillCircle(this.x, this.y, this.radius);
-
-    // 邊框：稍亮的綠色
-    this.visual.lineStyle(2, 0x44ff66, borderAlpha);
-    this.visual.strokeCircle(this.x, this.y, this.radius);
   }
 }
