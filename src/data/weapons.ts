@@ -90,19 +90,19 @@ export const WEAPONS: WeaponData[] = [
       // Lv1：傷害補強（pierce 暫未啟用，以傷害補償定位）
       { damage: 16, pierce: 1 },
       // Lv2：傷害提升
-      { damage: 19, pierce: 1 },
+      { damage: 19, pierce: 2 },
       // Lv3：穿透數 +1（資料保留，暫未啟用）
       { damage: 19, pierce: 2 },
       // Lv4：傷害提升
-      { damage: 24, pierce: 2 },
+      { damage: 24, pierce: 3 },
       // Lv5：傷害提升
-      { damage: 30, pierce: 2 },
-      // Lv6：穿透數 +1（資料保留，暫未啟用）
       { damage: 30, pierce: 3 },
+      // Lv6：穿透數 +1（資料保留，暫未啟用）
+      { damage: 30, pierce: 4 },
       // Lv7：傷害提升
-      { damage: 38, pierce: 3 },
+      { damage: 38, pierce: 4 },
       // Lv8：傷害大幅提升（滿級獎勵）
-      { damage: 50, pierce: 3 },
+      { damage: 50, pierce: 5 },
     ],
   },
   {

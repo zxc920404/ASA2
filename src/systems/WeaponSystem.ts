@@ -296,6 +296,10 @@ export class WeaponSystem {
             if (!deadEnemies.includes(e)) deadEnemies.push(e);
           }
         }
+        // 毒霧散到期時，在當前位置生成毒霧（防止飛過頭導致毒霧不生成）
+        if (proj.weaponId === 'poison_mist') {
+          this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius);
+        }
         toRemove.push(proj);
         continue;
       }
@@ -324,7 +328,7 @@ export class WeaponSystem {
         const dy = proj.targetY - proj.y;
         const distToTarget = Math.sqrt(dx * dx + dy * dy);
 
-        if (distToTarget < 12) {
+        if (distToTarget < 20) {
           // 到達目標，生成毒霧
           this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius);
           toRemove.push(proj);
