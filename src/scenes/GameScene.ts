@@ -1,0 +1,802 @@
+import Phaser from 'phaser';
+import { Player } from '../objects/Player';
+import { Enemy } from '../objects/Enemy';
+import { XPGem } from '../objects/XPGem';
+import { DifficultyScaler } from '../systems/DifficultyScaler';
+import { WeaponSystem } from '../systems/WeaponSystem';
+import { LevelUpSystem, IGameScene } from '../systems/LevelUpSystem';
+import { HUD } from '../ui/HUD';
+import { PausePanel } from '../ui/PausePanel';
+import { GameOverPanel } from '../ui/GameOverPanel';
+import { VirtualJoystick } from '../ui/VirtualJoystick';
+import { getCharacterById } from '../data/characters';
+import { getEnemyById } from '../data/enemies';
+import { resetDamageNumberCounter } from '../objects/Enemy';
+
+interface GameSceneData {
+  characterId: string;
+}
+
+// 世界尺寸（邊界限制用）
+const WORLD_WIDTH = 3200;
+const WORLD_HEIGHT = 3200;
+
+/** 場上敵人上限（設計層面 80，Requirement 6.5 / design.md） */
+const MAX_ENEMIES = 80;
+
+/** 場上 XPGem 上限（design.md 效能限制） */
+const MAX_XP_GEMS = 80;
+
+/** 玩家等級上限（Requirement 9.4、10.5） */
+const MAX_LEVEL = 20;
+
+/** 敵人生成距離範圍（Requirement 6.4） */
+const SPAWN_DIST_MIN = 150;
+const SPAWN_DIST_MAX = 200;
+
+/** 玩家碰撞半徑（Requirement 6.2） */
+const PLAYER_COLLISION_RADIUS = 16;
+
+/** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
+const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
+
+export class GameScene extends Phaser.Scene implements IGameScene {
+  private characterId: string = '';
+  private player!: Player;
+
+  // WASD 鍵盤輸入
+  private keyW!: Phaser.Input.Keyboard.Key;
+  private keyA!: Phaser.Input.Keyboard.Key;
+  private keyS!: Phaser.Input.Keyboard.Key;
+  private keyD!: Phaser.Input.Keyboard.Key;
+
+  // 敵人群組
+  private enemyGroup!: Phaser.GameObjects.Group;
+
+  // XPGem 群組
+  private xpGemGroup!: Phaser.GameObjects.Group;
+
+  // 擊殺計數器
+  private killCount: number = 0;
+
+  // 難度縮放器
+  private difficultyScaler!: DifficultyScaler;
+
+  // 武器系統
+  private weaponSystem!: WeaponSystem;
+
+  // 升級系統（Requirement 10.3）
+  private levelUpSystem!: LevelUpSystem;
+
+  // 遊戲計時（秒）
+  private elapsedSeconds: number = 0;
+
+  // 生成計時器
+  private spawnTimer!: Phaser.Time.TimerEvent;
+
+  // HUD（Requirement 任務 9）
+  private hud!: HUD;
+
+  // 暫停面板（Requirement 任務 9）
+  private pausePanel!: PausePanel;
+
+  // 暫停原因（'none' = 未暫停，'manual' = 手動，'levelup' = 升級，'gameover' = 死亡，'portrait' = 直向警告）
+  private pauseReason: 'none' | 'manual' | 'levelup' | 'gameover' | 'portrait' = 'none';
+
+  /** 便利 getter：任何原因暫停時回傳 true */
+  private get isPaused(): boolean {
+    return this.pauseReason !== 'none';
+  }
+
+  // 死亡狀態（Requirement 1.2、14.1）防止重複觸發
+  private isGameOver: boolean = false;
+
+  // 結算面板（Requirement 14.1）
+  private gameOverPanel: GameOverPanel | null = null;
+
+  // 虛擬搖桿（Requirement 2.4、任務 11）
+  private virtualJoystick!: VirtualJoystick;
+
+  // 直向警告元素（任務 11）
+  private portraitBg!: Phaser.GameObjects.Rectangle;
+  private portraitIcon!: Phaser.GameObjects.Text;
+  private portraitText!: Phaser.GameObjects.Text;
+
+  // 方向偵測：是否為直向模式
+  private isPortrait: boolean = false;
+
+  // 方向變更事件處理函式（用於移除監聽）
+  private orientationHandler!: () => void;
+
+  constructor() {
+    super({ key: 'GameScene' });
+  }
+
+  init(data: GameSceneData): void {
+    // 接收從 CharacterSelectScene 傳入的 characterId（Requirement 4.3）
+    this.characterId = data?.characterId ?? '';
+  }
+
+  create(): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // 重置計時
+    this.elapsedSeconds = 0;
+    this.killCount = 0;
+    this.pauseReason = 'none';
+    this.isGameOver = false;
+    this.gameOverPanel = null;
+    this.isPortrait = false;
+
+    // 重置傷害數字計數器（防止跨場景殘留）
+    resetDamageNumberCounter();
+
+    // ── 武俠訓練場背景（Polish 3）──────────────────────────────────────
+    this.drawGameBackground();
+
+    // 取得角色資料；若找不到則使用預設角色
+    const charData = getCharacterById(this.characterId) ?? getCharacterById('swordsman')!;
+
+    // 建立 Player，初始位置於世界中央
+    this.player = new Player(this, WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5, charData);
+
+    // 攝影機設定：跟隨玩家，限制在世界邊界內
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+
+    // 設定 WASD 鍵盤輸入
+    const keyboard = this.input.keyboard!;
+    this.keyW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.keyA = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.keyS = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.keyD = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+
+    // 建立敵人群組
+    this.enemyGroup = this.add.group();
+
+    // 建立 XPGem 群組
+    this.xpGemGroup = this.add.group();
+
+    // 建立難度縮放器
+    this.difficultyScaler = new DifficultyScaler();
+
+    // 建立武器系統並初始化（Requirement 5.1）
+    this.weaponSystem = new WeaponSystem(this);
+    this.weaponSystem.init(this.player);
+
+    // 建立升級系統（Requirement 10.3）
+    this.levelUpSystem = new LevelUpSystem(this);
+
+    // 啟動生成計時器（初始間隔 1000ms，Requirement 1.3）
+    this.scheduleNextSpawn();
+
+    // 建立 HUD（Requirement 任務 9）
+    this.hud = new HUD(this);
+
+    // 建立暫停面板（Requirement 任務 9）
+    this.pausePanel = new PausePanel(this);
+
+    // 設定暫停按鈕點擊事件
+    this.hud.onPauseClick(() => {
+      this.pauseGame();
+    });
+
+    // 設定「繼續遊戲」按鈕點擊事件
+    this.pausePanel.onResumeClick(() => {
+      this.pausePanel.hide();
+      this.resumeGame();
+    });
+
+    // 建立虛擬搖桿（Requirement 2.4、任務 11）
+    this.virtualJoystick = new VirtualJoystick(this);
+
+    // 建立直向警告元素（任務 11）
+    this.createPortraitWarning();
+
+    // 設定螢幕方向偵測（任務 11）
+    this.setupOrientationDetection();
+
+    // 場景關閉時清理方向監聽（任務 11）
+    this.events.once('shutdown', () => {
+      if (this.orientationHandler) {
+        window.removeEventListener('orientationchange', this.orientationHandler);
+        window.removeEventListener('resize', this.orientationHandler);
+      }
+      if (this.virtualJoystick) {
+        this.virtualJoystick.destroy();
+      }
+    });
+  }
+
+  update(time: number, delta: number): void {
+    // 暫停時停止所有遊戲邏輯（Requirement 1.2、1.5）
+    if (this.isPaused) return;
+
+    // 累積遊戲時間
+    this.elapsedSeconds += delta / 1000;
+
+    // 更新 HUD 快取資料（實際渲染由 HUD 內部計時器負責）
+    this.hud.update(this.player, this.elapsedSeconds, this.killCount);
+
+    // 讀取 WASD 輸入並移動玩家（Requirement 2.1、2.2、2.3、2.4）
+    // 合併鍵盤與虛擬搖桿輸入（任務 11）
+    const joystickVec = this.virtualJoystick.getVector();
+    this.player.moveWithVector(
+      {
+        up: this.keyW,
+        down: this.keyS,
+        left: this.keyA,
+        right: this.keyD,
+      },
+      joystickVec,
+      delta,
+      WORLD_WIDTH,
+      WORLD_HEIGHT
+    );
+
+    // 更新所有敵人：追蹤玩家 + 接觸傷害 + 死亡檢測
+    const enemies = this.enemyGroup.getChildren() as Enemy[];
+    const deadEnemies: Enemy[] = [];
+
+    for (const enemy of enemies) {
+      // 死亡檢測（Requirement 6.3）：HP ≤ 0 或正在死亡的敵人加入待移除清單
+      if (enemy.currentHP <= 0 || enemy.isDying) {
+        if (!enemy.isDying) deadEnemies.push(enemy);
+        continue;
+      }
+
+      // 更新受擊閃白計時
+      enemy.updateHitFlash(delta);
+
+      // 每幀朝玩家移動（Requirement 6.1）
+      enemy.moveTowardPlayer(this.player.x, this.player.y, delta);
+
+      // 接觸傷害檢測（Requirement 6.2）
+      const dx = this.player.x - enemy.x;
+      const dy = this.player.y - enemy.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const overlapDist = PLAYER_COLLISION_RADIUS + enemy.collisionRadius;
+
+      if (dist <= overlapDist) {
+        const now = time;
+        if (now - enemy.lastDamageTime >= CONTACT_DAMAGE_COOLDOWN_MS) {
+          this.player.currentHP -= enemy.contactDamage;
+          enemy.lastDamageTime = now;
+
+          // 確保 HP 不低於 0
+          if (this.player.currentHP < 0) {
+            this.player.currentHP = 0;
+          }
+        }
+      }
+    }
+
+    // 死亡偵測（Requirement 1.2、14.1）：玩家 HP 歸零時觸發死亡流程
+    if (this.player.currentHP <= 0 && !this.isGameOver) {
+      this.triggerGameOver();
+      return;
+    }
+
+    // 更新武器系統（Requirement 5.1～5.5）
+    // 傳入存活中的敵人（排除已標記死亡或正在死亡的）
+    const aliveEnemies = enemies.filter(e => !deadEnemies.includes(e) && !e.isDying);
+    const weaponDeadEnemies = this.weaponSystem.update(time, delta, this.player, aliveEnemies);
+    for (const enemy of weaponDeadEnemies) {
+      if (!deadEnemies.includes(enemy)) {
+        deadEnemies.push(enemy);
+      }
+    }
+
+    // 處理所有死亡敵人（Requirement 6.3）
+    for (const enemy of deadEnemies) {
+      this.handleEnemyDeath(enemy);
+    }
+
+    // 更新 XPGem：磁吸移動 + 拾取檢測（Requirement 9.1、9.3）
+    const gems = this.xpGemGroup.getChildren() as XPGem[];
+    const absorbedGems: XPGem[] = [];
+    const pickupRange = this.player.stats.pickupRange;
+
+    for (const gem of gems) {
+      const dx = this.player.x - gem.x;
+      const dy = this.player.y - gem.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // 進入拾取範圍時啟動磁吸（Requirement 9.1、9.3）
+      if (dist <= pickupRange) {
+        gem.isAttracting = true;
+      }
+
+      // 磁吸移動，若到達玩家位置則標記為已吸收
+      if (gem.isAttracting) {
+        const absorbed = gem.updateAttract(this.player.x, this.player.y, delta);
+        if (absorbed) {
+          absorbedGems.push(gem);
+        }
+      }
+    }
+
+    // 處理被吸收的 XPGem（Requirement 9.2）
+    for (const gem of absorbedGems) {
+      this.absorbXPGem(gem);
+    }
+  }
+
+  /**
+   * 建立直向警告 UI 元素（任務 11）
+   * 初始隱藏，偵測到直向時顯示
+   */
+  private createPortraitWarning(): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // 黑色背景（覆蓋全畫面）
+    this.portraitBg = this.add.rectangle(W * 0.5, H * 0.5, W, H, 0x000000);
+    this.portraitBg.setScrollFactor(0);
+    this.portraitBg.setDepth(200);
+    this.portraitBg.setVisible(false);
+
+    // 旋轉圖示文字（x: W×0.5, y: H×0.38）
+    this.portraitIcon = this.add.text(W * 0.5, H * 0.38, '⟳', {
+      fontSize: '48px',
+      color: '#ffffff',
+    });
+    this.portraitIcon.setOrigin(0.5, 0.5);
+    this.portraitIcon.setScrollFactor(0);
+    this.portraitIcon.setDepth(201);
+    this.portraitIcon.setVisible(false);
+
+    // 提示文字（x: W×0.5, y: H×0.55）
+    this.portraitText = this.add.text(W * 0.5, H * 0.55, '請旋轉手機至橫向\n繼續遊戲', {
+      fontSize: '22px',
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: W * 0.8 },
+    });
+    this.portraitText.setOrigin(0.5, 0.5);
+    this.portraitText.setScrollFactor(0);
+    this.portraitText.setDepth(201);
+    this.portraitText.setVisible(false);
+  }
+
+  /**
+   * 設定螢幕方向偵測（任務 11）
+   * 監聽 orientationchange 事件，直向時顯示警告並暫停遊戲
+   */
+  private setupOrientationDetection(): void {
+    // 初始檢查
+    this.checkOrientation();
+
+    // 監聽方向變更事件
+    this.orientationHandler = () => {
+      // 延遲一幀確保 innerWidth/innerHeight 已更新
+      this.time.delayedCall(100, () => {
+        this.checkOrientation();
+      });
+    };
+
+    window.addEventListener('orientationchange', this.orientationHandler);
+    window.addEventListener('resize', this.orientationHandler);
+  }
+
+  /**
+   * 檢查當前螢幕方向，更新直向警告顯示狀態
+   */
+  private checkOrientation(): void {
+    const isPortrait = window.innerWidth < window.innerHeight;
+
+    if (isPortrait === this.isPortrait) return; // 無變化
+
+    this.isPortrait = isPortrait;
+
+    if (isPortrait) {
+      this.portraitBg.setVisible(true);
+      this.portraitIcon.setVisible(true);
+      this.portraitText.setVisible(true);
+
+      // 直向暫停：只在目前未暫停時才暫停，使用獨立的 'portrait' 狀態
+      if (this.pauseReason === 'none' && !this.isGameOver) {
+        this.pauseReason = 'portrait';
+        if (this.spawnTimer) this.spawnTimer.paused = true;
+        this.weaponSystem.pause();
+      }
+    } else {
+      this.portraitBg.setVisible(false);
+      this.portraitIcon.setVisible(false);
+      this.portraitText.setVisible(false);
+
+      // 恢復：只在 portrait 暫停時恢復，不影響 manual / levelup / gameover
+      if (this.pauseReason === 'portrait' && !this.isGameOver) {
+        this.pauseReason = 'none';
+        if (this.spawnTimer) this.spawnTimer.paused = false;
+        this.weaponSystem.resume();
+        this.weaponSystem.syncWeapons(this.player);
+      }
+    }
+  }
+
+  /**
+   * 觸發死亡流程（Requirement 1.2、14.1）
+   * - 設定 isGameOver = true，防止重複觸發
+   * - 停止所有遊戲邏輯（isPaused = true）
+   * - 停止生成計時器
+   * - 暫停武器系統
+   * - 計算結算資料並顯示 GameOverPanel
+   */
+  private triggerGameOver(): void {
+    this.isGameOver = true;
+    this.pauseReason = 'gameover';
+
+    // 停止生成計時器
+    if (this.spawnTimer) {
+      this.spawnTimer.paused = true;
+    }
+
+    // 暫停武器系統
+    this.weaponSystem.pause();
+
+    // 移除方向偵測監聽（任務 11）
+    if (this.orientationHandler) {
+      window.removeEventListener('orientationchange', this.orientationHandler);
+      window.removeEventListener('resize', this.orientationHandler);
+    }
+
+    // 隱藏直向警告（若顯示中）
+    if (this.portraitBg) this.portraitBg.setVisible(false);
+    if (this.portraitIcon) this.portraitIcon.setVisible(false);
+    if (this.portraitText) this.portraitText.setVisible(false);
+
+    // 計算結算資料（Requirement 14.2、14.3）
+    const kills = this.killCount;
+    const seconds = Math.floor(this.elapsedSeconds);
+    const maxLevel = this.player.level; // 等級只增不減，當前等級即最高等級
+    const score = kills * 10 + seconds * 2 + maxLevel * 50;
+    const coins = Math.floor(score / 10);
+
+    const result = {
+      survivalSeconds: this.elapsedSeconds,
+      killCount: kills,
+      maxLevel: maxLevel,
+      score: score,
+      coins: coins,
+    };
+
+    // 建立並顯示 GameOverPanel（Requirement 14.1）
+    this.gameOverPanel = new GameOverPanel(
+      this,
+      result,
+      () => {
+        // 返回主選單：清除遊戲狀態並切換場景（Requirement 14.4）
+        this.scene.start('MainMenuScene');
+      }
+    );
+  }
+
+  /**
+   * 手動暫停（玩家點擊暫停按鈕）
+   * 只在 pauseReason === 'none' 時才暫停，不干擾升級或死亡狀態
+   */
+  public pauseGame(): void {
+    if (this.pauseReason !== 'none') return; // 升級或死亡中，不允許手動暫停覆蓋
+
+    this.pauseReason = 'manual';
+
+    if (this.spawnTimer) this.spawnTimer.paused = true;
+    this.weaponSystem.pause();
+
+    // 只有手動暫停才顯示 PausePanel
+    this.pausePanel.show();
+  }
+
+  /**
+   * 手動恢復（點擊「繼續遊戲」）
+   * 只解除 manual pause，不影響 levelup 或 gameover
+   */
+  public resumeGame(): void {
+    if (this.pauseReason !== 'manual') return;
+
+    this.pauseReason = 'none';
+
+    if (this.spawnTimer) this.spawnTimer.paused = false;
+    this.weaponSystem.resume();
+    this.weaponSystem.syncWeapons(this.player);
+
+    // 恢復後檢查是否有溢出升級
+    this.checkLevelUp();
+  }
+
+  /**
+   * 升級專用暫停（由 LevelUpSystem 呼叫）
+   * 不顯示 PausePanel，不顯示「已暫停」
+   */
+  public pauseForLevelUp(): void {
+    if (this.pauseReason !== 'none') return; // 防止重複暫停
+
+    this.pauseReason = 'levelup';
+
+    if (this.spawnTimer) this.spawnTimer.paused = true;
+    this.weaponSystem.pause();
+    // 不呼叫 pausePanel.show()
+  }
+
+  /**
+   * 升級專用恢復（由 LevelUpSystem 呼叫，玩家選完升級選項後）
+   * 只在 pauseReason === 'levelup' 時恢復，不觸發 PausePanel 流程
+   */
+  public resumeFromLevelUp(): void {
+    if (this.pauseReason !== 'levelup') return;
+
+    this.pauseReason = 'none';
+
+    if (this.spawnTimer) this.spawnTimer.paused = false;
+    this.weaponSystem.resume();
+    this.weaponSystem.syncWeapons(this.player);
+
+    // 恢復後檢查是否有溢出升級（保留溢出經驗處理）
+    this.checkLevelUp();
+  }
+
+  /**
+   * 實作 IGameScene 介面：回傳 Phaser.Scene 實例
+   */
+  public getScene(): Phaser.Scene {
+    return this;
+  }
+
+  /**
+   * 處理敵人死亡（Requirement 6.3）
+   * - 從 enemyGroup 移除並銷毀
+   * - 在死亡位置生成 XPGem
+   * - 更新擊殺計數器
+   */
+  private handleEnemyDeath(enemy: Enemy): void {
+    // 防止同一敵人被重複處理
+    if (!this.enemyGroup.contains(enemy)) return;
+
+    const deathX = enemy.x;
+    const deathY = enemy.y;
+
+    // 取得此敵人的 expDrop 值
+    const enemyData = getEnemyById(enemy.dataId);
+    const expValue = enemyData?.expDrop ?? 5;
+
+    // 從群組移除（防止繼續被 update 處理）
+    this.enemyGroup.remove(enemy, false, false);
+
+    // 播放死亡特效（特效完成後自動銷毀物件）
+    enemy.playDeathEffect();
+
+    // 在死亡位置生成 XPGem
+    this.spawnXPGem(deathX, deathY, expValue);
+
+    // 更新擊殺計數器
+    this.killCount++;
+  }
+
+  /**
+   * 在指定位置生成 XPGem
+   * 若場上 XPGem 已達上限，移除最舊的一個（design.md 效能限制）
+   */
+  private spawnXPGem(x: number, y: number, expValue: number): void {
+    // 超過上限時移除最舊的 XPGem
+    if (this.xpGemGroup.getLength() >= MAX_XP_GEMS) {
+      const oldest = this.xpGemGroup.getChildren()[0] as XPGem;
+      if (oldest) {
+        this.xpGemGroup.remove(oldest, true, true);
+      }
+    }
+
+    const gem = new XPGem(this, x, y, expValue);
+    this.xpGemGroup.add(gem);
+  }
+
+  /**
+   * 玩家吸收 XPGem（Requirement 9.1、9.2）
+   * - 從 xpGemGroup 移除並銷毀
+   * - 累加經驗值（等級達 Lv20 時不累加，Requirement 9.4）
+   * - 若累加後達到升級門檻，觸發升級流程（Requirement 9.2）
+   */
+  private absorbXPGem(gem: XPGem): void {
+    const expValue = gem.expValue;
+
+    // 從群組移除並銷毀
+    this.xpGemGroup.remove(gem, true, true);
+
+    // 等級達上限時不累加經驗（Requirement 9.4）
+    if (this.player.level >= MAX_LEVEL) {
+      return;
+    }
+
+    // 累加經驗值（Requirement 9.2）
+    this.player.currentExp += expValue;
+
+    // 檢查是否達到升級門檻（Requirement 9.2、10.1、10.2）
+    this.checkLevelUp();
+  }
+
+  /**
+   * 檢查並執行升級流程（Requirement 9.2、10.1、10.2、10.3、10.5）
+   * 升下一級所需經驗 = 10 + 目前等級 × 5
+   * 升級後保留溢出經驗，等級 +1
+   * 等級達 Lv20 後停止升級（Requirement 10.5）
+   */
+  private checkLevelUp(): void {
+    // 升級 UI 顯示中，不重複觸發（防止建立多個 LevelUpPanel）
+    if (this.pauseReason === 'levelup') return;
+
+    while (this.player.level < MAX_LEVEL) {
+      const requiredExp = 10 + this.player.level * 5;
+      if (this.player.currentExp < requiredExp) break;
+
+      this.player.currentExp -= requiredExp;
+      this.player.level += 1;
+
+      if (this.player.level <= MAX_LEVEL) {
+        this.levelUpSystem.triggerLevelUp(this.player);
+        break; // 一次只處理一次升級，等玩家選完再繼續
+      }
+    }
+  }
+
+  /**
+   * 排程下一次敵人生成（依當前難度計算間隔）
+   */
+  private scheduleNextSpawn(): void {
+    const state = this.difficultyScaler.getState(this.elapsedSeconds);
+    const interval = Math.max(100, state.spawnInterval); // 最短 100ms
+
+    this.spawnTimer = this.time.addEvent({
+      delay: interval,
+      callback: this.onSpawnTick,
+      callbackScope: this,
+      loop: false,
+    });
+  }
+
+  /**
+   * 生成計時器回呼：生成一隻敵人，然後排程下一次
+   */
+  private onSpawnTick(): void {
+    this.spawnEnemy();
+    this.scheduleNextSpawn();
+  }
+
+  /**
+   * 生成一隻敵人（Requirement 6.4、6.5、7.2）
+   * - 場上敵人達上限時跳過生成
+   * - 在距玩家 150～200px 且位於畫面外的位置生成
+   */
+  private spawnEnemy(): void {
+    // 場上敵人上限檢查（Requirement 6.5）
+    if (this.enemyGroup.getLength() >= MAX_ENEMIES) {
+      return;
+    }
+
+    // 取得當前難度狀態
+    const state = this.difficultyScaler.getState(this.elapsedSeconds);
+
+    // 依比例隨機選擇敵人種類（Requirement 7.2）
+    const enemyId = this.pickEnemyType(state.spawnRatio);
+    const enemyData = getEnemyById(enemyId);
+    if (!enemyData) return;
+
+    // 計算生成位置（Requirement 6.4）
+    const { x, y } = this.calcSpawnPosition();
+
+    // 建立敵人實例
+    const enemy = new Enemy(
+      this,
+      x,
+      y,
+      enemyData,
+      state.hpMultiplier,
+      state.damageMultiplier
+    );
+
+    this.enemyGroup.add(enemy);
+  }
+
+  /**
+   * 依生成比例隨機選擇敵人種類 ID
+   */
+  private pickEnemyType(ratio: { basic: number; fast: number; tank: number }): string {
+    const r = Math.random();
+    if (r < ratio.basic) return 'basic';
+    if (r < ratio.basic + ratio.fast) return 'fast';
+    return 'tank';
+  }
+
+  /**
+   * 繪製武俠訓練場背景（Polish 3）
+   * 靜態背景，depth -1，不影響效能
+   */
+  private drawGameBackground(): void {
+    const bg = this.add.graphics().setDepth(-1);
+
+    // 底色：深橄欖綠
+    bg.fillStyle(0x1a2a1a, 1);
+    bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    // 石板格紋（64×64，深色線條，alpha 0.3）
+    const gridG = this.add.graphics().setDepth(-1);
+    gridG.lineStyle(1, 0x000000, 0.3);
+    const tileSize = 64;
+    for (let x = 0; x <= WORLD_WIDTH; x += tileSize) {
+      gridG.lineBetween(x, 0, x, WORLD_HEIGHT);
+    }
+    for (let y = 0; y <= WORLD_HEIGHT; y += tileSize) {
+      gridG.lineBetween(0, y, WORLD_WIDTH, y);
+    }
+
+    // 地面中央訓練場地標（淡色圓形，alpha 0.12）
+    const centerG = this.add.graphics().setDepth(-1);
+    centerG.lineStyle(3, 0x4a6a4a, 0.12);
+    centerG.strokeCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 200);
+    centerG.lineStyle(2, 0x4a6a4a, 0.08);
+    centerG.strokeCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 350);
+    centerG.fillStyle(0x2a3a2a, 0.10);
+    centerG.fillCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 200);
+
+    // 四個角落山林輪廓（深色三角形，alpha 0.4）
+    const cornerG = this.add.graphics().setDepth(-1);
+    cornerG.fillStyle(0x0a1a0a, 0.4);
+    // 左上
+    cornerG.fillTriangle(0, 0, 180, 0, 0, 160);
+    cornerG.fillTriangle(0, 0, 260, 0, 0, 220);
+    // 右上
+    cornerG.fillTriangle(WORLD_WIDTH, 0, WORLD_WIDTH - 180, 0, WORLD_WIDTH, 160);
+    cornerG.fillTriangle(WORLD_WIDTH, 0, WORLD_WIDTH - 260, 0, WORLD_WIDTH, 220);
+    // 左下
+    cornerG.fillTriangle(0, WORLD_HEIGHT, 180, WORLD_HEIGHT, 0, WORLD_HEIGHT - 160);
+    // 右下
+    cornerG.fillTriangle(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH - 180, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT - 160);
+  }
+
+  /**
+   * 計算合法的生成位置：
+   * 1. 在距玩家 150～200px 的隨機方向上取一點
+   * 2. 若該點在畫面可視範圍內，則調整至畫面邊緣外最近的合法位置
+   * （Requirement 6.4）
+   */
+  private calcSpawnPosition(): { x: number; y: number } {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = SPAWN_DIST_MIN + Math.random() * (SPAWN_DIST_MAX - SPAWN_DIST_MIN);
+
+    let spawnX = this.player.x + Math.cos(angle) * dist;
+    let spawnY = this.player.y + Math.sin(angle) * dist;
+
+    // 取得攝影機可視範圍（畫面座標轉世界座標）
+    const cam = this.cameras.main;
+    const camLeft   = cam.scrollX;
+    const camRight  = cam.scrollX + cam.width;
+    const camTop    = cam.scrollY;
+    const camBottom = cam.scrollY + cam.height;
+
+    // 若生成點在畫面內，調整至畫面邊緣外最近的位置
+    const isInsideView =
+      spawnX > camLeft && spawnX < camRight &&
+      spawnY > camTop  && spawnY < camBottom;
+
+    if (isInsideView) {
+      // 計算到各邊的距離，選最近的邊推出去
+      const dLeft   = spawnX - camLeft;
+      const dRight  = camRight - spawnX;
+      const dTop    = spawnY - camTop;
+      const dBottom = camBottom - spawnY;
+
+      const minDist = Math.min(dLeft, dRight, dTop, dBottom);
+
+      if (minDist === dLeft)        spawnX = camLeft - 1;
+      else if (minDist === dRight)  spawnX = camRight + 1;
+      else if (minDist === dTop)    spawnY = camTop - 1;
+      else                          spawnY = camBottom + 1;
+    }
+
+    // 限制在世界邊界內（避免生成在地圖外）
+    spawnX = Phaser.Math.Clamp(spawnX, 0, WORLD_WIDTH);
+    spawnY = Phaser.Math.Clamp(spawnY, 0, WORLD_HEIGHT);
+
+    return { x: spawnX, y: spawnY };
+  }
+}

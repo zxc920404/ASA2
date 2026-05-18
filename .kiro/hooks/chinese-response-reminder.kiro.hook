@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "中文回應提醒",
+  "description": "在每次用戶提交提示時，提醒助手使用中文解釋所有步驟並回答問題",
+  "version": "1",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "請記住：以中文解釋所有進行的步驟，以及回答問題，一概使用中文。請用清晰、專業的中文進行所有說明和回應。"
+  }
+}
