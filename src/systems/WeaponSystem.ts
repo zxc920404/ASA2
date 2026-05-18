@@ -95,9 +95,11 @@ export class WeaponSystem {
         ringOrbs: [],
       };
 
-      // 守心環：預先建立環繞體
+      // 守心環：預先建立環繞體（數量從 levelStats.count 讀取）
       if (slot.weaponId === 'guardian_ring') {
-        this.initRingOrbs(instance, slot.level, player);
+        const weaponData = getWeaponById(slot.weaponId);
+        const orbCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+        this.initRingOrbs(instance, orbCount, player);
       }
 
       this.weaponInstances.push(instance);
@@ -119,15 +121,17 @@ export class WeaponSystem {
         // 更新等級
         existing.level = slot.level;
 
-        // 守心環：若等級改變，重建環繞體
+        // 守心環：若等級改變，重建環繞體（數量從 levelStats.count 讀取）
         if (slot.weaponId === 'guardian_ring') {
-          if (existing.ringOrbs.length !== slot.level) {
+          const weaponData = getWeaponById(slot.weaponId);
+          const newCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          if (existing.ringOrbs.length !== newCount) {
             // 移除舊環繞體
             for (const orb of existing.ringOrbs) {
               orb.rect.destroy();
             }
             existing.ringOrbs = [];
-            this.initRingOrbs(existing, slot.level, player);
+            this.initRingOrbs(existing, newCount, player);
           }
         }
 
@@ -142,7 +146,9 @@ export class WeaponSystem {
         };
 
         if (slot.weaponId === 'guardian_ring') {
-          this.initRingOrbs(instance, slot.level, player);
+          const weaponData = getWeaponById(slot.weaponId);
+          const orbCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          this.initRingOrbs(instance, orbCount, player);
         }
 
         newInstances.push(instance);
@@ -214,20 +220,27 @@ export class WeaponSystem {
       const weaponData = getWeaponById(inst.weaponId);
       if (!weaponData) continue;
 
-      // 計算最終攻擊間隔（毫秒）
-      const finalInterval = player.stats.attackInterval * 1000;
+      // 從 levelStats 讀取當前等級的數值（優先讀 levelStats，fallback 到 base 值）
+      const stats = weaponData.levelStats[inst.level - 1] ?? weaponData.levelStats[0];
 
-      // 計算最終攻擊範圍
-      const finalRange = player.stats.attackRange;
+      // 攻擊間隔：優先讀 stats.interval，fallback 到 baseAttackInterval
+      const baseInterval = stats.interval ?? weaponData.baseAttackInterval;
 
-      // 計算最終傷害（Requirement 5.2）
-      const levelDamage = weaponData.baseDamagePerLevel[inst.level - 1] ?? weaponData.baseDamagePerLevel[0];
+      // 計算最終攻擊間隔（毫秒），套用攻擊速度被動
+      const finalInterval = (baseInterval / this.getAttackSpeedMultiplier(player)) * 1000;
+
+      // 攻擊範圍：優先讀 stats.range，fallback 到 baseAttackRange，再套用被動倍率
+      const baseRange = stats.range ?? weaponData.baseAttackRange;
+      const finalRange = baseRange * this.getAttackRangeMultiplier(player);
+
+      // 傷害：從 stats.damage 讀取，套用攻擊力與被動倍率
+      const levelDamage = stats.damage;
       const passiveMultiplier = this.getPassiveAttackMultiplier(player);
       const finalDamage = Math.max(1, Math.floor(levelDamage * player.stats.attackPower * passiveMultiplier));
 
       if (inst.weaponId === 'guardian_ring') {
         // 守心環：更新旋轉位置，檢測碰撞
-        this.updateGuardianRing(inst, time, delta, player, enemies, finalRange, finalDamage, deadEnemies);
+        this.updateGuardianRing(inst, time, delta, player, enemies, finalRange, finalDamage, deadEnemies, stats);
       } else {
         // 其他武器：倒計時攻擊
         inst.attackCooldown -= delta;
@@ -237,17 +250,21 @@ export class WeaponSystem {
           const target = this.findNearestEnemyInRange(player, finalRange);
 
           if (target) {
-            // 發動攻擊
+            const projSpeed = stats.projectileSpeed ?? weaponData.projectileSpeed;
+
             if (inst.weaponId === 'swift_blade') {
-              this.fireSwiftBlade(player, target, finalDamage, weaponData.projectileSpeed, finalRange);
+              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'swift_blade', 0x00ffff, stats.count ?? 1);
             } else if (inst.weaponId === 'flame_seal') {
-              this.fireFlameSeal(player, target, finalDamage, weaponData.projectileSpeed);
+              const explosionRadius = stats.radius ?? 80;
+              this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius);
+            } else if (inst.weaponId === 'thunder_claw') {
+              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, stats.count ?? 1);
             } else {
-              // 其他武器：預設直線投射
-              this.fireLinearProjectile(player, target, finalDamage, weaponData.projectileSpeed, finalRange, inst.weaponId);
+              // 其他武器（寒冰錐、毒霧散）：預設直線投射，pierce 暫未啟用
+              this.fireLinearProjectile(player, target, finalDamage, projSpeed, finalRange, inst.weaponId);
             }
           }
-          // 無論是否有目標，重置冷卻（Requirement 5.4：等待下一個攻擊間隔）
+          // 無論是否有目標，重置冷卻
           inst.attackCooldown = finalInterval;
         }
       }
@@ -362,6 +379,34 @@ export class WeaponSystem {
   }
 
   /**
+   * 計算被動攻擊速度倍率（急攻令）
+   */
+  private getAttackSpeedMultiplier(player: Player): number {
+    let multiplier = 1.0;
+    for (const slot of player.equipment.passives) {
+      const passive = PASSIVES.find(p => p.id === slot.passiveId);
+      if (passive && passive.stat === 'attackSpeed') {
+        multiplier *= (1 + passive.bonusPerLevel * slot.level);
+      }
+    }
+    return Math.max(0.01, multiplier);
+  }
+
+  /**
+   * 計算被動攻擊範圍倍率（擴脈符）
+   */
+  private getAttackRangeMultiplier(player: Player): number {
+    let multiplier = 1.0;
+    for (const slot of player.equipment.passives) {
+      const passive = PASSIVES.find(p => p.id === slot.passiveId);
+      if (passive && passive.stat === 'attackRange') {
+        multiplier *= (1 + passive.bonusPerLevel * slot.level);
+      }
+    }
+    return Math.max(0.01, multiplier);
+  }
+
+  /**
    * 更新最近敵人快取（依距離排序）
    */
   private updateEnemyCache(player: Player, enemies: Enemy[]): void {
@@ -429,7 +474,8 @@ export class WeaponSystem {
     enemies: Enemy[],
     finalRange: number,
     finalDamage: number,
-    deadEnemies: Enemy[]
+    deadEnemies: Enemy[],
+    _stats?: { count?: number }
   ): void {
     const weaponData = getWeaponById(inst.weaponId);
     if (!weaponData) return;
@@ -478,39 +524,49 @@ export class WeaponSystem {
   }
 
   /**
-   * 發射疾風刃（直線投射，命中第一個敵人後消失）
+   * 發射多發投射物（疾風刃、雷霆爪用）
+   * count > 1 時加入小角度偏移，避免完全重疊
    */
-  private fireSwiftBlade(
+  private fireMultiProjectile(
     player: Player,
     target: Enemy,
     damage: number,
     speed: number,
-    range: number
+    range: number,
+    weaponId: string,
+    color: number,
+    count: number
   ): void {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1) return;
 
-    const nx = dx / dist;
-    const ny = dy / dist;
-
-    // 存活時間：飛行距離超過攻擊範圍後消失
+    const baseAngle = Math.atan2(dy, dx);
     const lifeTime = (range / speed) * 1000;
 
-    const proj = new Projectile(
-      this.scene,
-      player.x,
-      player.y,
-      damage,
-      nx * speed,
-      ny * speed,
-      lifeTime,
-      'swift_blade',
-      0x00ffff // 青色
-    );
+    // 多發時均勻分散角度（每發間隔約 0.15 弧度 ≈ 8.6 度）
+    const angleSpread = count > 1 ? 0.15 : 0;
 
-    this.addProjectile(proj);
+    for (let i = 0; i < count; i++) {
+      const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
+      const angle = baseAngle + offset;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        weaponId,
+        color
+      );
+      this.addProjectile(proj);
+    }
   }
 
   /**
@@ -520,7 +576,8 @@ export class WeaponSystem {
     player: Player,
     target: Enemy,
     damage: number,
-    speed: number
+    speed: number,
+    explosionRadius: number
   ): void {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
@@ -544,7 +601,7 @@ export class WeaponSystem {
       'flame_seal',
       0xff4400, // 橙紅色
       true,     // isExplosive
-      FLAME_EXPLOSION_RADIUS,
+      explosionRadius,
       target.x,
       target.y
     );

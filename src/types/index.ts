@@ -13,14 +13,27 @@ export interface CharacterData {
   trait: CharacterTrait;
 }
 
+// 武器每級升級數值（統一結構，每級只給一個主要提升）
+export interface WeaponLevelStats {
+  damage: number;
+  count?: number;        // 環繞體數量（守心環）或同時發射數（疾風刃/雷霆爪）
+  range?: number;        // 攻擊範圍（px），覆蓋 baseAttackRange
+  interval?: number;     // 攻擊間隔（秒），覆蓋 baseAttackInterval
+  radius?: number;       // 爆炸半徑（px），赤焰印用
+  pierce?: number;       // 穿透數（寒冰錐用，資料保留但暫未啟用）
+  duration?: number;     // 持續時間（秒），未來擴充用
+  projectileSpeed?: number; // 投射物速度（px/s），覆蓋 baseProjectileSpeed
+}
+
 // 武器定義
 export interface WeaponData {
   id: string;
   name: string;
-  baseDamagePerLevel: number[]; // 長度 8，索引 0 = Lv1
-  baseAttackInterval: number;   // 秒
-  baseAttackRange: number;      // px
-  projectileSpeed: number;      // px/s
+  baseDamagePerLevel: number[]; // 保留向下相容，WeaponSystem 優先讀 levelStats
+  baseAttackInterval: number;   // 秒（fallback 用）
+  baseAttackRange: number;      // px（fallback 用）
+  projectileSpeed: number;      // px/s（fallback 用）
+  levelStats: WeaponLevelStats[]; // 長度 8，索引 0 = Lv1
 }
 
 // 被動道具定義
