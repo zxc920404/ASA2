@@ -3,12 +3,16 @@ import { DifficultyState } from '../types/index';
 /** 初始生成間隔（毫秒） */
 const INITIAL_SPAWN_INTERVAL_MS = 1000;
 
+/** 最後怪潮開始時間（秒）：9 分鐘 */
+const FINAL_WAVE_START_SEC = 9 * 60;
+
 /**
  * 依遊戲時間計算難度狀態（Requirement 8.1、8.3、7.2）
  *
  * - 每 60 秒：HP 與傷害倍率 × 1.10^N（Requirement 8.1）
  * - 每 30 秒：生成間隔縮短，頻率 × 1.15^M（Requirement 8.3）
  * - 生成比例依時間區間切換（Requirement 7.2）
+ * - 9 分鐘後進入最後怪潮：生成間隔再縮短 40%，厚血怪比例提升
  *
  * @param elapsedSeconds 遊戲已進行秒數（非負數）
  * @returns DifficultyState
@@ -23,7 +27,15 @@ export function getDifficultyState(elapsedSeconds: number): DifficultyState {
 
   // M = 已完成的 30 秒週期數（Requirement 8.3）
   const M = Math.floor(seconds / 30);
-  const spawnInterval = INITIAL_SPAWN_INTERVAL_MS / Math.pow(1.15, M);
+  let spawnInterval = INITIAL_SPAWN_INTERVAL_MS / Math.pow(1.15, M);
+
+  // 最後怪潮（9 分鐘後）：生成間隔再縮短 40%，但不低於 120ms（手機效能保護）
+  const isFinalWave = seconds >= FINAL_WAVE_START_SEC;
+  if (isFinalWave) {
+    spawnInterval = Math.max(120, spawnInterval * 0.6);
+  } else {
+    spawnInterval = Math.max(150, spawnInterval);
+  }
 
   // 生成比例依時間區間（Requirement 7.2）
   let spawnRatio: DifficultyState['spawnRatio'];
@@ -31,8 +43,11 @@ export function getDifficultyState(elapsedSeconds: number): DifficultyState {
     spawnRatio = { basic: 1.0, fast: 0.0, tank: 0.0 };
   } else if (seconds <= 120) {
     spawnRatio = { basic: 0.7, fast: 0.2, tank: 0.1 };
-  } else {
+  } else if (seconds < FINAL_WAVE_START_SEC) {
     spawnRatio = { basic: 0.5, fast: 0.3, tank: 0.2 };
+  } else {
+    // 最後怪潮：更多厚血怪，增加壓力
+    spawnRatio = { basic: 0.3, fast: 0.3, tank: 0.4 };
   }
 
   return {

@@ -8,6 +8,7 @@ import { LevelUpSystem, IGameScene } from '../systems/LevelUpSystem';
 import { HUD } from '../ui/HUD';
 import { PausePanel } from '../ui/PausePanel';
 import { GameOverPanel } from '../ui/GameOverPanel';
+import { VictoryPanel } from '../ui/VictoryPanel';
 import { PlayerStatusPanel } from '../ui/PlayerStatusPanel';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import { getCharacterById } from '../data/characters';
@@ -50,6 +51,15 @@ const ENEMY_SEPARATION_STRENGTH = 0.3;
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
 
+/** 勝利所需存活時間（毫秒）：10 分鐘 */
+const VICTORY_TIME_MS = 10 * 60 * 1000;
+
+/** 最後怪潮開始時間（秒）：9 分鐘，與 DifficultyScaler 一致 */
+const FINAL_WAVE_START_SEC = 9 * 60;
+
+/** 最後怪潮敵人上限（比平時多，但仍保守）*/
+const MAX_ENEMIES_FINAL_WAVE = 100;
+
 export class GameScene extends Phaser.Scene implements IGameScene {
   private characterId: string = '';
   private player!: Player;
@@ -90,8 +100,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // 暫停面板（Requirement 任務 9）
   private pausePanel!: PausePanel;
 
-  // 暫停原因（'none' = 未暫停，'manual' = 手動，'levelup' = 升級，'gameover' = 死亡，'portrait' = 直向警告，'status' = 屬性面板）
-  private pauseReason: 'none' | 'manual' | 'levelup' | 'gameover' | 'portrait' | 'status' = 'none';
+  // 暫停原因（'none' = 未暫停，'manual' = 手動，'levelup' = 升級，'gameover' = 死亡，'portrait' = 直向警告，'status' = 屬性面板，'victory' = 勝利）
+  private pauseReason: 'none' | 'manual' | 'levelup' | 'gameover' | 'portrait' | 'status' | 'victory' = 'none';
 
   /** 便利 getter：任何原因暫停時回傳 true */
   private get isPaused(): boolean {
@@ -103,6 +113,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   // 結算面板（Requirement 14.1）
   private gameOverPanel: GameOverPanel | null = null;
+
+  // 勝利狀態（防止重複觸發）
+  private isVictory: boolean = false;
+
+  // 勝利面板
+  private victoryPanel: VictoryPanel | null = null;
 
   // 屬性面板
   private playerStatusPanel!: PlayerStatusPanel;
@@ -147,6 +163,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.pauseReason = 'none';
     this.isGameOver = false;
     this.gameOverPanel = null;
+    this.isVictory = false;
+    this.victoryPanel = null;
     this.isPortrait = false;
     this.separationCache = new Map();
     this.separationFrameCount = 0;
@@ -323,8 +341,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
 
     // 死亡偵測（Requirement 1.2、14.1）：玩家 HP 歸零時觸發死亡流程
-    if (this.player.currentHP <= 0 && !this.isGameOver) {
+    if (this.player.currentHP <= 0 && !this.isGameOver && !this.isVictory) {
       this.triggerGameOver();
+      return;
+    }
+
+    // 勝利判定：存活達 10 分鐘
+    if (!this.isVictory && !this.isGameOver && this.elapsedSeconds * 1000 >= VICTORY_TIME_MS) {
+      this.triggerVictory();
       return;
     }
 
@@ -518,6 +542,52 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       result,
       () => {
         // 返回主選單：清除遊戲狀態並切換場景（Requirement 14.4）
+        this.scene.start('MainMenuScene');
+      }
+    );
+  }
+
+  /**
+   * 觸發勝利流程（存活 10 分鐘）
+   * - 設定 isVictory = true，防止重複觸發
+   * - 停止所有遊戲邏輯
+   * - 顯示 VictoryPanel
+   */
+  private triggerVictory(): void {
+    this.isVictory = true;
+    this.pauseReason = 'victory';
+
+    // 停止生成計時器
+    if (this.spawnTimer) {
+      this.spawnTimer.paused = true;
+    }
+
+    // 暫停武器系統
+    this.weaponSystem.pause();
+
+    // 移除方向偵測監聽
+    if (this.orientationHandler) {
+      window.removeEventListener('orientationchange', this.orientationHandler);
+      window.removeEventListener('resize', this.orientationHandler);
+    }
+
+    // 隱藏直向警告（若顯示中）
+    if (this.portraitBg) this.portraitBg.setVisible(false);
+    if (this.portraitIcon) this.portraitIcon.setVisible(false);
+    if (this.portraitText) this.portraitText.setVisible(false);
+
+    // 顯示 VictoryPanel
+    this.victoryPanel = new VictoryPanel(
+      this,
+      this.player,
+      this.elapsedSeconds,
+      this.killCount,
+      () => {
+        // 重新開始：回到角色選擇
+        this.scene.start('CharacterSelectScene');
+      },
+      () => {
+        // 返回主選單
         this.scene.start('MainMenuScene');
       }
     );
@@ -740,10 +810,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 生成一隻敵人（Requirement 6.4、6.5、7.2）
    * - 場上敵人達上限時跳過生成
    * - 在距玩家 150～200px 且位於畫面外的位置生成
+   * - 最後怪潮（9 分鐘後）敵人上限提高至 100
    */
   private spawnEnemy(): void {
-    // 場上敵人上限檢查（Requirement 6.5）
-    if (this.enemyGroup.getLength() >= MAX_ENEMIES) {
+    // 場上敵人上限檢查（最後怪潮時提高上限）
+    const currentMax = this.elapsedSeconds >= FINAL_WAVE_START_SEC
+      ? MAX_ENEMIES_FINAL_WAVE
+      : MAX_ENEMIES;
+    if (this.enemyGroup.getLength() >= currentMax) {
       return;
     }
 
