@@ -1,0 +1,24 @@
+# 依賴套件（不上傳到 GitHub）
+node_modules/
+
+# 打包輸出（由 CI/CD 或本地重新產生）
+dist/
+
+# 環境變數（含敏感資訊，不上傳）
+.env
+.env.local
+.env.*.local
+
+# macOS 系統檔案
+.DS_Store
+
+# VS Code 設定（個人偏好，不強制同步）
+.vscode/
+
+# npm 除錯日誌
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript 增量編譯快取
+*.tsbuildinfo
