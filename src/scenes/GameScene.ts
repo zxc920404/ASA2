@@ -90,8 +90,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // 暫停面板（Requirement 任務 9）
   private pausePanel!: PausePanel;
 
-  // 暫停原因（'none' = 未暫停，'manual' = 手動，'levelup' = 升級，'gameover' = 死亡，'portrait' = 直向警告）
-  private pauseReason: 'none' | 'manual' | 'levelup' | 'gameover' | 'portrait' = 'none';
+  // 暫停原因（'none' = 未暫停，'manual' = 手動，'levelup' = 升級，'gameover' = 死亡，'portrait' = 直向警告，'status' = 屬性面板）
+  private pauseReason: 'none' | 'manual' | 'levelup' | 'gameover' | 'portrait' | 'status' = 'none';
 
   /** 便利 getter：任何原因暫停時回傳 true */
   private get isPaused(): boolean {
@@ -219,7 +219,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (this.isGameOver) return;
       const charData = getCharacterById(this.characterId);
       const charName = charData?.name ?? '未知';
-      this.playerStatusPanel.show(this.player, charName);
+      this.pauseForStatus();
+      this.playerStatusPanel.show(this.player, charName, () => {
+        this.resumeFromStatus();
+      });
     });
 
     // 建立虛擬搖桿（Requirement 2.4、任務 11）
@@ -582,6 +585,33 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 恢復後檢查是否有溢出升級（保留溢出經驗處理）
     this.checkLevelUp();
+  }
+
+  /**
+   * 屬性面板專用暫停（玩家點擊「屬」按鈕）
+   * 只在 pauseReason === 'none' 時才暫停
+   */
+  public pauseForStatus(): void {
+    if (this.pauseReason !== 'none') return;
+
+    this.pauseReason = 'status';
+
+    if (this.spawnTimer) this.spawnTimer.paused = true;
+    this.weaponSystem.pause();
+  }
+
+  /**
+   * 屬性面板專用恢復（關閉屬性面板時呼叫）
+   * 只在 pauseReason === 'status' 時恢復
+   */
+  public resumeFromStatus(): void {
+    if (this.pauseReason !== 'status') return;
+
+    this.pauseReason = 'none';
+
+    if (this.spawnTimer) this.spawnTimer.paused = false;
+    this.weaponSystem.resume();
+    this.weaponSystem.syncWeapons(this.player);
   }
 
   /**

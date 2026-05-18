@@ -5,8 +5,10 @@ import { getPassiveById } from '../data/passives';
 
 /**
  * PlayerStatusPanel
- * 點擊「屬」按鈕後顯示的玩家屬性面板
- * 顯示角色名稱、等級、HP、各項屬性、武器/被動數量
+ * 點擊「屬」按鈕後顯示的玩家屬性面板（兩欄排版）
+ * 左欄：角色、等級、HP、移動速度、拾取範圍
+ * 右欄：攻擊力、攻擊範圍、攻擊速度、武器數量、被動數量
+ * 關閉時呼叫 onCloseCallback，讓 GameScene 恢復遊戲
  */
 export class PlayerStatusPanel {
   private scene: Phaser.Scene;
@@ -14,11 +16,25 @@ export class PlayerStatusPanel {
   private overlay!: Phaser.GameObjects.Rectangle;
   private panelBg!: Phaser.GameObjects.Graphics;
   private titleText!: Phaser.GameObjects.Text;
+  private divider!: Phaser.GameObjects.Graphics;
   private closeBtn!: Phaser.GameObjects.Text;
   private closeBtnHit!: Phaser.GameObjects.Rectangle;
-  private statTexts: Phaser.GameObjects.Text[] = [];
+
+  // 左欄文字（最多 8 行）
+  private leftTexts: Phaser.GameObjects.Text[] = [];
+  // 右欄文字（最多 8 行）
+  private rightTexts: Phaser.GameObjects.Text[] = [];
+  // 裝備列表（武器 + 被動，橫跨兩欄底部）
+  private equipTexts: Phaser.GameObjects.Text[] = [];
 
   private isVisible: boolean = false;
+  private onCloseCallback: (() => void) | null = null;
+
+  // 面板尺寸（建立時計算，供 show() 更新文字位置用）
+  private panelX: number = 0;
+  private panelY: number = 0;
+  private panelW: number = 0;
+  private panelH: number = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -30,99 +46,160 @@ export class PlayerStatusPanel {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
 
-    const panelW = Math.min(W * 0.55, 320);
-    const panelH = H * 0.72;
-    const panelX = (W - panelW) / 2;
-    const panelY = (H - panelH) / 2;
+    // 面板尺寸：寬度約 46%（比前版縮小 ~15%），高度 62%
+    this.panelW = Math.min(W * 0.46, 290);
+    this.panelH = H * 0.62;
+    this.panelX = (W - this.panelW) / 2;
+    this.panelY = (H - this.panelH) / 2;
 
-    // 半透明遮罩（點擊關閉）
-    this.overlay = this.scene.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.45)
+    const { panelX, panelY, panelW, panelH } = this;
+
+    // ── 半透明遮罩（點擊關閉）──────────────────────────────────────────
+    this.overlay = this.scene.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.40)
       .setScrollFactor(0).setDepth(50).setInteractive();
-    this.overlay.on('pointerdown', () => this.hide());
+    this.overlay.on('pointerdown', () => this.close());
 
-    // 面板背景
+    // ── 面板背景 ────────────────────────────────────────────────────────
     this.panelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(51);
-    this.panelBg.fillStyle(0x0d1a0d, 0.95);
+    this.panelBg.fillStyle(0x0a1a0a, 0.96);
     this.panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
-    this.panelBg.lineStyle(1.5, 0xd4af37, 0.8);
+    this.panelBg.lineStyle(1.5, 0xd4af37, 0.75);
     this.panelBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
 
-    // 標題
+    // ── 標題 ────────────────────────────────────────────────────────────
     this.titleText = this.scene.add.text(
-      W / 2, panelY + 18,
-      '── 玩家屬性 ──',
-      { fontSize: '15px', color: '#ffd700', fontStyle: 'bold' }
+      panelX + panelW / 2, panelY + 14,
+      '玩家屬性',
+      { fontSize: '14px', color: '#ffd700', fontStyle: 'bold' }
     ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(52);
 
-    // 關閉按鈕（右上角 ✕）
+    // ── 標題分隔線 ──────────────────────────────────────────────────────
+    this.divider = this.scene.add.graphics().setScrollFactor(0).setDepth(52);
+    this.divider.lineStyle(1, 0xd4af37, 0.35);
+    this.divider.lineBetween(panelX + 10, panelY + 36, panelX + panelW - 10, panelY + 36);
+
+    // ── 關閉按鈕（右上角 ✕）────────────────────────────────────────────
     this.closeBtn = this.scene.add.text(
-      panelX + panelW - 14, panelY + 10,
+      panelX + panelW - 12, panelY + 8,
       '✕',
-      { fontSize: '16px', color: '#aaaaaa' }
+      { fontSize: '15px', color: '#888888' }
     ).setOrigin(1, 0).setScrollFactor(0).setDepth(52);
 
     this.closeBtnHit = this.scene.add.rectangle(
-      panelX + panelW - 14, panelY + 10, 48, 48, 0x000000, 0
+      panelX + panelW - 12, panelY + 8, 48, 48, 0x000000, 0
     ).setOrigin(1, 0).setScrollFactor(0).setDepth(53).setInteractive({ useHandCursor: true });
-    this.closeBtnHit.on('pointerdown', () => this.hide());
+    this.closeBtnHit.on('pointerdown', () => this.close());
 
-    // 預先建立 stat 文字列（最多 14 行）
+    // ── 左欄文字（8 行）────────────────────────────────────────────────
+    const leftX = panelX + 12;
+    const rightX = panelX + panelW / 2 + 4;
+    const rowH = 22;
+    const startY = panelY + 44;
+
+    for (let i = 0; i < 8; i++) {
+      const t = this.scene.add.text(leftX, startY + i * rowH, '', {
+        fontSize: '12px', color: '#cccccc',
+      }).setScrollFactor(0).setDepth(52);
+      this.leftTexts.push(t);
+    }
+
+    // ── 右欄文字（8 行）────────────────────────────────────────────────
+    for (let i = 0; i < 8; i++) {
+      const t = this.scene.add.text(rightX, startY + i * rowH, '', {
+        fontSize: '12px', color: '#cccccc',
+      }).setScrollFactor(0).setDepth(52);
+      this.rightTexts.push(t);
+    }
+
+    // ── 裝備列表（底部，最多 14 行）────────────────────────────────────
+    const equipStartY = startY + 8 * rowH + 6;
     for (let i = 0; i < 14; i++) {
-      const t = this.scene.add.text(
-        panelX + 16,
-        panelY + 46 + i * 26,
-        '',
-        { fontSize: '13px', color: '#dddddd' }
-      ).setScrollFactor(0).setDepth(52);
-      this.statTexts.push(t);
+      const t = this.scene.add.text(leftX, equipStartY + i * 18, '', {
+        fontSize: '11px', color: '#aaaaaa',
+      }).setScrollFactor(0).setDepth(52);
+      this.equipTexts.push(t);
     }
   }
 
   /**
    * 顯示面板並填入玩家資料
+   * @param player 玩家物件
+   * @param characterName 角色名稱
+   * @param onClose 關閉時的回呼（用於恢復遊戲）
    */
-  public show(player: Player, characterName: string): void {
+  public show(player: Player, characterName: string, onClose?: () => void): void {
     this.isVisible = true;
+    this.onCloseCallback = onClose ?? null;
 
-    // 計算攻擊速度倍率（1 / attackInterval 相對於基礎值，簡化顯示）
     const stats = player.stats;
-
-    // 武器清單
     const weaponCount = player.equipment.weapons.length;
     const passiveCount = player.equipment.passives.length;
 
-    const lines: string[] = [
+    // ── 左欄 ──────────────────────────────────────────────────────────
+    const leftLines = [
       `角色：${characterName}`,
       `等級：Lv.${player.level}`,
-      `HP：${Math.ceil(player.currentHP)} / ${stats.maxHP}`,
-      `攻擊力倍率：×${stats.attackPower.toFixed(2)}`,
-      `移動速度：${Math.round(stats.moveSpeed)} px/s`,
-      `拾取範圍：${Math.round(stats.pickupRange)} px`,
-      `攻擊範圍倍率：×${(stats.attackRange / 120).toFixed(2)}`,
-      `攻擊速度倍率：×${(1 / stats.attackInterval).toFixed(2)}`,
+      `HP：${Math.ceil(player.currentHP)}/${stats.maxHP}`,
+      `移動速度`,
+      `  ${Math.round(stats.moveSpeed)} px/s`,
+      `拾取範圍`,
+      `  ${Math.round(stats.pickupRange)} px`,
       ``,
-      `武器數量：${weaponCount} / 6`,
     ];
 
-    // 武器列表
-    for (const slot of player.equipment.weapons) {
-      const w = getWeaponById(slot.weaponId);
-      lines.push(`  ${w?.name ?? slot.weaponId} Lv${slot.level}`);
+    // ── 右欄 ──────────────────────────────────────────────────────────
+    const rightLines = [
+      `武器：${weaponCount}/6`,
+      `被動：${passiveCount}/6`,
+      `攻擊力`,
+      `  ×${stats.attackPower.toFixed(2)}`,
+      `攻擊範圍`,
+      `  ×${(stats.attackRange / 120).toFixed(2)}`,
+      `攻擊速度`,
+      `  ×${(1 / stats.attackInterval).toFixed(2)}`,
+    ];
+
+    for (let i = 0; i < this.leftTexts.length; i++) {
+      this.leftTexts[i].setText(leftLines[i] ?? '');
+    }
+    for (let i = 0; i < this.rightTexts.length; i++) {
+      this.rightTexts[i].setText(rightLines[i] ?? '');
     }
 
-    // 被動列表標題
-    lines.push(`被動數量：${passiveCount} / 6`);
-    for (const slot of player.equipment.passives) {
-      const p = getPassiveById(slot.passiveId);
-      lines.push(`  ${p?.name ?? slot.passiveId} Lv${slot.level}`);
+    // ── 裝備列表 ──────────────────────────────────────────────────────
+    const equipLines: string[] = [];
+
+    if (weaponCount > 0) {
+      equipLines.push('── 武器 ──');
+      for (const slot of player.equipment.weapons) {
+        const w = getWeaponById(slot.weaponId);
+        equipLines.push(`  ${w?.name ?? slot.weaponId}  Lv${slot.level}`);
+      }
     }
 
-    // 填入文字（最多 14 行）
-    for (let i = 0; i < this.statTexts.length; i++) {
-      this.statTexts[i].setText(lines[i] ?? '');
+    if (passiveCount > 0) {
+      if (equipLines.length > 0) equipLines.push('');
+      equipLines.push('── 被動 ──');
+      for (const slot of player.equipment.passives) {
+        const p = getPassiveById(slot.passiveId);
+        equipLines.push(`  ${p?.name ?? slot.passiveId}  Lv${slot.level}`);
+      }
+    }
+
+    for (let i = 0; i < this.equipTexts.length; i++) {
+      this.equipTexts[i].setText(equipLines[i] ?? '');
     }
 
     this.setVisible(true);
+  }
+
+  /** 關閉面板並觸發回呼 */
+  private close(): void {
+    this.hide();
+    if (this.onCloseCallback) {
+      this.onCloseCallback();
+      this.onCloseCallback = null;
+    }
   }
 
   public hide(): void {
@@ -138,17 +215,23 @@ export class PlayerStatusPanel {
     this.overlay.setVisible(v);
     this.panelBg.setVisible(v);
     this.titleText.setVisible(v);
+    this.divider.setVisible(v);
     this.closeBtn.setVisible(v);
     this.closeBtnHit.setVisible(v);
-    for (const t of this.statTexts) t.setVisible(v);
+    for (const t of this.leftTexts) t.setVisible(v);
+    for (const t of this.rightTexts) t.setVisible(v);
+    for (const t of this.equipTexts) t.setVisible(v);
   }
 
   public destroy(): void {
     this.overlay?.destroy();
     this.panelBg?.destroy();
     this.titleText?.destroy();
+    this.divider?.destroy();
     this.closeBtn?.destroy();
     this.closeBtnHit?.destroy();
-    for (const t of this.statTexts) t?.destroy();
+    for (const t of this.leftTexts) t?.destroy();
+    for (const t of this.rightTexts) t?.destroy();
+    for (const t of this.equipTexts) t?.destroy();
   }
 }

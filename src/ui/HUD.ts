@@ -228,65 +228,66 @@ export class HUD {
 
   /**
    * 建立左側武器欄與右側被動欄
-   * 格子高度依畫面高度動態計算，確保手機橫向可讀
+   * 格子縮小、透明度降低，避免遮擋戰鬥視野
+   * 空格顯示極淡的「--」，減少視覺雜訊
    */
   private createWeaponPassiveSlots(W: number, H: number): void {
     const MAX_SLOTS = 6;
 
-    // 格子尺寸：寬度固定，高度依可用空間計算
-    this.slotW = Math.min(W * 0.115, 80);
-    this.slotH = 22;
-    const slotGap = 3;
+    // 格子尺寸縮小：寬度約 9.5%，高度 19px
+    this.slotW = Math.min(W * 0.095, 68);
+    this.slotH = 19;
+    const slotGap = 2;
 
     // 左側武器欄：從畫面 22% 高度開始，避開左上角 HUD 面板
     this.weaponColX = W * 0.005;
     this.slotsStartY = H * 0.22;
 
-    // 右側被動欄：靠右邊界
+    // 右側被動欄：靠右邊界，不超過暫停/屬性按鈕區域（右側留 8% 空間）
     this.passiveColX = W - this.slotW - W * 0.005;
 
-    // ── 武器欄背景面板 ──────────────────────────────────────────────────
-    const weaponPanelH = MAX_SLOTS * (this.slotH + slotGap) + 22;
+    // ── 武器欄背景面板（透明度降低至 0.35）──────────────────────────
+    const weaponPanelH = MAX_SLOTS * (this.slotH + slotGap) + 20;
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.weaponPanelBg.fillStyle(0x000000, 0.5);
+    this.weaponPanelBg.fillStyle(0x000000, 0.35);
     this.weaponPanelBg.fillRoundedRect(
-      this.weaponColX - 2, this.slotsStartY - 20,
-      this.slotW + 4, weaponPanelH, 5
+      this.weaponColX - 2, this.slotsStartY - 18,
+      this.slotW + 4, weaponPanelH, 4
     );
-    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.3);
+    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.2);
     this.weaponPanelBg.strokeRoundedRect(
-      this.weaponColX - 2, this.slotsStartY - 20,
-      this.slotW + 4, weaponPanelH, 5
+      this.weaponColX - 2, this.slotsStartY - 18,
+      this.slotW + 4, weaponPanelH, 4
     );
 
     // 武器欄標題
     this.weaponHeaderText = this.scene.add.text(
       this.weaponColX + this.slotW / 2,
-      this.slotsStartY - 12,
+      this.slotsStartY - 10,
       '武器',
-      { fontSize: '11px', color: '#ffd700' }
+      { fontSize: '10px', color: '#ccaa44' }
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
-    // ── 被動欄背景面板 ──────────────────────────────────────────────────
-    const passivePanelH = MAX_SLOTS * (this.slotH + slotGap) + 22;
+    // ── 被動欄背景面板（透明度降低至 0.35）──────────────────────────
+    const passivePanelH = MAX_SLOTS * (this.slotH + slotGap) + 20;
     this.passivePanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.passivePanelBg.fillStyle(0x000000, 0.5);
+    this.passivePanelBg.fillStyle(0x000000, 0.35);
     this.passivePanelBg.fillRoundedRect(
-      this.passiveColX - 2, this.slotsStartY - 20,
-      this.slotW + 4, passivePanelH, 5
+      this.passiveColX - 2, this.slotsStartY - 18,
+      this.slotW + 4, passivePanelH, 4
     );
-    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.3);
+    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.2);
     this.passivePanelBg.strokeRoundedRect(
-      this.passiveColX - 2, this.slotsStartY - 20,
-      this.slotW + 4, passivePanelH, 5
+      this.passiveColX - 2, this.slotsStartY - 18,
+      this.slotW + 4, passivePanelH, 4
     );
 
     // 被動欄標題
     this.passiveHeaderText = this.scene.add.text(
       this.passiveColX + this.slotW / 2,
-      this.slotsStartY - 12,
+      this.slotsStartY - 10,
       '被動',
-      { fontSize: '11px', color: '#aaddff' }
+      { fontSize: '10px', color: '#7799cc' }
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
     // ── 建立 6 個武器格子 ──────────────────────────────────────────────
@@ -294,17 +295,18 @@ export class HUD {
       const slotY = this.slotsStartY + i * (this.slotH + slotGap);
 
       const bg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      bg.fillStyle(0x1a1a1a, 0.7);
-      bg.fillRoundedRect(this.weaponColX, slotY, this.slotW, this.slotH, 3);
-      bg.lineStyle(1, 0x444444, 0.6);
-      bg.strokeRoundedRect(this.weaponColX, slotY, this.slotW, this.slotH, 3);
+      bg.fillStyle(0x111111, 0.45);
+      bg.fillRoundedRect(this.weaponColX, slotY, this.slotW, this.slotH, 2);
+      bg.lineStyle(1, 0x333333, 0.4);
+      bg.strokeRoundedRect(this.weaponColX, slotY, this.slotW, this.slotH, 2);
       this.weaponSlotBgs.push(bg);
 
+      // 空格顯示極淡的「--」
       const txt = this.scene.add.text(
         this.weaponColX + this.slotW / 2,
         slotY + this.slotH / 2,
-        '空',
-        { fontSize: '11px', color: '#555555' }
+        '--',
+        { fontSize: '10px', color: '#333333' }
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.weaponSlotTexts.push(txt);
     }
@@ -314,17 +316,18 @@ export class HUD {
       const slotY = this.slotsStartY + i * (this.slotH + slotGap);
 
       const bg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      bg.fillStyle(0x1a1a1a, 0.7);
-      bg.fillRoundedRect(this.passiveColX, slotY, this.slotW, this.slotH, 3);
-      bg.lineStyle(1, 0x444444, 0.6);
-      bg.strokeRoundedRect(this.passiveColX, slotY, this.slotW, this.slotH, 3);
+      bg.fillStyle(0x111111, 0.45);
+      bg.fillRoundedRect(this.passiveColX, slotY, this.slotW, this.slotH, 2);
+      bg.lineStyle(1, 0x333333, 0.4);
+      bg.strokeRoundedRect(this.passiveColX, slotY, this.slotW, this.slotH, 2);
       this.passiveSlotBgs.push(bg);
 
+      // 空格顯示極淡的「--」
       const txt = this.scene.add.text(
         this.passiveColX + this.slotW / 2,
         slotY + this.slotH / 2,
-        '空',
-        { fontSize: '11px', color: '#555555' }
+        '--',
+        { fontSize: '10px', color: '#333333' }
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.passiveSlotTexts.push(txt);
     }
@@ -342,9 +345,11 @@ export class HUD {
         const name = w?.name ?? slot.weaponId;
         this.weaponSlotTexts[i].setText(`${name} L${slot.level}`);
         this.weaponSlotTexts[i].setColor('#ffdd88');
+        this.weaponSlotTexts[i].setFontSize('10px');
       } else {
-        this.weaponSlotTexts[i].setText('空');
-        this.weaponSlotTexts[i].setColor('#555555');
+        this.weaponSlotTexts[i].setText('--');
+        this.weaponSlotTexts[i].setColor('#333333');
+        this.weaponSlotTexts[i].setFontSize('10px');
       }
     }
 
@@ -356,9 +361,11 @@ export class HUD {
         const name = p?.name ?? slot.passiveId;
         this.passiveSlotTexts[i].setText(`${name} L${slot.level}`);
         this.passiveSlotTexts[i].setColor('#88ccff');
+        this.passiveSlotTexts[i].setFontSize('10px');
       } else {
-        this.passiveSlotTexts[i].setText('空');
-        this.passiveSlotTexts[i].setColor('#555555');
+        this.passiveSlotTexts[i].setText('--');
+        this.passiveSlotTexts[i].setColor('#333333');
+        this.passiveSlotTexts[i].setFontSize('10px');
       }
     }
   }
