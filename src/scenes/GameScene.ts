@@ -52,7 +52,7 @@ const ENEMY_SEPARATION_STRENGTH = 0.3;
 const SEPARATION_UPDATE_INTERVAL = 4;
 
 /** 勝利所需存活時間（毫秒）：10 分鐘 */
-const VICTORY_TIME_MS = 10 * 60 * 1000;
+const VICTORY_TIME_MS = 60 * 1000;
 
 /** 最後怪潮開始時間（秒）：9 分鐘，與 DifficultyScaler 一致 */
 const FINAL_WAVE_START_SEC = 9 * 60;
@@ -340,15 +340,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // 死亡偵測（Requirement 1.2、14.1）：玩家 HP 歸零時觸發死亡流程
-    if (this.player.currentHP <= 0 && !this.isGameOver && !this.isVictory) {
-      this.triggerGameOver();
+    // 勝利判定優先：存活達 10 分鐘（即使同幀 HP 歸零也以勝利為準）
+    if (!this.isVictory && !this.isGameOver && this.elapsedSeconds * 1000 >= VICTORY_TIME_MS) {
+      this.triggerVictory();
       return;
     }
 
-    // 勝利判定：存活達 10 分鐘
-    if (!this.isVictory && !this.isGameOver && this.elapsedSeconds * 1000 >= VICTORY_TIME_MS) {
-      this.triggerVictory();
+    // 死亡偵測（Requirement 1.2、14.1）：玩家 HP 歸零時觸發死亡流程
+    if (this.player.currentHP <= 0 && !this.isGameOver && !this.isVictory) {
+      this.triggerGameOver();
       return;
     }
 
