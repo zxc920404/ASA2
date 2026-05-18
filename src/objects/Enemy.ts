@@ -156,9 +156,20 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   /**
-   * 每幀朝玩家位置移動
+   * 每幀朝玩家位置移動，並套用分離向量避免與其他敵人重疊
+   * @param playerX     玩家 X 座標
+   * @param playerY     玩家 Y 座標
+   * @param delta       幀時間差（毫秒）
+   * @param separationX 分離向量 X（由 GameScene 計算，預設 0）
+   * @param separationY 分離向量 Y（由 GameScene 計算，預設 0）
    */
-  public moveTowardPlayer(playerX: number, playerY: number, delta: number): void {
+  public moveTowardPlayer(
+    playerX: number,
+    playerY: number,
+    delta: number,
+    separationX: number = 0,
+    separationY: number = 0
+  ): void {
     if (this.isDying) return;
 
     const dx = playerX - this.x;
@@ -168,12 +179,25 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     if (dist < 1) return;
 
     const dt = delta / 1000;
-    const nx = dx / dist;
-    const ny = dy / dist;
+
+    // 追玩家方向（正規化）
+    const chaseX = dx / dist;
+    const chaseY = dy / dist;
+
+    // 最終方向 = 追玩家方向 + 分離向量（分離向量已由 GameScene 正規化並乘以強度）
+    let finalX = chaseX + separationX;
+    let finalY = chaseY + separationY;
+
+    // 正規化最終方向（確保速度不超過 moveSpeed）
+    const finalLen = Math.sqrt(finalX * finalX + finalY * finalY);
+    if (finalLen > 0) {
+      finalX /= finalLen;
+      finalY /= finalLen;
+    }
 
     this.setPosition(
-      this.x + nx * this.moveSpeed * dt,
-      this.y + ny * this.moveSpeed * dt
+      this.x + finalX * this.moveSpeed * dt,
+      this.y + finalY * this.moveSpeed * dt
     );
 
     this.syncVisual();

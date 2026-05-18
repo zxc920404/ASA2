@@ -40,6 +40,15 @@ const PLAYER_COLLISION_RADIUS = 16;
 /** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
 const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
 
+/** 敵人分離半徑（px）：距離小於此值時產生推力 */
+const ENEMY_SEPARATION_RADIUS = 28;
+
+/** 敵人分離強度：分離向量的權重（相對於追玩家方向） */
+const ENEMY_SEPARATION_STRENGTH = 0.3;
+
+/** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
+const SEPARATION_UPDATE_INTERVAL = 4;
+
 export class GameScene extends Phaser.Scene implements IGameScene {
   private characterId: string = '';
   private player!: Player;
@@ -108,6 +117,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // 方向變更事件處理函式（用於移除監聽）
   private orientationHandler!: () => void;
 
+  // 敵人分離向量快取（key: Enemy 物件，value: {x, y}）
+  // 每 4 幀更新一次，避免每幀重算
+  private separationCache: Map<Enemy, { x: number; y: number }> = new Map();
+
+  // 分離向量更新幀計數器
+  private separationFrameCount: number = 0;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -128,6 +144,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.isGameOver = false;
     this.gameOverPanel = null;
     this.isPortrait = false;
+    this.separationCache = new Map();
+    this.separationFrameCount = 0;
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
@@ -239,6 +257,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const enemies = this.enemyGroup.getChildren() as Enemy[];
     const deadEnemies: Enemy[] = [];
 
+    // 每 4 幀更新一次分離向量快取（效能優化）
+    this.separationFrameCount++;
+    if (this.separationFrameCount >= SEPARATION_UPDATE_INTERVAL) {
+      this.separationFrameCount = 0;
+      this.updateSeparationCache(enemies);
+    }
+
     for (const enemy of enemies) {
       // 死亡檢測（Requirement 6.3）：HP ≤ 0 或正在死亡的敵人加入待移除清單
       if (enemy.currentHP <= 0 || enemy.isDying) {
@@ -249,8 +274,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       // 更新受擊閃白計時
       enemy.updateHitFlash(delta);
 
-      // 每幀朝玩家移動（Requirement 6.1）
-      enemy.moveTowardPlayer(this.player.x, this.player.y, delta);
+      // 取得此敵人的分離向量（若無則使用零向量）
+      const sep = this.separationCache.get(enemy) ?? { x: 0, y: 0 };
+
+      // 每幀朝玩家移動，並套用分離向量（Requirement 6.1）
+      enemy.moveTowardPlayer(this.player.x, this.player.y, delta, sep.x, sep.y);
 
       // 接觸傷害檢測（Requirement 6.2）
       const dx = this.player.x - enemy.x;
@@ -751,6 +779,65 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     cornerG.fillTriangle(0, WORLD_HEIGHT, 180, WORLD_HEIGHT, 0, WORLD_HEIGHT - 160);
     // 右下
     cornerG.fillTriangle(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH - 180, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT - 160);
+  }
+
+  /**
+   * 更新敵人分離向量快取（每 4 幀呼叫一次）
+   * 每隻敵人只檢查陣列中前後 8 個索引的鄰居，避免 O(n²) 效能問題
+   */
+  private updateSeparationCache(enemies: Enemy[]): void {
+    const count = enemies.length;
+
+    for (let i = 0; i < count; i++) {
+      const enemy = enemies[i];
+      if (enemy.isDying) {
+        this.separationCache.delete(enemy);
+        continue;
+      }
+
+      let sepX = 0;
+      let sepY = 0;
+
+      // 只檢查前後 8 個索引的鄰居（固定範圍，不檢查全部）
+      const checkStart = Math.max(0, i - 8);
+      const checkEnd = Math.min(count - 1, i + 8);
+
+      for (let j = checkStart; j <= checkEnd; j++) {
+        if (j === i) continue;
+        const other = enemies[j];
+        if (other.isDying) continue;
+
+        const dx = enemy.x - other.x;
+        const dy = enemy.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 距離小於分離半徑時，產生遠離對方的推力
+        if (dist < ENEMY_SEPARATION_RADIUS && dist > 0) {
+          // 推力強度與距離成反比（越近推力越大）
+          const force = (ENEMY_SEPARATION_RADIUS - dist) / ENEMY_SEPARATION_RADIUS;
+          sepX += (dx / dist) * force;
+          sepY += (dy / dist) * force;
+        }
+      }
+
+      // 正規化分離向量並乘以強度
+      const sepLen = Math.sqrt(sepX * sepX + sepY * sepY);
+      if (sepLen > 0) {
+        this.separationCache.set(enemy, {
+          x: (sepX / sepLen) * ENEMY_SEPARATION_STRENGTH,
+          y: (sepY / sepLen) * ENEMY_SEPARATION_STRENGTH,
+        });
+      } else {
+        this.separationCache.set(enemy, { x: 0, y: 0 });
+      }
+    }
+
+    // 清理已不在場上的敵人快取
+    for (const [e] of this.separationCache) {
+      if (!enemies.includes(e)) {
+        this.separationCache.delete(e);
+      }
+    }
   }
 
   /**
