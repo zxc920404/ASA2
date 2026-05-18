@@ -73,7 +73,7 @@ export interface EquipmentSlot {
 
 // 升級選項
 export interface UpgradeOption {
-  type: 'newWeapon' | 'upgradeWeapon' | 'newPassive' | 'upgradePassive';
+  type: 'newWeapon' | 'upgradeWeapon' | 'newPassive' | 'upgradePassive' | 'healHp';
   id: string;
   currentLevel: number; // 0 表示新裝備
   nextLevel: number;

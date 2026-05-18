@@ -5,6 +5,7 @@ import { getPassiveById } from '../data/passives';
 
 /** 取得升級選項的顯示名稱 */
 function getOptionName(option: UpgradeOption): string {
+  if (option.type === 'healHp') return '氣血回復';
   if (option.type === 'newWeapon' || option.type === 'upgradeWeapon') {
     return getWeaponById(option.id)?.name ?? option.id;
   }
@@ -14,15 +15,19 @@ function getOptionName(option: UpgradeOption): string {
 /** 取得升級選項的效果描述文字 */
 export function getOptionDescription(option: UpgradeOption): string {
   switch (option.type) {
+    case 'healHp':
+      return '恢復 30% 最大生命值\n（所有裝備已滿級）';
     case 'newWeapon': {
       const weapon = getWeaponById(option.id);
-      return weapon ? `自動攻擊敵人\n初始傷害 ${weapon.baseDamagePerLevel[0]}` : '新武器';
+      return weapon ? `自動攻擊敵人\n初始傷害 ${weapon.levelStats[0]?.damage ?? weapon.baseDamagePerLevel[0]}` : '新武器';
     }
     case 'upgradeWeapon': {
       const weapon = getWeaponById(option.id);
       if (!weapon) return '傷害提升';
-      const dmgCur = weapon.baseDamagePerLevel[option.currentLevel - 1] ?? 0;
-      const dmgNext = weapon.baseDamagePerLevel[option.nextLevel - 1] ?? dmgCur;
+      const statsCur = weapon.levelStats[option.currentLevel - 1];
+      const statsNext = weapon.levelStats[option.nextLevel - 1];
+      const dmgCur = statsCur?.damage ?? 0;
+      const dmgNext = statsNext?.damage ?? dmgCur;
       return `基礎傷害\n${dmgCur} → ${dmgNext}`;
     }
     case 'newPassive': {
@@ -58,6 +63,7 @@ export function getOptionDescription(option: UpgradeOption): string {
 
 /** 取得選項類型標籤與顏色 */
 function getTypeTag(option: UpgradeOption): { label: string; color: number } {
+  if (option.type === 'healHp')         return { label: '氣血回復', color: 0x22aa44 };
   if (option.type === 'newWeapon')      return { label: '新武器', color: 0xaa2222 };
   if (option.type === 'upgradeWeapon')  return { label: '武器升級', color: 0xcc4444 };
   if (option.type === 'newPassive')     return { label: '新被動', color: 0x2244aa };
@@ -177,9 +183,11 @@ export class LevelUpPanel {
 
     // ── 等級標示（卡片底部）────────────────────────────────────────────────
     const cardBottom = cy + cardH * 0.5;
-    const levelLabel = (option.type === 'newWeapon' || option.type === 'newPassive')
-      ? '✦ 新裝備'
-      : `Lv ${option.currentLevel} → ${option.nextLevel}`;
+    const levelLabel = option.type === 'healHp'
+      ? '✦ 回復生命'
+      : (option.type === 'newWeapon' || option.type === 'newPassive')
+        ? '✦ 新裝備'
+        : `Lv ${option.currentLevel} → ${option.nextLevel}`;
 
     const levelText = this.scene.add.text(cx, cardBottom - cardH * 0.10, levelLabel, {
       fontSize: '13px', color: '#ffd700', fontStyle: 'bold',

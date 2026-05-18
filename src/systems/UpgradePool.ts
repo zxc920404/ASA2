@@ -101,7 +101,16 @@ export class UpgradePool {
     }
 
     // 從候選池隨機抽取 min(3, 候選池長度) 個選項（Requirement 11.1, 11.7）
-    return this.pickRandom(candidates, OPTIONS_COUNT);
+    const picked = this.pickRandom(candidates, OPTIONS_COUNT);
+
+    // 若候選池完全為空（所有武器/被動均滿級），加入 fallback：恢復生命
+    if (picked.length === 0) {
+      return [
+        { type: 'healHp', id: 'heal_hp', currentLevel: 0, nextLevel: 0 },
+      ];
+    }
+
+    return picked;
   }
 
   /**

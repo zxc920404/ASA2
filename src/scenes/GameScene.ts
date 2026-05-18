@@ -8,6 +8,7 @@ import { LevelUpSystem, IGameScene } from '../systems/LevelUpSystem';
 import { HUD } from '../ui/HUD';
 import { PausePanel } from '../ui/PausePanel';
 import { GameOverPanel } from '../ui/GameOverPanel';
+import { PlayerStatusPanel } from '../ui/PlayerStatusPanel';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import { getCharacterById } from '../data/characters';
 import { getEnemyById } from '../data/enemies';
@@ -27,8 +28,8 @@ const MAX_ENEMIES = 80;
 /** 場上 XPGem 上限（design.md 效能限制） */
 const MAX_XP_GEMS = 80;
 
-/** 玩家等級上限（Requirement 9.4、10.5） */
-const MAX_LEVEL = 20;
+/** 玩家等級上限（提高至 99，不再過早封頂） */
+const MAX_LEVEL = 99;
 
 /** 敵人生成距離範圍（Requirement 6.4） */
 const SPAWN_DIST_MIN = 150;
@@ -102,6 +103,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   // 結算面板（Requirement 14.1）
   private gameOverPanel: GameOverPanel | null = null;
+
+  // 屬性面板
+  private playerStatusPanel!: PlayerStatusPanel;
 
   // 虛擬搖桿（Requirement 2.4、任務 11）
   private virtualJoystick!: VirtualJoystick;
@@ -206,6 +210,18 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.resumeGame();
     });
 
+    // 建立屬性面板
+    this.playerStatusPanel = new PlayerStatusPanel(this);
+
+    // 設定屬性按鈕點擊事件（升級/暫停/死亡中不開啟）
+    this.hud.onStatsClick(() => {
+      if (this.pauseReason !== 'none') return;
+      if (this.isGameOver) return;
+      const charData = getCharacterById(this.characterId);
+      const charName = charData?.name ?? '未知';
+      this.playerStatusPanel.show(this.player, charName);
+    });
+
     // 建立虛擬搖桿（Requirement 2.4、任務 11）
     this.virtualJoystick = new VirtualJoystick(this);
 
@@ -223,6 +239,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
       if (this.virtualJoystick) {
         this.virtualJoystick.destroy();
+      }
+      if (this.playerStatusPanel) {
+        this.playerStatusPanel.destroy();
       }
     });
   }
@@ -631,15 +650,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 從群組移除並銷毀
     this.xpGemGroup.remove(gem, true, true);
 
-    // 等級達上限時不累加經驗（Requirement 9.4）
+    // 累加經驗值（等級達上限時仍可吸收但不累加）
     if (this.player.level >= MAX_LEVEL) {
       return;
     }
 
-    // 累加經驗值（Requirement 9.2）
     this.player.currentExp += expValue;
-
-    // 檢查是否達到升級門檻（Requirement 9.2、10.1、10.2）
     this.checkLevelUp();
   }
 
@@ -653,6 +669,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 升級 UI 顯示中，不重複觸發（防止建立多個 LevelUpPanel）
     if (this.pauseReason === 'levelup') return;
 
+    // 無等級上限，持續升級直到經驗不足
     while (this.player.level < MAX_LEVEL) {
       const requiredExp = 10 + this.player.level * 5;
       if (this.player.currentExp < requiredExp) break;
@@ -660,10 +677,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.player.currentExp -= requiredExp;
       this.player.level += 1;
 
-      if (this.player.level <= MAX_LEVEL) {
-        this.levelUpSystem.triggerLevelUp(this.player);
-        break; // 一次只處理一次升級，等玩家選完再繼續
-      }
+      // 觸發升級 UI（每次升級都觸發，不論等級）
+      this.levelUpSystem.triggerLevelUp(this.player);
+      break; // 一次只處理一次升級，等玩家選完再繼續
     }
   }
 

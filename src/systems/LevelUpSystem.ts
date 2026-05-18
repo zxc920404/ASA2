@@ -135,6 +135,13 @@ export class LevelUpSystem {
         // 若已達 Lv8，忽略（Requirement 12.3）
         break;
       }
+
+      case 'healHp': {
+        // 所有裝備滿級時的 fallback：恢復 30% 最大 HP
+        const healAmount = Math.floor(player.stats.maxHP * 0.3);
+        player.currentHP = Math.min(player.stats.maxHP, player.currentHP + healAmount);
+        break;
+      }
     }
   }
 }
