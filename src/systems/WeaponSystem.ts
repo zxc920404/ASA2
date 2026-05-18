@@ -259,8 +259,12 @@ export class WeaponSystem {
               this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius);
             } else if (inst.weaponId === 'thunder_claw') {
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, stats.count ?? 1);
+            } else if (inst.weaponId === 'ice_spike') {
+              // 寒冰錐：啟用穿透，pierce 數從 levelStats 讀取
+              const pierceCount = stats.pierce ?? 1;
+              this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
             } else {
-              // 其他武器（寒冰錐、毒霧散）：預設直線投射，pierce 暫未啟用
+              // 其他武器（毒霧散）：預設直線投射
               this.fireLinearProjectile(player, target, finalDamage, projSpeed, finalRange, inst.weaponId);
             }
           }
@@ -311,6 +315,8 @@ export class WeaponSystem {
         for (const enemy of enemies) {
           if (deadEnemies.includes(enemy)) continue;
           if (enemy.isDying) continue;
+          // 穿透投射物：跳過已命中過的敵人
+          if (proj.hitEnemies.has(enemy)) continue;
 
           const dx = proj.x - enemy.x;
           const dy = proj.y - enemy.y;
@@ -324,8 +330,17 @@ export class WeaponSystem {
             }
             // 命中特效（小光圈）
             this.spawnHitEffect(proj.x, proj.y);
-            hit = true;
-            break;
+
+            if (proj.pierceRemaining > 0) {
+              // 穿透模式：記錄已命中敵人，消耗一次穿透次數，繼續飛行
+              proj.hitEnemies.add(enemy);
+              proj.pierceRemaining -= 1;
+              // 不設 hit = true，繼續檢查其他敵人（同幀可穿透多個）
+            } else {
+              // 非穿透模式：命中即銷毀
+              hit = true;
+              break;
+            }
           }
         }
 
@@ -640,6 +655,51 @@ export class WeaponSystem {
       lifeTime,
       weaponId,
       0xffffff
+    );
+
+    this.addProjectile(proj);
+  }
+
+  /**
+   * 發射穿透投射物（寒冰錐專用）
+   * pierceCount 為可穿透的敵人數量（命中第 pierceCount+1 個時銷毀）
+   */
+  private firePiercingProjectile(
+    player: Player,
+    target: Enemy,
+    damage: number,
+    speed: number,
+    range: number,
+    pierceCount: number
+  ): void {
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const lifeTime = (range / speed) * 1000;
+
+    // pierceRemaining = pierceCount - 1：
+    // 第一次命中消耗一次（在命中判斷中），之後每次命中再消耗一次
+    // 當 pierceRemaining 降到 0 時，下一次命中才銷毀
+    const proj = new Projectile(
+      this.scene,
+      player.x,
+      player.y,
+      damage,
+      nx * speed,
+      ny * speed,
+      lifeTime,
+      'ice_spike',
+      0x88ddff, // 淡藍色，區別於其他投射物
+      false,    // 非爆炸型
+      0,        // explosionRadius
+      0,        // targetX
+      0,        // targetY
+      pierceCount - 1  // pierceRemaining：已扣除第一次命中
     );
 
     this.addProjectile(proj);

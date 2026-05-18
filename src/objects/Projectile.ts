@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { Enemy } from '../objects/Enemy';
 
 /**
  * Projectile 遊戲物件
@@ -27,6 +28,18 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   /** 是否已爆炸（防止重複爆炸） */
   public hasExploded: boolean;
 
+  /**
+   * 剩餘穿透次數（寒冰錐用）
+   * 0 表示不穿透（命中即銷毀）；> 0 表示還能繼續穿透的次數
+   */
+  public pierceRemaining: number;
+
+  /**
+   * 已命中的敵人集合（寒冰錐用）
+   * 防止同一發投射物對同一敵人重複造成傷害
+   */
+  public hitEnemies: Set<Enemy>;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -40,7 +53,8 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     isExplosive: boolean = false,
     explosionRadius: number = 0,
     targetX: number = 0,
-    targetY: number = 0
+    targetY: number = 0,
+    pierceRemaining: number = 0
   ) {
     // 投射物尺寸依武器類型調整（更明顯）
     const size = isExplosive ? 12 : 10;
@@ -56,6 +70,8 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.targetX = targetX;
     this.targetY = targetY;
     this.hasExploded = false;
+    this.pierceRemaining = pierceRemaining;
+    this.hitEnemies = new Set<Enemy>();
 
     scene.add.existing(this);
     this.setDepth(6);
