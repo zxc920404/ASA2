@@ -70,7 +70,8 @@ export class GameOverPanel {
       { icon: '⚔', label: '擊殺數',   value: `${result.killCount}`,   color: '#ffccaa', x: W * 0.70, y: H * 0.30 },
       { icon: '⭐', label: '最高等級', value: `Lv ${result.maxLevel}`, color: '#aaddff', x: W * 0.30, y: H * 0.42 },
       { icon: '🏆', label: '結算分數', value: `${result.score}`,       color: '#ffffff', x: W * 0.70, y: H * 0.42 },
-      { icon: '💰', label: '獲得金幣', value: `${result.coins}`,       color: '#ffd700', x: W * 0.50, y: H * 0.54 },
+      { icon: '✦',  label: '本局天命點', value: `+${result.destinyPoints}`, color: '#88ffcc', x: W * 0.35, y: H * 0.54 },
+      { icon: '✦',  label: '總天命點',   value: `${result.totalDestinyPoints}`, color: '#ffd700', x: W * 0.65, y: H * 0.54 },
     ];
 
     for (const row of dataRows) {

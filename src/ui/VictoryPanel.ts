@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import { Player } from '../objects/Player';
 import { getWeaponById } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
+import { MetaProgression } from '../systems/MetaProgression';
 
 /**
  * VictoryPanel — 10 分鐘生存勝利結算面板
- * 顯示：存活時間、等級、擊殺數、持有武器、持有被動
+ * 顯示：存活時間、等級、擊殺數、天命點、持有武器、持有被動
  * 按鈕：重新開始（CharacterSelectScene）、返回主選單（MainMenuScene）
  */
 export class VictoryPanel {
@@ -17,17 +18,19 @@ export class VictoryPanel {
     player: Player,
     survivalSeconds: number,
     killCount: number,
+    runDestinyPoints: number,
     onRestart: () => void,
     onReturnToMenu: () => void
   ) {
     this.scene = scene;
-    this.createElements(player, survivalSeconds, killCount, onRestart, onReturnToMenu);
+    this.createElements(player, survivalSeconds, killCount, runDestinyPoints, onRestart, onReturnToMenu);
   }
 
   private createElements(
     player: Player,
     survivalSeconds: number,
     killCount: number,
+    runDestinyPoints: number,
     onRestart: () => void,
     onReturnToMenu: () => void
   ): void {
@@ -108,7 +111,17 @@ export class VictoryPanel {
       this.elements.push(val);
     }
 
-    // 分隔線
+    // 天命點（勝利額外 +100）
+    MetaProgression.addDestinyPoints(runDestinyPoints);
+    const totalDp = MetaProgression.getDestinyPoints();
+    const dpLbl = this.scene.add.text(W * 0.5, statsY + 88, '✦ 天命點', {
+      fontSize: '11px', color: '#888888',
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+    this.elements.push(dpLbl);
+    const dpVal = this.scene.add.text(W * 0.5, statsY + 104, `+${runDestinyPoints} (含勝利獎勵 +100)  總計：${totalDp}`, {
+      fontSize: '13px', color: '#88ffcc', fontStyle: 'bold',
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+    this.elements.push(dpVal);    // 分隔線
     const midLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     midLine.lineStyle(1, 0x334433, 0.8);
     midLine.lineBetween(panelX + 16, panelY + 192, panelX + panelW - 16, panelY + 192);

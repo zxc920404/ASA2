@@ -17,6 +17,7 @@ import { resetDamageNumberCounter } from '../objects/Enemy';
 import { EliteProjectile } from '../objects/EliteProjectile';
 import { BlackHoleTrap } from '../objects/BlackHoleTrap';
 import { DropItem, DropItemType } from '../objects/DropItem';
+import { MetaProgression } from '../systems/MetaProgression';
 
 interface GameSceneData {
   characterId: string;
@@ -175,6 +176,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private readonly SPEED_BOOST_DURATION = 5000;
   private readonly SPEED_BOOST_MULT = 1.3;
 
+  // ── 天命點（局外貨幣）────────────────────────────────────────────────
+  /** 本局獲得的天命點（死亡或勝利後加入永久存檔） */
+  private runDestinyPoints: number = 0;
+
+  // ── 氣血回復計時（ms）────────────────────────────────────────────────
+  private hpRecoveryTimer: number = 0;
+  private readonly HP_RECOVERY_INTERVAL = 1000; // 每 1 秒回血一次
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -216,6 +224,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.rangedProjectiles = [];
     this.speedBoostTimer = 0;
 
+    // 重置本局天命點
+    this.runDestinyPoints = 0;
+    this.hpRecoveryTimer = 0;
+
+    // 讀取局外進度
+    MetaProgression.load();
+
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
 
@@ -227,6 +242,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 建立 Player，初始位置於世界中央
     this.player = new Player(this, WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5, charData);
+
+    // 套用局外加成至玩家初始屬性
+    this.applyMetaBonusToPlayer();
 
     // 攝影機設定：跟隨玩家，限制在世界邊界內
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -320,6 +338,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 累積遊戲時間
     this.elapsedSeconds += delta / 1000;
+
+    // 氣血回復（局外升級 hp_recovery）
+    const hpRecoveryPerSec = MetaProgression.getUpgradeBonus('hp_recovery');
+    if (hpRecoveryPerSec > 0 && this.player.currentHP > 0) {
+      this.hpRecoveryTimer += delta;
+      if (this.hpRecoveryTimer >= this.HP_RECOVERY_INTERVAL) {
+        this.hpRecoveryTimer -= this.HP_RECOVERY_INTERVAL;
+        this.player.currentHP = Math.min(
+          this.player.stats.maxHP,
+          this.player.currentHP + hpRecoveryPerSec
+        );
+      }
+    }
 
     // 更新 HUD 快取資料（實際渲染由 HUD 內部計時器負責）
     this.hud.update(this.player, this.elapsedSeconds, this.killCount);
@@ -684,14 +715,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const seconds = Math.floor(this.elapsedSeconds);
     const maxLevel = this.player.level; // 等級只增不減，當前等級即最高等級
     const score = kills * 10 + seconds * 2 + maxLevel * 50;
-    const coins = Math.floor(score / 10);
+
+    // 天命點結算：加入永久存檔
+    MetaProgression.addDestinyPoints(this.runDestinyPoints);
 
     const result = {
       survivalSeconds: this.elapsedSeconds,
       killCount: kills,
       maxLevel: maxLevel,
       score: score,
-      coins: coins,
+      destinyPoints: this.runDestinyPoints,
+      totalDestinyPoints: MetaProgression.getDestinyPoints(),
     };
 
     // 建立並顯示 GameOverPanel（Requirement 14.1）
@@ -740,6 +774,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.player,
       this.elapsedSeconds,
       this.killCount,
+      this.runDestinyPoints + 100, // 勝利額外 +100 天命點
       () => {
         // 重新開始：回到角色選擇
         this.scene.start('CharacterSelectScene');
@@ -894,6 +929,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 更新擊殺計數器
     this.killCount++;
+
+    // 天命點獲取（依敵人類型）
+    if (enemy.isElite) {
+      this.runDestinyPoints += 25;
+    } else if (enemy.isRanged) {
+      this.runDestinyPoints += 2;
+    } else {
+      this.runDestinyPoints += 1;
+    }
   }
 
   /**
@@ -920,7 +964,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * - 若累加後達到升級門檻，觸發升級流程（Requirement 9.2）
    */
   private absorbXPGem(gem: XPGem): void {
-    const expValue = gem.expValue;
+    const baseExp = gem.expValue;
 
     // 從群組移除並銷毀
     this.xpGemGroup.remove(gem, true, true);
@@ -930,7 +974,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       return;
     }
 
-    this.player.currentExp += expValue;
+    // 套用 growth 局外加成
+    const growthBonus = MetaProgression.getUpgradeBonus('growth');
+    const finalExp = Math.floor(baseExp * (1 + growthBonus));
+
+    this.player.currentExp += finalExp;
     this.checkLevelUp();
   }
 
@@ -1406,5 +1454,28 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     spawnY = Phaser.Math.Clamp(spawnY, 0, WORLD_HEIGHT);
 
     return { x: spawnX, y: spawnY };
+  }
+
+  /**
+   * 套用局外加成至玩家（在 Player 建立後呼叫）
+   * max_hp → 最大生命倍率
+   * might → 攻擊力倍率
+   * area → 攻擊範圍倍率
+   */
+  private applyMetaBonusToPlayer(): void {
+    const maxHpBonus = MetaProgression.getUpgradeBonus('max_hp');
+    const mightBonus = MetaProgression.getUpgradeBonus('might');
+    const areaBonus  = MetaProgression.getUpgradeBonus('area');
+
+    if (maxHpBonus > 0) {
+      this.player.stats.maxHP = Math.floor(this.player.stats.maxHP * (1 + maxHpBonus));
+      this.player.currentHP = this.player.stats.maxHP;
+    }
+    if (mightBonus > 0) {
+      this.player.stats.attackPower = this.player.stats.attackPower * (1 + mightBonus);
+    }
+    if (areaBonus > 0) {
+      this.player.stats.attackRange = this.player.stats.attackRange * (1 + areaBonus);
+    }
   }
 }

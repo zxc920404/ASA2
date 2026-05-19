@@ -44,6 +44,9 @@ export class MainMenuScene extends Phaser.Scene {
     // ── 開始遊戲按鈕 ────────────────────────────────────────────────────────
     this.drawStartButton(W, H);
 
+    // ── 天命修煉按鈕 ────────────────────────────────────────────────────────
+    this.drawMetaButton(W, H);
+
     // ── 版本號 ──────────────────────────────────────────────────────────────
     this.add.text(W - 20, H - 12, 'v0.1 MVP', {
       fontSize: '12px',
@@ -131,7 +134,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // 按鈕圖形（圓角矩形）
     const btnGraphics = this.add.graphics().setDepth(11);
-    this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false);
+    this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x6b0f0f, 0xd4af37);
 
     // 按鈕文字
     const btnText = this.add.text(btnX, btnY, '開始遊戲', {
@@ -154,13 +157,51 @@ export class MainMenuScene extends Phaser.Scene {
     // 懸停效果
     hitArea.on('pointerover', () => {
       btnGraphics.clear();
-      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, true);
+      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, true, 0x6b0f0f, 0xd4af37);
       btnText.setColor('#ffd700');
     });
     hitArea.on('pointerout', () => {
       btnGraphics.clear();
-      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false);
+      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x6b0f0f, 0xd4af37);
       btnText.setColor('#ffffff');
+    });
+  }
+
+  /**
+   * 繪製天命修煉按鈕
+   */
+  private drawMetaButton(W: number, H: number): void {
+    const btnW = 220;
+    const btnH = 48;
+    const btnX = W * 0.5;
+    const btnY = H * 0.76;
+    const radius = 8;
+
+    const btnGraphics = this.add.graphics().setDepth(11);
+    this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x0f1a2a, 0x4488aa);
+
+    const btnText = this.add.text(btnX, btnY, '✦ 天命修煉', {
+      fontSize: '18px',
+      color: '#88ccff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setDepth(12);
+
+    const hitArea = this.add.rectangle(btnX, btnY, Math.max(btnW, 88), Math.max(btnH, 48), 0x000000, 0)
+      .setDepth(13)
+      .setInteractive({ useHandCursor: true });
+
+    hitArea.on('pointerdown', () => {
+      this.scene.start('MetaUpgradeScene');
+    });
+    hitArea.on('pointerover', () => {
+      btnGraphics.clear();
+      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, true, 0x0f1a2a, 0x4488aa);
+      btnText.setColor('#ffffff');
+    });
+    hitArea.on('pointerout', () => {
+      btnGraphics.clear();
+      this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x0f1a2a, 0x4488aa);
+      btnText.setColor('#88ccff');
     });
   }
 
@@ -173,6 +214,8 @@ export class MainMenuScene extends Phaser.Scene {
    * @param h       高度
    * @param r       圓角半徑
    * @param hovered 是否為 hover 狀態
+   * @param fillColor 填充色（預設深紅）
+   * @param borderColor 邊框色（預設金色）
    */
   private drawRoundedButton(
     g: Phaser.GameObjects.Graphics,
@@ -181,17 +224,21 @@ export class MainMenuScene extends Phaser.Scene {
     w: number,
     h: number,
     r: number,
-    hovered: boolean
+    hovered: boolean,
+    fillColor: number = 0x6b0f0f,
+    borderColor: number = 0xd4af37
   ): void {
     const x = cx - w / 2;
     const y = cy - h / 2;
 
     // 按鈕背景
-    g.fillStyle(hovered ? 0x8b1a1a : 0x6b0f0f, 1);
+    const lighterFill = Math.min(fillColor + 0x1a1a1a, 0xffffff);
+    g.fillStyle(hovered ? lighterFill : fillColor, 1);
     g.fillRoundedRect(x, y, w, h, r);
 
-    // 按鈕邊框（金色）
-    g.lineStyle(hovered ? 2 : 1.5, hovered ? 0xffd700 : 0xd4af37, 1);
+    // 按鈕邊框
+    const lighterBorder = Math.min(borderColor + 0x222222, 0xffffff);
+    g.lineStyle(hovered ? 2 : 1.5, hovered ? lighterBorder : borderColor, 1);
     g.strokeRoundedRect(x, y, w, h, r);
 
     // hover 時加入頂部高光

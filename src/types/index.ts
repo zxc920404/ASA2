@@ -100,6 +100,7 @@ export interface GameResult {
   survivalSeconds: number;
   killCount: number;
   maxLevel: number;
-  score: number;  // kills*10 + seconds*2 + maxLevel*50
-  coins: number;  // floor(score/10)
+  score: number;           // kills*10 + seconds*2 + maxLevel*50
+  destinyPoints: number;   // 本局獲得天命點
+  totalDestinyPoints: number; // 結算後總天命點
 }
