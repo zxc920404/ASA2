@@ -15,6 +15,7 @@ import { getCharacterById } from '../data/characters';
 import { getEnemyById } from '../data/enemies';
 import { resetDamageNumberCounter } from '../objects/Enemy';
 import { EliteProjectile } from '../objects/EliteProjectile';
+import { BlackHoleTrap } from '../objects/BlackHoleTrap';
 
 interface GameSceneData {
   characterId: string;
@@ -156,6 +157,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // ── 精英投射物陣列（shooter 用）──────────────────────────────────────
   private eliteProjectiles: EliteProjectile[] = [];
 
+  // ── 黑洞陷阱陣列（shield 用）──────────────────────────────────────────
+  private blackHoleTraps: BlackHoleTrap[] = [];
+  private readonly MAX_BLACK_HOLES = 2;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -188,6 +193,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 重置精英投射物陣列
     this.eliteProjectiles = [];
+
+    // 重置黑洞陷阱陣列
+    this.blackHoleTraps = [];
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
@@ -456,6 +464,26 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const idx = this.eliteProjectiles.indexOf(proj);
       if (idx !== -1) this.eliteProjectiles.splice(idx, 1);
       if (!proj.isDead) proj.destroy();
+    }
+
+    // ── shield 護盾消除玩家投射物 ──────────────────────────────────────
+    const shieldEnemies = (this.enemyGroup.getChildren() as Enemy[]).filter(
+      e => e.isElite && e.eliteType === 'shield' && e.shieldActive && !e.isDying
+    );
+    if (shieldEnemies.length > 0) {
+      this.weaponSystem.destroyProjectilesInShieldRange(shieldEnemies);
+    }
+
+    // ── 黑洞陷阱更新 ──────────────────────────────────────────────────
+    const deadHoles: BlackHoleTrap[] = [];
+    for (const hole of this.blackHoleTraps) {
+      const alive = hole.update(delta, this.player);
+      if (!alive) deadHoles.push(hole);
+    }
+    for (const hole of deadHoles) {
+      hole.destroy();
+      const idx = this.blackHoleTraps.indexOf(hole);
+      if (idx !== -1) this.blackHoleTraps.splice(idx, 1);
     }
   }
 
@@ -1076,6 +1104,24 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       elite.onShootProjectile = (px, py, vx, vy, dmg) => {
         const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
         this.eliteProjectiles.push(proj);
+      };
+    }
+
+    // shield 注入黑洞生成回呼
+    if (eliteType === 'shield') {
+      elite.onSpawnBlackHole = (ex, ey) => {
+        // 在玩家附近 80～180px 隨機位置生成黑洞
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 80 + Math.random() * 100;
+        const hx = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 32, 3200 - 32);
+        const hy = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 32, 3200 - 32);
+        // 超過上限時移除最舊的
+        if (this.blackHoleTraps.length >= this.MAX_BLACK_HOLES) {
+          const oldest = this.blackHoleTraps.shift();
+          if (oldest) oldest.destroy();
+        }
+        const hole = new BlackHoleTrap(this, hx, hy, 100, 3000);
+        this.blackHoleTraps.push(hole);
       };
     }
 

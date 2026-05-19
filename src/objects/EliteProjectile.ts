@@ -1,13 +1,25 @@
 import Phaser from 'phaser';
 
 /** 場上精英投射物上限（避免 FPS 掉） */
-const MAX_ELITE_PROJECTILES = 30;
+const MAX_ELITE_PROJECTILES = 45;
 
 /** 全域精英投射物計數 */
 let activeEliteProjectiles = 0;
+/** 全域精英投射物列表（用於超限時移除最舊） */
+const allEliteProjectiles: EliteProjectile[] = [];
 
 export function getActiveEliteProjectileCount(): number {
   return activeEliteProjectiles;
+}
+
+/** 超過上限時移除最舊的投射物，回傳是否有空位 */
+export function evictOldestIfNeeded(): boolean {
+  if (activeEliteProjectiles < MAX_ELITE_PROJECTILES) return true;
+  const oldest = allEliteProjectiles[0];
+  if (oldest && !oldest.isDead) {
+    oldest.destroy();
+  }
+  return true;
 }
 
 /**
@@ -50,6 +62,7 @@ export class EliteProjectile extends Phaser.GameObjects.Rectangle {
     this.drawVisual();
 
     activeEliteProjectiles++;
+    allEliteProjectiles.push(this);
   }
 
   private drawVisual(): void {
@@ -93,6 +106,8 @@ export class EliteProjectile extends Phaser.GameObjects.Rectangle {
     if (!this.isDead) {
       this.isDead = true;
       activeEliteProjectiles = Math.max(0, activeEliteProjectiles - 1);
+      const idx = allEliteProjectiles.indexOf(this);
+      if (idx !== -1) allEliteProjectiles.splice(idx, 1);
     }
     if (this.visual && this.visual.active) {
       this.visual.destroy();

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { EnemyData } from '../types/index';
-import { EliteProjectile, getActiveEliteProjectileCount } from './EliteProjectile';
+import { EliteProjectile, getActiveEliteProjectileCount, evictOldestIfNeeded } from './EliteProjectile';
 
 /** 傷害數字同時上限 */
 const MAX_DAMAGE_NUMBERS = 25;
@@ -49,23 +49,34 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private chargerDashTimer: number = 0;
   private chargerDirX: number = 0;
   private chargerDirY: number = 0;
-  private readonly CHARGER_COOLDOWN   = 5000;
-  private readonly CHARGER_WINDUP     = 600;
-  private readonly CHARGER_DASH_DUR   = 650;
-  private readonly CHARGER_DASH_SPEED = 320;
+  private readonly CHARGER_COOLDOWN   = 6000;  // 每輪間隔
+  private readonly CHARGER_WINDUP     = 400;   // 蓄力時間
+  private readonly CHARGER_DASH_DUR   = 620;   // 每次衝刺持續
+  private readonly CHARGER_DASH_SPEED = 450;   // 衝刺速度
+  private readonly CHARGER_PAUSE_DUR  = 250;   // 每次衝刺後停頓
+  private readonly CHARGER_COMBO      = 3;     // 每輪衝撞次數
+  private chargerComboLeft: number = 0;        // 本輪剩餘次數
+  private chargerPauseTimer: number = 0;       // 停頓計時
 
   // ── shooter 狀態 ──────────────────────────────────────────────────────
   private shooterCooldown: number = 2000;   // 首次射擊等待（ms）
-  private readonly SHOOTER_COOLDOWN = 3000;
+  private readonly SHOOTER_COOLDOWN = 1700; // 攻擊間隔
+  private shooterPatternIndex: number = 0;  // 彈道模式輪替索引
   /** 回呼：由 GameScene 注入，用於生成投射物 */
   public onShootProjectile?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
   // ── shield 狀態 ──────────────────────────────────────────────────────
   private shieldCooldown: number = 3000;    // 首次護盾等待（ms）
-  private shieldActive: boolean = false;
+  public shieldActive: boolean = false;     // public 供 GameScene 消除投射物
+  public readonly SHIELD_RADIUS = 100;      // 護盾範圍（消除投射物用）
   private shieldTimer: number = 0;
-  private readonly SHIELD_COOLDOWN = 6000;
-  private readonly SHIELD_DURATION = 2000;
+  private readonly SHIELD_COOLDOWN = 7000;
+  private readonly SHIELD_DURATION = 2500;
+  // 黑洞技能
+  private blackholeCooldown: number = 5000; // 首次黑洞等待
+  private readonly BLACKHOLE_COOLDOWN = 8000;
+  /** 回呼：由 GameScene 注入，用於生成黑洞 */
+  public onSpawnBlackHole?: (x: number, y: number) => void;
 
   constructor(
     scene: Phaser.Scene,
@@ -97,10 +108,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public takeDamage(damage: number, fromX?: number, fromY?: number): boolean {
     if (this.isDying) return false;
 
-    // shield 護盾減傷 70%
+    // shield 護盾期間完全無敵
     let actualDamage = damage;
     if (this.shieldActive) {
-      actualDamage = Math.ceil(damage * 0.3);
+      // 顯示 0 傷害提示（讓玩家知道護盾在作用）
+      this.showDamageNumber(0);
+      return false;
     }
 
     this.currentHP -= actualDamage;
@@ -172,15 +185,18 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // charger 衝刺中：沿鎖定方向移動，不追玩家
     if (this.eliteType === 'charger' && this.chargerState === 'dashing') {
       const dt = delta / 1000;
-      this.setPosition(
-        this.x + this.chargerDirX * this.CHARGER_DASH_SPEED * dt,
-        this.y + this.chargerDirY * this.CHARGER_DASH_SPEED * dt
-      );
+      let nx = this.x + this.chargerDirX * this.CHARGER_DASH_SPEED * dt;
+      let ny = this.y + this.chargerDirY * this.CHARGER_DASH_SPEED * dt;
+      // 邊界 clamp（防止衝出世界）
+      nx = Phaser.Math.Clamp(nx, 32, 3200 - 32);
+      ny = Phaser.Math.Clamp(ny, 32, 3200 - 32);
+      this.setPosition(nx, ny);
       this.syncVisual();
       return;
     }
-    // charger 蓄力中：停頓（不移動）
-    if (this.eliteType === 'charger' && this.chargerState === 'windup') return;
+    // charger 蓄力或停頓中：停頓（不移動）
+    if (this.eliteType === 'charger' &&
+        (this.chargerState === 'windup' || this.chargerState === 'idle' && this.chargerPauseTimer > 0)) return;
 
     const dx = playerX - this.x;
     const dy = playerY - this.y;
@@ -237,29 +253,25 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private updateCharger(delta: number, playerX: number, playerY: number): void {
     switch (this.chargerState) {
       case 'idle':
+        // 停頓計時（每次衝刺後）
+        if (this.chargerPauseTimer > 0) {
+          this.chargerPauseTimer -= delta;
+          return;
+        }
         this.chargerCooldown -= delta;
         if (this.chargerCooldown <= 0) {
-          // 進入蓄力
-          this.chargerState = 'windup';
-          this.chargerWindupTimer = this.CHARGER_WINDUP;
-          // 鎖定衝刺方向
-          const dx = playerX - this.x;
-          const dy = playerY - this.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 0) { this.chargerDirX = dx / dist; this.chargerDirY = dy / dist; }
-          // 顯示紅色警示線
-          this.showChargeWarning();
+          // 開始新一輪連續衝撞
+          this.chargerComboLeft = this.CHARGER_COMBO;
+          this.startChargerWindup(playerX, playerY);
         }
         break;
 
       case 'windup':
         this.chargerWindupTimer -= delta;
-        // 更新警示線位置
         if (this.chargeWarning && this.chargeWarning.active) {
           this.chargeWarning.setPosition(this.x, this.y);
         }
         if (this.chargerWindupTimer <= 0) {
-          // 進入衝刺
           this.chargerState = 'dashing';
           this.chargerDashTimer = this.CHARGER_DASH_DUR;
           if (this.chargeWarning && this.chargeWarning.active) {
@@ -272,12 +284,31 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       case 'dashing':
         this.chargerDashTimer -= delta;
         if (this.chargerDashTimer <= 0) {
-          // 衝刺結束，回到 idle
-          this.chargerState = 'idle';
-          this.chargerCooldown = this.CHARGER_COOLDOWN;
+          this.chargerComboLeft--;
+          if (this.chargerComboLeft > 0) {
+            // 還有剩餘次數：短暫停頓後再蓄力
+            this.chargerState = 'idle';
+            this.chargerPauseTimer = this.CHARGER_PAUSE_DUR;
+            this.chargerCooldown = 0; // 停頓結束後立刻蓄力
+          } else {
+            // 本輪結束，回到 idle 等待下一輪
+            this.chargerState = 'idle';
+            this.chargerPauseTimer = 0;
+            this.chargerCooldown = this.CHARGER_COOLDOWN;
+          }
         }
         break;
     }
+  }
+
+  private startChargerWindup(playerX: number, playerY: number): void {
+    this.chargerState = 'windup';
+    this.chargerWindupTimer = this.CHARGER_WINDUP;
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 0) { this.chargerDirX = dx / dist; this.chargerDirY = dy / dist; }
+    this.showChargeWarning();
   }
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
@@ -286,39 +317,97 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.shooterCooldown = this.SHOOTER_COOLDOWN;
 
     if (!this.onShootProjectile) return;
-    // 場上投射物已達上限時跳過
-    if (getActiveEliteProjectileCount() >= 30) return;
+    evictOldestIfNeeded();
 
     const dx = playerX - this.x;
     const dy = playerY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1) return;
 
-    const speed = 250;
-    const baseDmg = Math.ceil(this.contactDamage * 0.6);
-    // 扇形 3 顆：中央 + 左偏 20° + 右偏 20°
-    const angles = [0, -0.35, 0.35]; // radians
-    const baseAngle = Math.atan2(dy, dx);
-    for (const offset of angles) {
-      const a = baseAngle + offset;
-      this.onShootProjectile(
-        this.x, this.y,
-        Math.cos(a) * speed,
-        Math.sin(a) * speed,
-        baseDmg
-      );
+    const pattern = this.shooterPatternIndex % 4;
+    this.shooterPatternIndex++;
+
+    switch (pattern) {
+      case 0: this.fireFanPattern(dx, dy, dist); break;
+      case 1: this.fireBurstPattern(playerX, playerY); break;
+      case 2: this.fireRingPattern(); break;
+      case 3: this.fireCrossPattern(dx, dy, dist); break;
+    }
+  }
+
+  /** 模式 1：扇形散射 5 顆，60° 扇形 */
+  private fireFanPattern(dx: number, dy: number, dist: number): void {
+    if (!this.onShootProjectile) return;
+    const speed = 280;
+    const dmg = Math.ceil(this.contactDamage * 0.55);
+    const baseAngle = Math.atan2(dy / dist, dx / dist);
+    const spread = Math.PI / 3; // 60°
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const a = baseAngle + spread * (i / (count - 1) - 0.5);
+      this.onShootProjectile(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, dmg);
+    }
+  }
+
+  /** 模式 2：連射追擊 — 3 波，每波 2 顆，每波重新瞄準 */
+  private fireBurstPattern(playerX: number, playerY: number): void {
+    if (!this.onShootProjectile || this.isDying) return;
+    const speed = 300;
+    const dmg = Math.ceil(this.contactDamage * 0.5);
+    const delays = [0, 200, 400];
+    for (const delay of delays) {
+      this.scene.time.delayedCall(delay, () => {
+        if (this.isDying || !this.onShootProjectile) return;
+        // 重新瞄準玩家當下位置
+        const dx = playerX - this.x;
+        const dy = playerY - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 1) return;
+        const baseA = Math.atan2(dy, dx);
+        for (const offset of [-0.12, 0.12]) {
+          const a = baseA + offset;
+          this.onShootProjectile!(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, dmg);
+        }
+      });
+    }
+  }
+
+  /** 模式 3：環形彈幕 8 顆，360° */
+  private fireRingPattern(): void {
+    if (!this.onShootProjectile) return;
+    const speed = 230;
+    const dmg = Math.ceil(this.contactDamage * 0.45);
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      this.onShootProjectile(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, dmg);
+    }
+  }
+
+  /** 模式 4：交叉彈道 — X 字形 6 顆 */
+  private fireCrossPattern(dx: number, dy: number, dist: number): void {
+    if (!this.onShootProjectile) return;
+    const speed = 260;
+    const dmg = Math.ceil(this.contactDamage * 0.5);
+    const baseAngle = Math.atan2(dy / dist, dx / dist);
+    // 兩組斜向：baseAngle ± 45° 各 3 顆（間距 15°）
+    const groups = [baseAngle + Math.PI / 4, baseAngle - Math.PI / 4];
+    for (const ga of groups) {
+      for (const offset of [-0.26, 0, 0.26]) {
+        const a = ga + offset;
+        this.onShootProjectile(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, dmg);
+      }
     }
   }
 
   private updateShield(delta: number): void {
+    // 護盾邏輯
     if (this.shieldActive) {
       this.shieldTimer -= delta;
-      // 更新護盾光圈位置
       if (this.shieldVisual && this.shieldVisual.active) {
         this.shieldVisual.setPosition(this.x, this.y);
       }
       if (this.shieldTimer <= 0) {
-        // 護盾結束
         this.shieldActive = false;
         this.shieldCooldown = this.SHIELD_COOLDOWN;
         if (this.shieldVisual && this.shieldVisual.active) {
@@ -329,10 +418,18 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     } else {
       this.shieldCooldown -= delta;
       if (this.shieldCooldown <= 0) {
-        // 開啟護盾
         this.shieldActive = true;
         this.shieldTimer = this.SHIELD_DURATION;
         this.showShieldVisual();
+      }
+    }
+
+    // 黑洞技能
+    this.blackholeCooldown -= delta;
+    if (this.blackholeCooldown <= 0) {
+      this.blackholeCooldown = this.BLACKHOLE_COOLDOWN;
+      if (this.onSpawnBlackHole) {
+        this.onSpawnBlackHole(this.x, this.y);
       }
     }
   }
@@ -342,12 +439,17 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const g = this.scene.add.graphics();
     g.setPosition(this.x, this.y);
     g.setDepth(9);
-    // 紅色方向線（長 120px）
-    g.lineStyle(3, 0xff2200, 0.85);
-    g.lineBetween(0, 0, this.chargerDirX * 120, this.chargerDirY * 120);
-    // 紅色警示圓圈
-    g.lineStyle(2, 0xff4400, 0.6);
-    g.strokeCircle(0, 0, 32);
+    // 紅色方向線（長 200px，更長更明顯）
+    g.lineStyle(4, 0xff0000, 0.9);
+    g.lineBetween(0, 0, this.chargerDirX * 200, this.chargerDirY * 200);
+    // 紅色警示圓圈（雙圈）
+    g.lineStyle(3, 0xff2200, 0.8);
+    g.strokeCircle(0, 0, 36);
+    g.lineStyle(1.5, 0xff6600, 0.5);
+    g.strokeCircle(0, 0, 50);
+    // 填充紅色光暈
+    g.fillStyle(0xff0000, 0.12);
+    g.fillCircle(0, 0, 50);
     this.chargeWarning = g;
   }
 
@@ -356,10 +458,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const g = this.scene.add.graphics();
     g.setPosition(this.x, this.y);
     g.setDepth(9);
-    g.fillStyle(0x00ffcc, 0.18);
-    g.fillCircle(0, 0, 36);
-    g.lineStyle(2.5, 0x00ffcc, 0.75);
-    g.strokeCircle(0, 0, 36);
+    // 大範圍青色護盾（半徑 100px）
+    g.fillStyle(0x00ffcc, 0.15);
+    g.fillCircle(0, 0, this.SHIELD_RADIUS);
+    g.lineStyle(3, 0x00ffcc, 0.9);
+    g.strokeCircle(0, 0, this.SHIELD_RADIUS);
+    g.lineStyle(1.5, 0xffffff, 0.4);
+    g.strokeCircle(0, 0, this.SHIELD_RADIUS - 8);
+    // 內圈
+    g.fillStyle(0x00ffcc, 0.08);
+    g.fillCircle(0, 0, this.SHIELD_RADIUS * 0.6);
     this.shieldVisual = g;
   }
 

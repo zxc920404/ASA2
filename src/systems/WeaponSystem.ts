@@ -407,6 +407,30 @@ export class WeaponSystem {
   }
 
   /**
+   * 消除進入 shield 護盾範圍內的玩家投射物
+   * 只消除真正的 Projectile（不影響守心環環繞體）
+   */
+  public destroyProjectilesInShieldRange(shieldEnemies: import('../objects/Enemy').Enemy[]): void {
+    const toRemove: Projectile[] = [];
+    for (const proj of this.projectiles) {
+      // 守心環環繞體不在 projectiles 陣列，跳過
+      if (proj.weaponId === 'guardian_ring') continue;
+      for (const shield of shieldEnemies) {
+        const dx = proj.x - shield.x;
+        const dy = proj.y - shield.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= shield.SHIELD_RADIUS) {
+          toRemove.push(proj);
+          break;
+        }
+      }
+    }
+    for (const proj of toRemove) {
+      this.removeProjectile(proj);
+    }
+  }
+
+  /**
    * 清理所有投射物與環繞體（場景切換時呼叫）
    */
   public destroy(): void {
