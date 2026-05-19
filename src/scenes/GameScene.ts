@@ -52,7 +52,7 @@ const ENEMY_SEPARATION_STRENGTH = 0.3;
 const SEPARATION_UPDATE_INTERVAL = 4;
 
 /** 勝利所需存活時間（毫秒）：10 分鐘 */
-const VICTORY_TIME_MS = 60 * 1000;
+const VICTORY_TIME_MS = 10 * 60 * 1000;
 
 /** 最後怪潮開始時間（秒）：9 分鐘，與 DifficultyScaler 一致 */
 const FINAL_WAVE_START_SEC = 9 * 60;
