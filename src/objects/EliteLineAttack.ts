@@ -38,6 +38,9 @@ export class EliteLineAttack {
   /** 是否已銷毀 */
   public isDead: boolean = false;
 
+  /** 預警倒數計時（ms），> 0 表示預警中 */
+  private warningTimer: number = 0;
+
   /** 傷害判定剩餘時間（ms） */
   private activeTimer: number = 0;
   private readonly ACTIVE_DURATION = 200; // 傷害判定持續 0.2 秒
@@ -68,10 +71,13 @@ export class EliteLineAttack {
   }
 
   /**
-   * 顯示預警線，warningTime 後自動呼叫 activate()
+   * 顯示預警線，預警倒數由 update() 負責計時（不用 delayedCall，暫停時正確停止）
    */
   public showWarning(): void {
     if (this.isDead) return;
+
+    // 設定預警倒數（由 update() 累積，暫停時自動停止）
+    this.warningTimer = this.warningTime;
 
     const cos = Math.cos(this.angle);
     const sin = Math.sin(this.angle);
@@ -111,13 +117,6 @@ export class EliteLineAttack {
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
-    });
-
-    // warningTime 後啟動攻擊
-    this.scene.time.delayedCall(this.warningTime, () => {
-      if (this.isDead) return;
-      if (!this.scene || !this.scene.scene.isActive()) return;
-      this.activate();
     });
   }
 
@@ -173,17 +172,22 @@ export class EliteLineAttack {
   }
 
   /**
-   * 每幀更新：計時 + 傷害判定
-   * @returns true 表示應該銷毀
+   * 每幀更新：預警倒數 → 啟動攻擊 → 傷害判定
+   * 由 GameScene._updateInternal() 呼叫，暫停時不呼叫，計時自然停止
    */
   public update(delta: number, player: Player, alreadyHit: boolean): { shouldDestroy: boolean; hit: boolean } {
     if (this.isDead) return { shouldDestroy: true, hit: false };
 
+    // 預警倒數階段
     if (!this.isActive) {
-      // 預警中，不造成傷害
+      this.warningTimer -= delta;
+      if (this.warningTimer <= 0) {
+        this.activate();
+      }
       return { shouldDestroy: false, hit: false };
     }
 
+    // 傷害判定階段
     this.activeTimer -= delta;
 
     let hit = false;
