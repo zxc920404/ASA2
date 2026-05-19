@@ -42,7 +42,7 @@ const SPAWN_DIST_MIN = 150;
 const SPAWN_DIST_MAX = 200;
 
 /** 玩家碰撞半徑（Requirement 6.2） */
-const PLAYER_COLLISION_RADIUS = 16;
+const PLAYER_COLLISION_RADIUS = 14;
 
 /** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
 const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
