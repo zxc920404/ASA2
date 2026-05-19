@@ -52,16 +52,29 @@ export class LevelUpSystem {
       player.characterId
     );
 
+    // 防呆：選項為空時不暫停，直接跳過
+    if (!options || options.length === 0) {
+      console.warn('[LevelUp] options empty, skipping pause');
+      return;
+    }
+
     // 升級專用暫停（不顯示 PausePanel）
     this.gameScene.pauseForLevelUp();
 
     // 建立並顯示 LevelUpPanel（Requirement 10.3）
-    const scene = this.gameScene.getScene();
-    this.currentPanel = new LevelUpPanel(
-      scene,
-      options,
-      (option: UpgradeOption) => this.onOptionSelected(player, option)
-    );
+    try {
+      const scene = this.gameScene.getScene();
+      this.currentPanel = new LevelUpPanel(
+        scene,
+        options,
+        (option: UpgradeOption) => this.onOptionSelected(player, option)
+      );
+    } catch (e) {
+      // LevelUpPanel 建立失敗時，立刻恢復遊戲，不讓遊戲卡在 levelup 狀態
+      console.error('[LevelUp] panel build failed, resuming', e);
+      this.currentPanel = null;
+      this.gameScene.resumeFromLevelUp();
+    }
   }
 
   /**

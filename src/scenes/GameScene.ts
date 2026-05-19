@@ -112,6 +112,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     return this.pauseReason !== 'none';
   }
 
+  /** 設定 pauseReason 並在變化時 log */
+  private setPauseReason(reason: typeof this.pauseReason): void {
+    if (this.pauseReason !== reason) {
+      console.log('[PauseReason]', this.pauseReason, '->', reason);
+      this.pauseReason = reason;
+    }
+  }
+
   // 死亡狀態（Requirement 1.2、14.1）防止重複觸發
   private isGameOver: boolean = false;
 
@@ -379,14 +387,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     if (this.debugUpdateTimer >= this.DEBUG_UPDATE_INTERVAL) {
       this.debugUpdateTimer = 0;
       const fps = Math.round(this.game.loop.actualFps);
-      const enemies = this.enemyGroup.getLength();
+      const enemyCount = this.enemyGroup.getLength();
       const xpGems = this.xpGemGroup.getLength();
       const eliteProj = this.eliteProjectiles.length;
       const rangedProj = this.rangedProjectiles.length;
       const drops = this.dropItems.length;
       const holes = this.blackHoleTraps.length;
+      const joystickVecDbg = this.virtualJoystick.getVector();
       this.debugText.setText(
-        `FPS:${fps} E:${enemies} XP:${xpGems}\nEP:${eliteProj} RP:${rangedProj} D:${drops} BH:${holes}`
+        `FPS:${fps} E:${enemyCount} XP:${xpGems}\n` +
+        `EP:${eliteProj} RP:${rangedProj} D:${drops} BH:${holes}\n` +
+        `Pause:${this.pauseReason} isPaused:${this.isPaused}\n` +
+        `P:${Math.round(this.player.x)},${Math.round(this.player.y)}\n` +
+        `Input:${joystickVecDbg.x.toFixed(1)},${joystickVecDbg.y.toFixed(1)}\n` +
+        `Lv:${this.player.level} Exp:${Math.round(this.player.currentExp)}`
       );
     }
 
@@ -695,7 +709,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 直向暫停：只在目前未暫停時才暫停，使用獨立的 'portrait' 狀態
       if (this.pauseReason === 'none' && !this.isGameOver) {
-        this.pauseReason = 'portrait';
+        this.setPauseReason('portrait');
         if (this.spawnTimer) this.spawnTimer.paused = true;
         this.weaponSystem.pause();
       }
@@ -706,7 +720,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 恢復：只在 portrait 暫停時恢復，不影響 manual / levelup / gameover
       if (this.pauseReason === 'portrait' && !this.isGameOver) {
-        this.pauseReason = 'none';
+        this.setPauseReason('none');
         if (this.spawnTimer) this.spawnTimer.paused = false;
         this.weaponSystem.resume();
         this.weaponSystem.syncWeapons(this.player);
@@ -724,7 +738,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    */
   private triggerGameOver(): void {
     this.isGameOver = true;
-    this.pauseReason = 'gameover';
+    this.setPauseReason('gameover');
 
     // 停止生成計時器
     if (this.spawnTimer) {
@@ -782,7 +796,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    */
   private triggerVictory(): void {
     this.isVictory = true;
-    this.pauseReason = 'victory';
+    this.setPauseReason('victory');
 
     // 停止生成計時器
     if (this.spawnTimer) {
@@ -825,92 +839,49 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     );
   }
 
-  /**
-   * 手動暫停（玩家點擊暫停按鈕）
-   * 只在 pauseReason === 'none' 時才暫停，不干擾升級或死亡狀態
-   */
   public pauseGame(): void {
-    if (this.pauseReason !== 'none') return; // 升級或死亡中，不允許手動暫停覆蓋
-
-    this.pauseReason = 'manual';
-
+    if (this.pauseReason !== 'none') return;
+    this.setPauseReason('manual');
     if (this.spawnTimer) this.spawnTimer.paused = true;
     this.weaponSystem.pause();
-
-    // 只有手動暫停才顯示 PausePanel
     this.pausePanel.show();
   }
 
-  /**
-   * 手動恢復（點擊「繼續遊戲」）
-   * 只解除 manual pause，不影響 levelup 或 gameover
-   */
   public resumeGame(): void {
     if (this.pauseReason !== 'manual') return;
-
-    this.pauseReason = 'none';
-
+    this.setPauseReason('none');
     if (this.spawnTimer) this.spawnTimer.paused = false;
     this.weaponSystem.resume();
     this.weaponSystem.syncWeapons(this.player);
-
-    // 恢復後檢查是否有溢出升級
     this.checkLevelUp();
   }
 
-  /**
-   * 升級專用暫停（由 LevelUpSystem 呼叫）
-   * 不顯示 PausePanel，不顯示「已暫停」
-   */
   public pauseForLevelUp(): void {
-    if (this.pauseReason !== 'none') return; // 防止重複暫停
-
-    this.pauseReason = 'levelup';
-
+    if (this.pauseReason !== 'none') return;
+    this.setPauseReason('levelup');
     if (this.spawnTimer) this.spawnTimer.paused = true;
     this.weaponSystem.pause();
-    // 不呼叫 pausePanel.show()
   }
 
-  /**
-   * 升級專用恢復（由 LevelUpSystem 呼叫，玩家選完升級選項後）
-   * 只在 pauseReason === 'levelup' 時恢復，不觸發 PausePanel 流程
-   */
   public resumeFromLevelUp(): void {
     if (this.pauseReason !== 'levelup') return;
-
-    this.pauseReason = 'none';
-
+    this.setPauseReason('none');
     if (this.spawnTimer) this.spawnTimer.paused = false;
     this.weaponSystem.resume();
     this.weaponSystem.syncWeapons(this.player);
-
-    // 恢復後檢查是否有溢出升級（保留溢出經驗處理）
     this.checkLevelUp();
   }
 
-  /**
-   * 屬性面板專用暫停（玩家點擊「屬」按鈕）
-   * 只在 pauseReason === 'none' 時才暫停
-   */
   public pauseForStatus(): void {
     if (this.pauseReason !== 'none') return;
-
-    this.pauseReason = 'status';
-
+    this.setPauseReason('status');
     if (this.spawnTimer) this.spawnTimer.paused = true;
     this.weaponSystem.pause();
   }
 
-  /**
-   * 屬性面板專用恢復（關閉屬性面板時呼叫）
-   * 只在 pauseReason === 'status' 時恢復
-   */
   public resumeFromStatus(): void {
     if (this.pauseReason !== 'status') return;
-
-    this.pauseReason = 'none';
-
+    this.setPauseReason('none');
     if (this.spawnTimer) this.spawnTimer.paused = false;
     this.weaponSystem.resume();
     this.weaponSystem.syncWeapons(this.player);
@@ -1024,6 +995,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private checkLevelUp(): void {
     // 升級 UI 顯示中，不重複觸發（防止建立多個 LevelUpPanel）
     if (this.pauseReason === 'levelup') return;
+    // 遊戲已結束，不觸發升級
+    if (this.isGameOver || this.isVictory) return;
 
     // 無等級上限，持續升級直到經驗不足
     while (this.player.level < MAX_LEVEL) {

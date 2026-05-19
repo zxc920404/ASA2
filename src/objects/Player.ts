@@ -112,6 +112,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
    * 移動碰撞體並同步視覺圖形
    */
   public applyExternalMove(dx: number, dy: number, worldWidth: number = 3200, worldHeight: number = 3200): void {
+    // 防呆：NaN 或 Infinity 直接跳過
+    if (!isFinite(dx) || !isFinite(dy)) return;
     const halfW = this.width / 2;
     const halfH = this.height / 2;
     const newX = Phaser.Math.Clamp(this.x + dx, halfW, worldWidth - halfW);
