@@ -75,8 +75,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // 黑洞技能
   private blackholeCooldown: number = 5000; // 首次黑洞等待
   private readonly BLACKHOLE_COOLDOWN = 8000;
-  /** 回呼：由 GameScene 注入，用於生成黑洞 */
-  public onSpawnBlackHole?: (x: number, y: number) => void;
+  /** 回呼：由 GameScene 注入，用於生成黑洞（傳入 Boss 座標） */
+  public onSpawnBlackHole?: (bossX: number, bossY: number) => void;
 
   constructor(
     scene: Phaser.Scene,

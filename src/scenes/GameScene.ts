@@ -159,7 +159,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   // ── 黑洞陷阱陣列（shield 用）──────────────────────────────────────────
   private blackHoleTraps: BlackHoleTrap[] = [];
-  private readonly MAX_BLACK_HOLES = 2;
+  private readonly MAX_BLACK_HOLES = 4;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -1109,19 +1109,26 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // shield 注入黑洞生成回呼
     if (eliteType === 'shield') {
-      elite.onSpawnBlackHole = (ex, ey) => {
-        // 在玩家附近 80～180px 隨機位置生成黑洞
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 80 + Math.random() * 100;
-        const hx = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 32, 3200 - 32);
-        const hy = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 32, 3200 - 32);
-        // 超過上限時移除最舊的
-        if (this.blackHoleTraps.length >= this.MAX_BLACK_HOLES) {
-          const oldest = this.blackHoleTraps.shift();
-          if (oldest) oldest.destroy();
+      elite.onSpawnBlackHole = (bossX, bossY) => {
+        // 每輪生成 2～3 個移動小黑洞，以 Boss 為中心
+        const count = 2 + Math.floor(Math.random() * 2); // 2 或 3
+        for (let i = 0; i < count; i++) {
+          // 超過上限時移除最舊的
+          if (this.blackHoleTraps.length >= this.MAX_BLACK_HOLES) {
+            const oldest = this.blackHoleTraps.shift();
+            if (oldest) oldest.destroy();
+          }
+          // 在 Boss 身邊 60～140px 隨機位置生成
+          const spawnAngle = Math.random() * Math.PI * 2;
+          const spawnDist = 60 + Math.random() * 80;
+          const hx = Phaser.Math.Clamp(bossX + Math.cos(spawnAngle) * spawnDist, 32, 3200 - 32);
+          const hy = Phaser.Math.Clamp(bossY + Math.sin(spawnAngle) * spawnDist, 32, 3200 - 32);
+          // 移動方向：隨機，速度 35～60px/s
+          const moveAngle = Math.random() * Math.PI * 2;
+          const moveSpeed = 35 + Math.random() * 25;
+          const hole = new BlackHoleTrap(this, hx, hy, 80, 4000, moveAngle, moveSpeed);
+          this.blackHoleTraps.push(hole);
         }
-        const hole = new BlackHoleTrap(this, hx, hy, 100, 3000);
-        this.blackHoleTraps.push(hole);
       };
     }
 
