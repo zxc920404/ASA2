@@ -1563,9 +1563,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 攻擊參數
     const START_DIST = 600;   // 攻擊起點距目標點距離（px）
     const LINE_LENGTH = 1100; // 攻擊線長度（px）
-    const LINE_WIDTH = 32;    // 攻擊線寬度（px）
+    const LINE_WIDTH = 28;    // 攻擊線寬度（px）（原 32，-15%）
     const LINE_DAMAGE = 15;   // 傷害值
-    const WARNING_TIME = 700; // 預警時間（ms）
+    const WARNING_TIME = 800; // 預警時間（ms）（原 700，+15%）
 
     // 第一道的基礎角度（隨機，讓每次方向不同）
     const baseAngle = Math.random() * Math.PI * 2;
