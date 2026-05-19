@@ -166,22 +166,27 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // 清理精英特效
     if (this.shieldVisual && this.shieldVisual.active) {
       this.shieldVisual.destroy();
+      this.shieldVisual = undefined;
     }
     if (this.chargeWarning && this.chargeWarning.active) {
       this.chargeWarning.destroy();
+      this.chargeWarning = undefined;
     }
 
     this.spawnDeathParticles();
 
-    this.scene.tweens.add({
-      targets: this.visual,
-      scaleX: 0, scaleY: 0, alpha: 0,
-      duration: 220, ease: 'Power2',
-      onComplete: () => {
-        if (this.visual && this.visual.active) this.visual.destroy();
-      },
-    });
+    if (this.visual && this.visual.active) {
+      this.scene.tweens.add({
+        targets: this.visual,
+        scaleX: 0, scaleY: 0, alpha: 0,
+        duration: 220, ease: 'Power2',
+        onComplete: () => {
+          if (this.visual && this.visual.active) this.visual.destroy();
+        },
+      });
+    }
 
+    // 延遲銷毀碰撞體（讓死亡動畫播完）
     this.scene.time.delayedCall(10, () => {
       if (this.active) super.destroy();
     });
@@ -297,6 +302,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   public destroy(fromScene?: boolean): void {
+    // 防重複 destroy
+    if (!this.active && !fromScene) return;
     if (this.visual && this.visual.active) this.visual.destroy();
     if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
     if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();

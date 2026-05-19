@@ -930,11 +930,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * - 更新擊殺計數器
    */
   private handleEnemyDeath(enemy: Enemy): void {
-    // 防止同一敵人被重複處理
+    // 防止同一敵人被重複處理（isDying 已在 playDeathEffect 設為 true）
     if (!this.enemyGroup.contains(enemy)) return;
+    if (enemy.isDying) return; // 已在處理中，跳過
 
+    console.log('[Death] start', enemy.dataId, enemy.isElite);
+
+    // 先讀取死亡位置（destroy 後不可再讀）
     const deathX = enemy.x;
     const deathY = enemy.y;
+    const isElite = enemy.isElite;
+    const isRanged = enemy.isRanged;
 
     // 取得此敵人的 expDrop 值
     const enemyData = getEnemyById(enemy.dataId);
@@ -943,11 +949,24 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 從群組移除（防止繼續被 update 處理）
     this.enemyGroup.remove(enemy, false, false);
 
-    // 播放死亡特效（特效完成後自動銷毀物件）
+    // 播放死亡特效（設定 isDying = true，防止重複觸發）
     enemy.playDeathEffect();
 
-    // 精英怪掉落多顆 XP gem（散落在死亡位置附近）
-    if (enemy.isElite) {
+    // 更新擊殺計數器
+    this.killCount++;
+
+    // 天命點獲取（只更新記憶體，不寫 localStorage）
+    if (isElite) {
+      this.runDestinyPoints += 25;
+    } else if (isRanged) {
+      this.runDestinyPoints += 2;
+    } else {
+      this.runDestinyPoints += 1;
+    }
+    console.log('[Death] destiny +', this.runDestinyPoints);
+
+    // 生成 XP gem
+    if (isElite) {
       const gemCount = 12;
       for (let i = 0; i < gemCount; i++) {
         const angle = (i / gemCount) * Math.PI * 2;
@@ -959,23 +978,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         );
       }
     } else {
-      // 在死亡位置生成 XPGem
       this.spawnXPGem(deathX, deathY, expValue);
-      // 機率掉落道具
-      this.trySpawnDropItem(deathX, deathY);
     }
+    console.log('[Death] xp ok');
 
-    // 更新擊殺計數器
-    this.killCount++;
+    // DropItem 暫時停用（排查卡死問題）
+    // this.trySpawnDropItem(deathX, deathY);
 
-    // 天命點獲取（只更新記憶體，不寫 localStorage）
-    if (enemy.isElite) {
-      this.runDestinyPoints += 25;
-    } else if (enemy.isRanged) {
-      this.runDestinyPoints += 2;
-    } else {
-      this.runDestinyPoints += 1;
-    }
+    console.log('[Death] done');
   }
 
   /**
