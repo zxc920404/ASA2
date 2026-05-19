@@ -22,6 +22,8 @@ import { EliteLineAttack } from '../objects/EliteLineAttack';
 
 interface GameSceneData {
   characterId: string;
+  /** 選擇的地圖 ID（目前只有 'qingyuan'，預留給未來擴充） */
+  selectedMapId?: string;
 }
 
 // 世界尺寸（邊界限制用）
@@ -219,8 +221,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   init(data: GameSceneData): void {
-    // 接收從 CharacterSelectScene 傳入的 characterId（Requirement 4.3）
+    // 接收從 MapSelectScene 傳入的 characterId 與 selectedMapId
     this.characterId = data?.characterId ?? '';
+    // selectedMapId 目前只有 'qingyuan'，預留給未來多地圖擴充
+    // const selectedMapId = data?.selectedMapId ?? 'qingyuan';
   }
 
   create(): void {

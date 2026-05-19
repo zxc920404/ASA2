@@ -383,7 +383,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.confirmHitArea.on('pointerdown', () => {
       if (this.selectedIndex < 0) return;
       const characterId = CHARACTERS[this.selectedIndex].id;
-      this.scene.start('GameScene', { characterId });
+      this.scene.start('MapSelectScene', { characterId });
     });
     this.confirmHitArea.on('pointerover', () => {
       if (this.selectedIndex >= 0) this.drawConfirmBtn(true);
