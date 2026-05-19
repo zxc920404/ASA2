@@ -183,6 +183,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // ── 氣血回復計時（ms）────────────────────────────────────────────────
   private hpRecoveryTimer: number = 0;
   private readonly HP_RECOVERY_INTERVAL = 1000; // 每 1 秒回血一次
+
+  // ── Debug 顯示 ────────────────────────────────────────────────────────
+  private debugText!: Phaser.GameObjects.Text;
+  private debugUpdateTimer: number = 0;
+  private readonly DEBUG_UPDATE_INTERVAL = 500; // 每 500ms 更新一次
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -317,6 +322,18 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 設定螢幕方向偵測（任務 11）
     this.setupOrientationDetection();
 
+    // ── Debug 效能顯示（右下角，每 500ms 更新）──────────────────────────
+    this.debugUpdateTimer = 0;
+    this.debugText = this.add.text(
+      this.scale.width - 8, this.scale.height - 8,
+      '', {
+        fontSize: '10px',
+        color: '#ffff00',
+        backgroundColor: '#00000088',
+        padding: { x: 4, y: 2 },
+      }
+    ).setOrigin(1, 1).setScrollFactor(0).setDepth(200);
+
     // 場景關閉時清理方向監聽（任務 11）
     this.events.once('shutdown', () => {
       if (this.orientationHandler) {
@@ -329,6 +346,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (this.playerStatusPanel) {
         this.playerStatusPanel.destroy();
       }
+      // 清理所有動態物件陣列，防止 scene restart 後殘留
+      this.cleanupDynamicObjects();
     });
   }
 
@@ -354,6 +373,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 更新 HUD 快取資料（實際渲染由 HUD 內部計時器負責）
     this.hud.update(this.player, this.elapsedSeconds, this.killCount);
+
+    // ── Debug 顯示更新（每 500ms）────────────────────────────────────────
+    this.debugUpdateTimer += delta;
+    if (this.debugUpdateTimer >= this.DEBUG_UPDATE_INTERVAL) {
+      this.debugUpdateTimer = 0;
+      const fps = Math.round(this.game.loop.actualFps);
+      const enemies = this.enemyGroup.getLength();
+      const xpGems = this.xpGemGroup.getLength();
+      const eliteProj = this.eliteProjectiles.length;
+      const rangedProj = this.rangedProjectiles.length;
+      const drops = this.dropItems.length;
+      const holes = this.blackHoleTraps.length;
+      this.debugText.setText(
+        `FPS:${fps} E:${enemies} XP:${xpGems}\nEP:${eliteProj} RP:${rangedProj} D:${drops} BH:${holes}`
+      );
+    }
 
     // 讀取 WASD 輸入並移動玩家（Requirement 2.1、2.2、2.3、2.4）
     // 合併鍵盤與虛擬搖桿輸入（任務 11）
@@ -1306,9 +1341,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const eliteType = types[wave - 1] ?? 'charger';
     elite.applyEliteVisual(eliteType);
 
-    // shooter 注入投射物生成回呼
+    // shooter 注入投射物生成回呼（加入上限保護）
     if (eliteType === 'shooter') {
       elite.onShootProjectile = (px, py, vx, vy, dmg) => {
+        // 精英投射物上限：超過時移除最舊
+        if (this.eliteProjectiles.length >= 40) {
+          const oldest = this.eliteProjectiles.shift();
+          if (oldest && !oldest.isDead) oldest.destroy();
+        }
         const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
         this.eliteProjectiles.push(proj);
       };
@@ -1515,6 +1555,32 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     spawnY = Phaser.Math.Clamp(spawnY, 0, WORLD_HEIGHT);
 
     return { x: spawnX, y: spawnY };
+  }
+
+  /**
+   * 清理所有動態物件陣列（scene shutdown / restart 時呼叫）
+   * 防止 tween / timer 在場景切換後繼續操作已銷毀物件
+   */
+  private cleanupDynamicObjects(): void {
+    for (const proj of this.eliteProjectiles) {
+      if (!proj.isDead) proj.destroy();
+    }
+    this.eliteProjectiles = [];
+
+    for (const proj of this.rangedProjectiles) {
+      if (!proj.isDead) proj.destroy();
+    }
+    this.rangedProjectiles = [];
+
+    for (const hole of this.blackHoleTraps) {
+      if (!hole.isDead) hole.destroy();
+    }
+    this.blackHoleTraps = [];
+
+    for (const item of this.dropItems) {
+      if (!item.isDead) item.destroy();
+    }
+    this.dropItems = [];
   }
 
   /**

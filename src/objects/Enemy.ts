@@ -414,7 +414,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const delays = [0, 200, 400];
     for (const delay of delays) {
       this.scene.time.delayedCall(delay, () => {
-        if (this.isDying || !this.onShootProjectile) return;
+        // 敵人已死亡或場景已結束時跳過
+        if (this.isDying || !this.active || !this.onShootProjectile) return;
+        if (!this.scene || !this.scene.scene.isActive()) return;
         // 重新瞄準玩家當下位置
         const dx = playerX - this.x;
         const dy = playerY - this.y;
@@ -663,6 +665,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   private showFlashOverlay(): void {
+    if (this.isDying) return; // 死亡中不建立閃白
     const flash = this.scene.add.graphics();
     flash.fillStyle(0xffffff, 0.92);
     flash.fillCircle(0, 0, this.collisionRadius + 5);
@@ -671,13 +674,13 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.scene.tweens.add({
       targets: flash, alpha: 0, duration: 100,
       onComplete: () => {
-        flash.destroy();
-        if (this.visual && this.visual.active) this.visual.setAlpha(1);
+        if (flash && flash.active) flash.destroy();
+        if (this.visual && this.visual.active && !this.isDying) this.visual.setAlpha(1);
       },
     });
 
     // 輕量縮放回饋（scale 1.0 → 1.08 → 1.0，不建立額外物件）
-    if (this.visual && this.visual.active) {
+    if (this.visual && this.visual.active && !this.isDying) {
       this.scene.tweens.add({
         targets: this.visual,
         scaleX: 1.08, scaleY: 1.08,
@@ -723,6 +726,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       scaleX: 1.1, scaleY: 1.1,
       duration: 80, ease: 'Back.Out',
       onComplete: () => {
+        if (!text || !text.active) { activeDamageNumbers = Math.max(0, activeDamageNumbers - 1); return; }
         this.scene.tweens.add({
           targets: text,
           scaleX: 1.0, scaleY: 1.0,
@@ -731,8 +735,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
           alpha: 0,
           duration: 480, ease: 'Power1',
           onComplete: () => {
-            text.destroy();
-            activeDamageNumbers--;
+            if (text && text.active) text.destroy();
+            activeDamageNumbers = Math.max(0, activeDamageNumbers - 1);
           },
         });
       },
@@ -740,7 +744,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   private spawnDeathParticles(): void {
-    const count = 5;
+    // 減少粒子數量（3 個足夠，避免大量敵人同時死亡時 Graphics 爆炸）
+    const count = 3;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
       const dot = this.scene.add.graphics();
@@ -754,8 +759,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
         x: dot.x + Math.cos(angle) * speed,
         y: dot.y + Math.sin(angle) * speed,
         alpha: 0, scaleX: 0.2, scaleY: 0.2,
-        duration: 300 + Math.random() * 150, ease: 'Power2',
-        onComplete: () => dot.destroy(),
+        duration: 250 + Math.random() * 100, ease: 'Power2',
+        onComplete: () => { if (dot && dot.active) dot.destroy(); },
       });
     }
   }

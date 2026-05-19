@@ -139,15 +139,19 @@ export class BlackHoleTrap {
     const dy = this.y - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < this.radius && dist > 1) {
+    // NaN / Infinity 防呆
+    if (!isFinite(dist) || dist <= 0) return true;
+
+    if (dist < this.radius) {
       // 越靠近吸力越強，邊緣吸力最弱
       const strengthFactor = 1 - dist / this.radius;
       const pull = this.PULL_STRENGTH * strengthFactor * dt;
-      // 使用 applyExternalMove 確保碰撞體與視覺圖形同步移動
-      player.applyExternalMove(
-        (dx / dist) * pull,
-        (dy / dist) * pull
-      );
+      const pullX = (dx / dist) * pull;
+      const pullY = (dy / dist) * pull;
+      // 再次防呆：確保 pull 值有效
+      if (isFinite(pullX) && isFinite(pullY)) {
+        player.applyExternalMove(pullX, pullY);
+      }
     }
 
     return true;
@@ -157,25 +161,30 @@ export class BlackHoleTrap {
     if (this.isDead) return;
     this.isDead = true;
 
+    // 停止旋轉 tween
+    if (this.spinContainer && this.spinContainer.active) {
+      this.scene.tweens.killTweensOf(this.spinContainer);
+    }
+
     // 淡出消失
     if (this.visual && this.visual.active) {
+      this.scene.tweens.killTweensOf(this.visual);
       this.scene.tweens.add({
         targets: this.visual,
         alpha: 0,
         scaleX: 0.1,
         scaleY: 0.1,
-        duration: 250,
+        duration: 200,
         onComplete: () => {
           if (this.visual && this.visual.active) this.visual.destroy();
         },
       });
     }
     if (this.spinContainer && this.spinContainer.active) {
-      this.scene.tweens.killTweensOf(this.spinContainer);
       this.scene.tweens.add({
         targets: this.spinContainer,
         alpha: 0,
-        duration: 250,
+        duration: 200,
         onComplete: () => {
           if (this.spinContainer && this.spinContainer.active) this.spinContainer.destroy();
         },
