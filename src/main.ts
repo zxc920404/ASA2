@@ -10,14 +10,14 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#1a1a2e',
   scene: [BootScene, MainMenuScene, CharacterSelectScene, GameScene, MetaUpgradeScene],
   scale: {
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.NO_CENTER,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 960,
+    height: 540,
     parent: document.body,
   },
   render: {
-    antialias: false,
+    antialias: true,
     pixelArt: false,
   },
 };
