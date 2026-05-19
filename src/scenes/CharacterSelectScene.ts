@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CharacterData } from '../types/index';
 import { CHARACTERS } from '../data/characters';
 import { getWeaponById } from '../data/weapons';
+import { uiText, uiTitle, FONT_FAMILY } from '../ui/UIStyles';
 
 // ── 宗門資料（UI 顯示用，不影響 id / 戰鬥邏輯）──────────────────────────
 const SECT_INFO: Record<string, {
@@ -38,18 +39,13 @@ const SECT_INFO: Record<string, {
   },
 };
 
-/** 共用文字樣式 helper：resolution:2 消除模糊，座標取整 */
+/** 共用文字樣式 helper：resolution:2 + fontFamily 消除模糊，座標取整 */
 function textStyle(
   fontSize: number,
   color: string,
   extra: Phaser.Types.GameObjects.Text.TextStyle = {}
 ): Phaser.Types.GameObjects.Text.TextStyle {
-  return {
-    fontSize: `${fontSize}px`,
-    color,
-    resolution: 2,
-    ...extra,
-  };
+  return uiText(fontSize, color, extra);
 }
 
 export class CharacterSelectScene extends Phaser.Scene {

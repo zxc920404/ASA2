@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MetaProgression, META_UPGRADES, MetaUpgradeDef, MetaUpgradeId } from '../systems/MetaProgression';
+import { uiText, uiTitle } from '../ui/UIStyles';
 
 /**
  * MetaUpgradeScene — 天命修煉局外升級頁面
@@ -27,15 +28,13 @@ export class MetaUpgradeScene extends Phaser.Scene {
     this.drawBackground(W, H);
 
     // ── 標題（左上）──────────────────────────────────────────────────────
-    this.add.text(W * 0.08, H * 0.07, '天命修煉', {
-      fontSize: '28px', color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0, 0.5).setDepth(10);
+    this.add.text(Math.round(W * 0.08), Math.round(H * 0.07), '天命修煉',
+      uiTitle(26, '#ffd700')
+    ).setOrigin(0, 0.5).setDepth(10);
 
-    // ── 天命點（右上角，放大顯示）────────────────────────────────────────
-    this.dpText = this.add.text(W - 16, 12, '', {
-      fontSize: '20px', color: '#88ffcc', fontStyle: 'bold',
-      stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(1, 0).setDepth(15);
+    this.dpText = this.add.text(Math.round(W - 16), 12, '',
+      uiText(18, '#88ffcc', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 })
+    ).setOrigin(1, 0).setDepth(15);
     this.refreshDpText();
 
     // ── 升級卡片（兩欄布局）──────────────────────────────────────────────
@@ -106,23 +105,21 @@ export class MetaUpgradeScene extends Phaser.Scene {
     const alpha = isUnlocked ? 1 : 0.45;
 
     // ── 類別標籤 ──────────────────────────────────────────────────────────
-    const catText = this.add.text(cx - cardW / 2 + 8, cy - cardH / 2 + 5, def.category, {
-      fontSize: '9px', color: '#777777',
-    }).setOrigin(0, 0).setDepth(11).setAlpha(alpha);
+    const catText = this.add.text(cx - cardW / 2 + 8, cy - cardH / 2 + 5, def.category,
+      uiText(9, '#777777')
+    ).setOrigin(0, 0).setDepth(11).setAlpha(alpha);
     this.cardElements.push(catText);
 
-    // ── 名稱 ──────────────────────────────────────────────────────────────
     const nameColor = isMaxed ? '#ffd700' : isUnlocked ? '#ffffff' : '#666666';
-    const nameText = this.add.text(cx, cy - cardH / 2 + 17, def.name, {
-      fontSize: '14px', color: nameColor, fontStyle: 'bold',
-    }).setOrigin(0.5, 0).setDepth(11);
+    const nameText = this.add.text(cx, cy - cardH / 2 + 17, def.name,
+      uiText(13, nameColor, { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0).setDepth(11);
     this.cardElements.push(nameText);
 
-    // ── 等級 ──────────────────────────────────────────────────────────────
     const lvLabel = isMaxed ? `Lv.${level} ✦ 滿級` : `Lv.${level} / ${def.maxLevel}`;
-    const lvText = this.add.text(cx, cy - cardH / 2 + 32, lvLabel, {
-      fontSize: '10px', color: isMaxed ? '#ffd700' : isUnlocked ? '#aaddff' : '#555555',
-    }).setOrigin(0.5, 0).setDepth(11);
+    const lvText = this.add.text(cx, cy - cardH / 2 + 32, lvLabel,
+      uiText(10, isMaxed ? '#ffd700' : isUnlocked ? '#aaddff' : '#555555')
+    ).setOrigin(0.5, 0).setDepth(11);
     this.cardElements.push(lvText);
 
     if (!isUnlocked) {
@@ -137,25 +134,21 @@ export class MetaUpgradeScene extends Phaser.Scene {
       }).setOrigin(0.5, 0.5).setDepth(12);
       this.cardElements.push(lockIcon);
 
-      const lockDesc = this.add.text(cx, cy + cardH * 0.22, def.unlockDesc ?? '條件未達成', {
-        fontSize: '10px', color: '#aaaaaa',
-        wordWrap: { width: cardW - 20 }, align: 'center',
-      }).setOrigin(0.5, 0).setDepth(12);
+      const lockDesc = this.add.text(cx, cy + cardH * 0.22, def.unlockDesc ?? '條件未達成',
+        uiText(10, '#aaaaaa', { wordWrap: { width: cardW - 20 }, align: 'center' })
+      ).setOrigin(0.5, 0).setDepth(12);
       this.cardElements.push(lockDesc);
 
     } else {
-      // ── 已解鎖：效果 + 下一級 + 升級按鈕 ────────────────────────────
-      const effectText = this.add.text(cx, cy - cardH / 2 + 47, def.effectDesc(level), {
-        fontSize: '10px', color: '#88ffaa',
-        wordWrap: { width: cardW - 16 }, align: 'center',
-      }).setOrigin(0.5, 0).setDepth(11);
+      const effectText = this.add.text(cx, cy - cardH / 2 + 47, def.effectDesc(level),
+        uiText(10, '#88ffaa', { wordWrap: { width: cardW - 16 }, align: 'center' })
+      ).setOrigin(0.5, 0).setDepth(11);
       this.cardElements.push(effectText);
 
       if (!isMaxed) {
-        const nextText = this.add.text(cx, cy - cardH / 2 + 62, `▶ ${def.nextEffectDesc(level)}`, {
-          fontSize: '9px', color: '#aaaacc',
-          wordWrap: { width: cardW - 16 }, align: 'center',
-        }).setOrigin(0.5, 0).setDepth(11);
+        const nextText = this.add.text(cx, cy - cardH / 2 + 62, `▶ ${def.nextEffectDesc(level)}`,
+          uiText(9, '#aaaacc', { wordWrap: { width: cardW - 16 }, align: 'center' })
+        ).setOrigin(0.5, 0).setDepth(11);
         this.cardElements.push(nextText);
 
         // ── 升級按鈕（支援長按）──────────────────────────────────────────
@@ -169,11 +162,9 @@ export class MetaUpgradeScene extends Phaser.Scene {
         this.cardElements.push(btnG);
 
         const costStr = canUpgrade ? `升級 ${cost}✦` : `${cost}✦ 不足`;
-        const btnText = this.add.text(btnX, btnY, costStr, {
-          fontSize: '11px',
-          color: canUpgrade ? '#ffffff' : '#666666',
-          fontStyle: 'bold',
-        }).setOrigin(0.5, 0.5).setDepth(12);
+        const btnText = this.add.text(btnX, btnY, costStr,
+          uiText(11, canUpgrade ? '#ffffff' : '#666666', { fontStyle: 'bold' })
+        ).setOrigin(0.5, 0.5).setDepth(12);
         this.cardElements.push(btnText);
 
         if (canUpgrade) {
@@ -285,9 +276,9 @@ export class MetaUpgradeScene extends Phaser.Scene {
     const btnG = this.add.graphics().setDepth(10);
     this.drawReturnBtn(btnG, btnX, btnY, btnW, btnH, r, false);
 
-    const btnText = this.add.text(btnX, btnY, '返回主選單', {
-      fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(11);
+    const btnText = this.add.text(btnX, btnY, '返回主選單',
+      uiText(15, '#ffffff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setDepth(11);
 
     const hitArea = this.add.rectangle(btnX, btnY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0)
       .setDepth(12).setInteractive({ useHandCursor: true });

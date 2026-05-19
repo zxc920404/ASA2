@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UpgradeOption } from '../types/index';
 import { getWeaponById, WEAPONS } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
+import { uiText, uiTitle } from './UIStyles';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper：武器升級差異描述
@@ -242,14 +243,14 @@ export class LevelUpPanel {
     this.container.add(overlay);
 
     // ── 標題 ────────────────────────────────────────────────────────────────
-    const titleShadow = this.scene.add.text(W * 0.5 + 2, H * 0.17 + 2, '升級！選擇強化', {
-      fontSize: '30px', color: '#7a4a00', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+    const titleShadow = this.scene.add.text(Math.round(W * 0.5) + 2, Math.round(H * 0.17) + 2, '升級！選擇強化',
+      uiTitle(28, '#7a4a00')
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(titleShadow);
 
-    const title = this.scene.add.text(W * 0.5, H * 0.17, '升級！選擇強化', {
-      fontSize: '30px', color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+    const title = this.scene.add.text(Math.round(W * 0.5), Math.round(H * 0.17), '升級！選擇強化',
+      uiTitle(28, '#ffd700')
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(title);
 
     const titleLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
@@ -294,23 +295,19 @@ export class LevelUpPanel {
     tagG.fillRoundedRect(cx - tagW / 2, cardTop + 8, tagW, tagH, 4);
     this.container.add(tagG);
 
-    const tagText = this.scene.add.text(cx, cardTop + 18, typeTag.label, {
-      fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
+    const tagText = this.scene.add.text(cx, cardTop + 18, typeTag.label,
+      uiText(11, '#ffffff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
     this.container.add(tagText);
 
-    // ── 武器/被動名稱 ────────────────────────────────────────────────────────
-    const nameText = this.scene.add.text(cx, cardTop + cardH * 0.18, getOptionName(option), {
-      fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
-      wordWrap: { width: cardW - 16 }, align: 'center',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+    const nameText = this.scene.add.text(cx, cardTop + cardH * 0.18, getOptionName(option),
+      uiText(15, '#ffffff', { fontStyle: 'bold', wordWrap: { width: cardW - 16 }, align: 'center' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(nameText);
 
-    // ── 等級標示 ────────────────────────────────────────────────────────────
-    const levelLabel = getLevelLabel(option);
-    const levelText = this.scene.add.text(cx, cardTop + cardH * 0.28, levelLabel, {
-      fontSize: '12px', color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+    const levelText = this.scene.add.text(cx, cardTop + cardH * 0.28, getLevelLabel(option),
+      uiText(12, '#ffd700', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(levelText);
 
     // ── 分隔線 ──────────────────────────────────────────────────────────────
@@ -322,21 +319,19 @@ export class LevelUpPanel {
     // ── 本次提升標題 ────────────────────────────────────────────────────────
     const upgradeTitle = getUpgradeTitle(option);
     const titleY = cardTop + cardH * 0.42;
-    const upgradeTitleText = this.scene.add.text(cx, titleY, upgradeTitle, {
-      fontSize: '11px', color: '#aaaacc', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+    const upgradeTitleText = this.scene.add.text(cx, titleY, upgradeTitle,
+      uiText(11, '#aaaacc', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(upgradeTitleText);
 
-    // ── 升級詳細描述（每行一條） ─────────────────────────────────────────────
     const upgradeLines = getUpgradeLines(option);
     const lineSpacing = cardH * 0.11;
     const firstLineY = cardTop + cardH * 0.52;
 
     for (let i = 0; i < upgradeLines.length; i++) {
-      const lineText = this.scene.add.text(cx, firstLineY + i * lineSpacing, `• ${upgradeLines[i]}`, {
-        fontSize: '12px', color: '#88ffaa',
-        wordWrap: { width: cardW - 16 }, align: 'center',
-      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+      const lineText = this.scene.add.text(cx, firstLineY + i * lineSpacing, `• ${upgradeLines[i]}`,
+        uiText(12, '#88ffaa', { wordWrap: { width: cardW - 16 }, align: 'center' })
+      ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
       this.container.add(lineText);
     }
 

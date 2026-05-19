@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { uiText, uiTitle } from './UIStyles';
 
 /**
  * PausePanel（暫停面板）— Polish 6a 美化版
@@ -39,13 +40,13 @@ export class PausePanel {
 
     // ── 「已暫停」文字 ──────────────────────────────────────────────────────
     // 陰影（賦值給 class 屬性，才能被 hide() 控制）
-    this.titleShadow = this.scene.add.text(W * 0.5 + 2, H * 0.38 + 2, '已暫停', {
-      fontSize: '38px', color: '#330000', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+    this.titleShadow = this.scene.add.text(Math.round(W * 0.5) + 2, Math.round(H * 0.38) + 2, '已暫停',
+      uiTitle(36, '#330000')
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
-    this.titleText = this.scene.add.text(W * 0.5, H * 0.38, '已暫停', {
-      fontSize: '38px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
+    this.titleText = this.scene.add.text(Math.round(W * 0.5), Math.round(H * 0.38), '已暫停',
+      uiTitle(36, '#ffffff')
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     // ── 金色裝飾線（標題上下各一條）────────────────────────────────────────
     this.decorLineTop = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
@@ -65,9 +66,9 @@ export class PausePanel {
     this.resumeBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawResumeBtn(false);
 
-    this.resumeBtnText = this.scene.add.text(btnX, btnY, '繼續遊戲', {
-      fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+    this.resumeBtnText = this.scene.add.text(btnX, btnY, '繼續遊戲',
+      uiText(20, '#ffffff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
 
     const hitH = Math.max(btnH, 48);
     this.resumeHitArea = this.scene.add.rectangle(btnX, btnY, Math.max(btnW, 88), hitH, 0x000000, 0)

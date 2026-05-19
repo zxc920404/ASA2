@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { Player } from '../objects/Player';
+import { uiText } from './UIStyles';
 
 /**
  * PlayerStatusPanel
@@ -59,9 +60,9 @@ export class PlayerStatusPanel {
 
     // ── 標題 ────────────────────────────────────────────────────────────
     this.titleText = this.scene.add.text(
-      panelX + panelW / 2, panelY + 12,
+      Math.round(panelX + panelW / 2), Math.round(panelY + 12),
       '玩家屬性',
-      { fontSize: '14px', color: '#ffd700', fontStyle: 'bold' }
+      uiText(14, '#ffd700', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(52);
 
     // ── 標題分隔線 ──────────────────────────────────────────────────────
@@ -71,9 +72,9 @@ export class PlayerStatusPanel {
 
     // ── 關閉按鈕（右上角 ✕）────────────────────────────────────────────
     this.closeBtn = this.scene.add.text(
-      panelX + panelW - 10, panelY + 8,
+      Math.round(panelX + panelW - 10), Math.round(panelY + 8),
       '✕',
-      { fontSize: '14px', color: '#777777' }
+      uiText(14, '#777777')
     ).setOrigin(1, 0).setScrollFactor(0).setDepth(52);
 
     this.closeBtnHit = this.scene.add.rectangle(
@@ -88,25 +89,24 @@ export class PlayerStatusPanel {
     const startY = panelY + 42;
 
     for (let i = 0; i < 6; i++) {
-      const t = this.scene.add.text(leftX, startY + i * rowH, '', {
-        fontSize: '12px', color: '#cccccc',
-      }).setScrollFactor(0).setDepth(52);
+      const t = this.scene.add.text(leftX, Math.round(startY + i * rowH), '',
+        uiText(12, '#cccccc')
+      ).setScrollFactor(0).setDepth(52);
       this.leftTexts.push(t);
     }
 
-    // ── 右欄文字（6 行）────────────────────────────────────────────────
     for (let i = 0; i < 6; i++) {
-      const t = this.scene.add.text(rightX, startY + i * rowH, '', {
-        fontSize: '12px', color: '#cccccc',
-      }).setScrollFactor(0).setDepth(52);
+      const t = this.scene.add.text(rightX, Math.round(startY + i * rowH), '',
+        uiText(12, '#cccccc')
+      ).setScrollFactor(0).setDepth(52);
       this.rightTexts.push(t);
     }
 
     // ── 底部暫停提示小字 ────────────────────────────────────────────────
     this.pauseHintText = this.scene.add.text(
-      panelX + panelW / 2, panelY + panelH - 12,
+      Math.round(panelX + panelW / 2), Math.round(panelY + panelH - 12),
       '查看屬性中，遊戲已暫停',
-      { fontSize: '10px', color: '#666666' }
+      uiText(10, '#666666')
     ).setOrigin(0.5, 1).setScrollFactor(0).setDepth(52);
   }
 

@@ -355,15 +355,18 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // ── Debug 效能顯示（右下角，每 500ms 更新）──────────────────────────
     this.debugUpdateTimer = 0;
+    // Debug 面板：縮小並移至左下角，不擋右側操作區
+    // 正式版可設 setVisible(false) 隱藏
     this.debugText = this.add.text(
-      this.scale.width - 8, this.scale.height - 8,
+      8, this.scale.height - 8,
       '', {
-        fontSize: '10px',
+        fontSize: '9px',
         color: '#ffff00',
         backgroundColor: '#00000088',
-        padding: { x: 4, y: 2 },
+        padding: { x: 3, y: 2 },
+        resolution: 2,
       }
-    ).setOrigin(1, 1).setScrollFactor(0).setDepth(200);
+    ).setOrigin(0, 1).setScrollFactor(0).setDepth(200).setAlpha(0.7);
 
     // 場景關閉時清理方向監聽（任務 11）
     this.events.once('shutdown', () => {

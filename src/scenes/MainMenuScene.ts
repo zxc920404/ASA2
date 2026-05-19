@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { uiText, uiTitle } from '../ui/UIStyles';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -16,25 +17,17 @@ export class MainMenuScene extends Phaser.Scene {
     this.drawCenterPanel(W, H);
 
     // ── 金色大標題 ──────────────────────────────────────────────────────────
-    // 標題文字陰影（偏移 3px）
-    this.add.text(W * 0.5 + 3, H * 0.35 + 3, '武俠幸存者', {
-      fontSize: '56px',
-      color: '#7a4a00',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(10);
+    this.add.text(Math.round(W * 0.5) + 3, Math.round(H * 0.35) + 3, '武俠幸存者',
+      uiTitle(52, '#7a4a00')
+    ).setOrigin(0.5, 0.5).setDepth(10);
 
-    // 標題主體（金色）
-    this.add.text(W * 0.5, H * 0.35, '武俠幸存者', {
-      fontSize: '56px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(11);
+    this.add.text(Math.round(W * 0.5), Math.round(H * 0.35), '武俠幸存者',
+      uiTitle(52, '#ffd700')
+    ).setOrigin(0.5, 0.5).setDepth(11);
 
-    // 副標題
-    this.add.text(W * 0.5, H * 0.47, '生存・成長・超越極限', {
-      fontSize: '16px',
-      color: '#d4af37',
-    }).setOrigin(0.5, 0.5).setDepth(11);
+    this.add.text(Math.round(W * 0.5), Math.round(H * 0.47), '生存・成長・超越極限',
+      uiText(15, '#d4af37')
+    ).setOrigin(0.5, 0.5).setDepth(11);
 
     // ── 裝飾分隔線 ──────────────────────────────────────────────────────────
     const divider = this.add.graphics().setDepth(11);
@@ -48,10 +41,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.drawMetaButton(W, H);
 
     // ── 版本號 ──────────────────────────────────────────────────────────────
-    this.add.text(W - 20, H - 12, 'v0.1 MVP', {
-      fontSize: '12px',
-      color: '#666666',
-    }).setOrigin(1, 1).setDepth(11);
+    this.add.text(Math.round(W - 20), Math.round(H - 12), 'v0.1 MVP',
+      uiText(11, '#666666')
+    ).setOrigin(1, 1).setDepth(11);
   }
 
   /**
@@ -136,12 +128,9 @@ export class MainMenuScene extends Phaser.Scene {
     const btnGraphics = this.add.graphics().setDepth(11);
     this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x6b0f0f, 0xd4af37);
 
-    // 按鈕文字
-    const btnText = this.add.text(btnX, btnY, '開始遊戲', {
-      fontSize: '22px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(12);
+    const btnText = this.add.text(btnX, btnY, '開始遊戲',
+      uiText(21, '#ffffff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setDepth(12);
 
     // 透明互動熱區（觸控範圍至少 48px 高）
     const hitH = Math.max(btnH, 48);
@@ -180,11 +169,9 @@ export class MainMenuScene extends Phaser.Scene {
     const btnGraphics = this.add.graphics().setDepth(11);
     this.drawRoundedButton(btnGraphics, btnX, btnY, btnW, btnH, radius, false, 0x0f1a2a, 0x4488aa);
 
-    const btnText = this.add.text(btnX, btnY, '✦ 天命修煉', {
-      fontSize: '18px',
-      color: '#88ccff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(12);
+    const btnText = this.add.text(btnX, btnY, '✦ 天命修煉',
+      uiText(17, '#88ccff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setDepth(12);
 
     const hitArea = this.add.rectangle(btnX, btnY, Math.max(btnW, 88), Math.max(btnH, 48), 0x000000, 0)
       .setDepth(13)
