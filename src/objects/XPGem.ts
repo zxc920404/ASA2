@@ -16,6 +16,8 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
   private visual!: Phaser.GameObjects.Graphics;
   /** 防重複 destroy */
   private _destroyed: boolean = false;
+  /** 防重複 destroy（別名，與 _destroyed 同步） */
+  private destroyedFlag: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, expValue: number) {
     // 透明碰撞體 12×12
@@ -67,8 +69,9 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
    * 銷毀時同步清除視覺圖形（防重複 destroy）
    */
   public destroy(fromScene?: boolean): void {
-    if (this._destroyed) return;
+    if (this._destroyed || this.destroyedFlag) return;
     this._destroyed = true;
+    this.destroyedFlag = true;
     if (this.visual && this.visual.active) {
       this.visual.destroy();
     }

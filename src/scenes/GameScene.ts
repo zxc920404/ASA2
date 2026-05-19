@@ -419,8 +419,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     for (const enemy of enemies) {
       // 死亡檢測（Requirement 6.3）：HP ≤ 0 或正在死亡的敵人加入待移除清單
-      if (enemy.currentHP <= 0 || enemy.isDying) {
-        if (!enemy.isDying) deadEnemies.push(enemy);
+      if (enemy.currentHP <= 0 || enemy.isDying || enemy.deathHandled) {
+        if (!enemy.deathHandled) deadEnemies.push(enemy);
         continue;
       }
 
@@ -490,7 +490,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 更新武器系統（Requirement 5.1～5.5）
     // 傳入存活中的敵人（排除已標記死亡或正在死亡的）
-    const aliveEnemies = enemies.filter(e => !deadEnemies.includes(e) && !e.isDying);
+    const aliveEnemies = enemies.filter(e => !deadEnemies.includes(e) && !e.isDying && !e.deathHandled);
     const weaponDeadEnemies = this.weaponSystem.update(time, delta, this.player, aliveEnemies);
     for (const enemy of weaponDeadEnemies) {
       if (!deadEnemies.includes(enemy)) {
@@ -925,37 +925,31 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 處理敵人死亡（Requirement 6.3）
-   * - 從 enemyGroup 移除並銷毀
-   * - 在死亡位置生成 XPGem
-   * - 更新擊殺計數器
+   * 最小安全流程：防重複 → 保存資料 → 計數 → XP → 移除 → destroy
    */
   private handleEnemyDeath(enemy: Enemy): void {
-    // 防止同一敵人被重複處理（isDying 已在 playDeathEffect 設為 true）
-    if (!this.enemyGroup.contains(enemy)) return;
-    if (enemy.isDying) return; // 已在處理中，跳過
+    // 1. 防重複
+    if (!enemy || enemy.deathHandled) return;
+    enemy.deathHandled = true;
+    enemy.isDying = true;
+    console.log('[Death] 1 start');
 
-    console.log('[Death] start', enemy.dataId, enemy.isElite);
-
-    // 先讀取死亡位置（destroy 後不可再讀）
+    // 2. 保存資料（destroy 後不可再讀）
     const deathX = enemy.x;
     const deathY = enemy.y;
-    const isElite = enemy.isElite;
-    const isRanged = enemy.isRanged;
+    const enemyId = enemy.dataId ?? 'unknown';
+    const isElite = enemy.isElite === true;
+    const isRanged = enemy.isRanged === true;
 
     // 取得此敵人的 expDrop 值
-    const enemyData = getEnemyById(enemy.dataId);
+    const enemyData = getEnemyById(enemyId);
     const expValue = enemyData?.expDrop ?? 5;
+    console.log('[Death] 2 data ok');
 
-    // 從群組移除（防止繼續被 update 處理）
-    this.enemyGroup.remove(enemy, false, false);
-
-    // 播放死亡特效（設定 isDying = true，防止重複觸發）
-    enemy.playDeathEffect();
-
-    // 更新擊殺計數器
+    // 3. 計數
     this.killCount++;
 
-    // 天命點獲取（只更新記憶體，不寫 localStorage）
+    // 4. 天命點（只更新記憶體）
     if (isElite) {
       this.runDestinyPoints += 25;
     } else if (isRanged) {
@@ -963,29 +957,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     } else {
       this.runDestinyPoints += 1;
     }
-    console.log('[Death] destiny +', this.runDestinyPoints);
 
-    // 生成 XP gem
-    if (isElite) {
-      const gemCount = 12;
-      for (let i = 0; i < gemCount; i++) {
-        const angle = (i / gemCount) * Math.PI * 2;
-        const r = 10 + Math.random() * 20;
-        this.spawnXPGem(
-          deathX + Math.cos(angle) * r,
-          deathY + Math.sin(angle) * r,
-          30
-        );
-      }
-    } else {
-      this.spawnXPGem(deathX, deathY, expValue);
-    }
-    console.log('[Death] xp ok');
+    // 5. 生成 XP gem（普通怪 1 顆，精英暫時也 1 顆，穩定後再恢復多顆）
+    this.spawnXPGem(deathX, deathY, expValue);
+    console.log('[Death] 3 xp spawn ok');
 
-    // DropItem 暫時停用（排查卡死問題）
-    // this.trySpawnDropItem(deathX, deathY);
+    // 6. 從群組移除
+    this.enemyGroup.remove(enemy, false, false);
+    console.log('[Death] 4 remove ok');
 
-    console.log('[Death] done');
+    // 7. destroy（enemy.destroy() 之後不再讀 enemy 的任何欄位）
+    enemy.destroy();
+    console.log('[Death] 5 destroy ok');
+
+    console.log('[Death] 6 done');
   }
 
   /**

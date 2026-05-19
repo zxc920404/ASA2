@@ -25,6 +25,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public contactDamage: number;
   public collisionRadius: number;
 
+  /** 防重複死亡處理 flag */
+  public deathHandled: boolean = false;
+  /** 是否已死亡（destroy 防重複用） */
+  public isDead: boolean = false;
+
   /** 是否為精英怪 */
   public isElite: boolean = false;
   /** 精英怪類型 */
@@ -162,34 +167,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public playDeathEffect(): void {
     if (this.isDying) return;
     this.isDying = true;
-
-    // 清理精英特效
-    if (this.shieldVisual && this.shieldVisual.active) {
-      this.shieldVisual.destroy();
-      this.shieldVisual = undefined;
-    }
-    if (this.chargeWarning && this.chargeWarning.active) {
-      this.chargeWarning.destroy();
-      this.chargeWarning = undefined;
-    }
-
-    this.spawnDeathParticles();
-
-    if (this.visual && this.visual.active) {
-      this.scene.tweens.add({
-        targets: this.visual,
-        scaleX: 0, scaleY: 0, alpha: 0,
-        duration: 220, ease: 'Power2',
-        onComplete: () => {
-          if (this.visual && this.visual.active) this.visual.destroy();
-        },
-      });
-    }
-
-    // 延遲銷毀碰撞體（讓死亡動畫播完）
-    this.scene.time.delayedCall(10, () => {
-      if (this.active) super.destroy();
-    });
+    this.destroy();
   }
 
   public updateHitFlash(delta: number): void {
@@ -303,7 +281,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   public destroy(fromScene?: boolean): void {
     // 防重複 destroy
-    if (!this.active && !fromScene) return;
+    if (this.isDead && !fromScene) return;
+    this.isDead = true;
+    this.isDying = true;
     if (this.visual && this.visual.active) this.visual.destroy();
     if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
     if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();
