@@ -207,6 +207,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   /**
+   * 套用精英怪外觀（建構後呼叫，重繪為金色大型武將）
+   * 必須在 isElite = true 之後呼叫
+   */
+  public applyEliteVisual(): void {
+    this.drawVisual('elite');
+  }
+
+  /**
    * 銷毀時同步清除視覺圖形
    */
   public destroy(fromScene?: boolean): void {

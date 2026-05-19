@@ -145,11 +145,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private separationFrameCount: number = 0;
 
   // ── 精英怪事件 flag（每局各觸發一次）──────────────────────────────────
-  /** 2:30（150 秒）精英怪是否已生成 */
+  /** 15 秒（測試用）精英怪是否已生成 */
   private eliteSpawned150: boolean = false;
-  /** 5:00（300 秒）精英怪是否已生成 */
+  /** 30 秒（測試用）精英怪是否已生成 */
   private eliteSpawned300: boolean = false;
-  /** 7:30（450 秒）精英怪是否已生成 */
+  /** 45 秒（測試用）精英怪是否已生成 */
   private eliteSpawned450: boolean = false;
 
   constructor() {
@@ -353,16 +353,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── 精英怪事件觸發（2:30 / 5:00 / 7:30）──────────────────────────
-    if (!this.eliteSpawned150 && this.elapsedSeconds >= 150) {
+    // ── 精英怪事件觸發（測試：15 / 30 / 45 秒；正式：150 / 300 / 450 秒）──
+    if (!this.eliteSpawned150 && this.elapsedSeconds >= 15) {
       this.eliteSpawned150 = true;
       this.spawnEliteEnemy(1);
     }
-    if (!this.eliteSpawned300 && this.elapsedSeconds >= 300) {
+    if (!this.eliteSpawned300 && this.elapsedSeconds >= 30) {
       this.eliteSpawned300 = true;
       this.spawnEliteEnemy(2);
     }
-    if (!this.eliteSpawned450 && this.elapsedSeconds >= 450) {
+    if (!this.eliteSpawned450 && this.elapsedSeconds >= 45) {
       this.eliteSpawned450 = true;
       this.spawnEliteEnemy(3);
     }
@@ -743,6 +743,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 精英怪掉落多顆 XP gem（散落在死亡位置附近）
     if (enemy.isElite) {
+      console.log('[Elite] killed');
       const gemCount = 12;
       for (let i = 0; i < gemCount; i++) {
         const angle = (i / gemCount) * Math.PI * 2;
@@ -1002,8 +1003,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成精英怪（2:30 / 5:00 / 7:30 各一隻）
-   * @param wave 第幾波精英（1/2/3），用於縮放能力
+   * 生成精英怪（測試：15/30/45 秒；正式：150/300/450 秒，各一隻）
+   * - 不受普通怪上限限制
+   * - 生成在玩家畫面外 350～500px
+   * - 建構後呼叫 applyEliteVisual() 重繪外觀
+   * @param wave 第幾波精英（1/2/3）
    */
   private spawnEliteEnemy(wave: number): void {
     // 取得當前難度狀態作為基準
@@ -1013,16 +1017,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const baseData = getEnemyById('tank');
     if (!baseData) return;
 
-    // 計算生成位置（畫面外）
-    const { x, y } = this.calcSpawnPosition();
-
     // 精英怪能力倍率（隨波次遞增）
-    // wave 1: HP×8, 傷害×1.5, 速度 55
-    // wave 2: HP×12, 傷害×1.8, 速度 55
-    // wave 3: HP×18, 傷害×2.2, 速度 60
-    const hpScale = [8, 12, 18][wave - 1] ?? 8;
-    const dmgScale = [1.5, 1.8, 2.2][wave - 1] ?? 1.5;
-    const eliteSpeed = wave >= 3 ? 60 : 55;
+    // wave 1: HP×8, 傷害×1.5
+    // wave 2: HP×12, 傷害×1.8
+    // wave 3: HP×18, 傷害×2.2
+    const hpScales  = [8,   12,  18 ];
+    const dmgScales = [1.5, 1.8, 2.2];
+    const speeds    = [55,  55,  60 ];
+    const hpScale  = hpScales [wave - 1] ?? 8;
+    const dmgScale = dmgScales[wave - 1] ?? 1.5;
+    const eliteSpeed = speeds[wave - 1] ?? 55;
+
+    // 計算精英怪生成位置（距玩家 350～500px，畫面外）
+    const { x, y } = this.calcEliteSpawnPosition();
 
     // 建立精英怪（使用難度倍率 × 精英倍率）
     const elite = new Enemy(
@@ -1034,12 +1041,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       state.damageMultiplier * dmgScale
     );
 
-    // 標記為精英、覆寫速度、放大碰撞體
+    // 標記為精英、覆寫速度
     elite.isElite = true;
     elite.moveSpeed = eliteSpeed;
-    elite.collisionRadius = 28; // 比 tank(20) 更大
+    // collisionRadius 用於碰撞判定（Rectangle size 已固定，這裡只影響接觸傷害距離）
+    elite.collisionRadius = 28;
 
+    // 重繪為精英外觀（金色大型武將）
+    elite.applyEliteVisual();
+
+    // 加入敵人群組（不受普通怪上限限制，直接 add）
     this.enemyGroup.add(elite);
+
+    console.log(`[Elite] spawn wave ${wave}`, Math.round(x), Math.round(y));
 
     // 顯示精英怪出現提示文字（畫面中央，短暫顯示）
     const W = this.scale.width;
@@ -1061,6 +1075,23 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       ease: 'Power2',
       onComplete: () => label.destroy(),
     });
+  }
+
+  /**
+   * 計算精英怪生成位置：距玩家 350～500px，位於畫面外，限制在世界邊界內
+   */
+  private calcEliteSpawnPosition(): { x: number; y: number } {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 350 + Math.random() * 150; // 350～500px
+
+    let spawnX = this.player.x + Math.cos(angle) * dist;
+    let spawnY = this.player.y + Math.sin(angle) * dist;
+
+    // 限制在世界邊界內
+    spawnX = Phaser.Math.Clamp(spawnX, 32, WORLD_WIDTH  - 32);
+    spawnY = Phaser.Math.Clamp(spawnY, 32, WORLD_HEIGHT - 32);
+
+    return { x: spawnX, y: spawnY };
   }
 
   /**
