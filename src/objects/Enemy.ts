@@ -30,6 +30,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 精英怪類型 */
   public eliteType?: EliteType;
 
+  // ── ranged 普通遠程小怪狀態 ──────────────────────────────────────────
+  public isRanged: boolean = false;
+  private rangedFireTimer: number = 0;
+  private rangedFireInterval: number = 2800; // ms
+  private rangedProjSpeed: number = 200;
+  private rangedProjDamage: number = 7;
+  private rangedAttackRange: number = 290;
+  /** 回呼：由 GameScene 注入，用於生成遠程小怪投射物 */
+  public onRangedShoot?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
+
   /** 視覺圖形 */
   private visual!: Phaser.GameObjects.Graphics;
   /** 護盾光圈（shield 用） */
@@ -99,6 +109,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     scene.add.existing(this);
     this.visual = scene.add.graphics();
     this.drawVisual(enemyData.id);
+
+    // 遠程小怪初始化
+    if (enemyData.attackRange) {
+      this.isRanged = true;
+      this.rangedAttackRange = enemyData.attackRange;
+      this.rangedFireInterval = (enemyData.fireInterval ?? 2.8) * 1000;
+      this.rangedProjSpeed = enemyData.projectileSpeed ?? 200;
+      this.rangedProjDamage = Math.ceil((enemyData.projectileDamage ?? 7) * damageMultiplier);
+      this.rangedFireTimer = this.rangedFireInterval * 0.5; // 首次射擊延遲半個間隔
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -204,6 +224,19 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     if (dist < 1) return;
 
     const dt = delta / 1000;
+
+    // 遠程小怪：進入攻擊範圍後保持距離，不貼臉
+    if (this.isRanged && dist < this.rangedAttackRange * 0.75) {
+      // 緩慢後退
+      const chaseX = -(dx / dist);
+      const chaseY = -(dy / dist);
+      this.setPosition(
+        this.x + chaseX * this.moveSpeed * 0.5 * dt,
+        this.y + chaseY * this.moveSpeed * 0.5 * dt
+      );
+      this.syncVisual();
+      return;
+    }
     const chaseX = dx / dist;
     const chaseY = dy / dist;
     let finalX = chaseX + separationX;
@@ -236,6 +269,30 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       case 'charger': this.updateCharger(delta, playerX, playerY); break;
       case 'shooter': this.updateShooter(delta, playerX, playerY); break;
       case 'shield':  this.updateShield(delta); break;
+    }
+  }
+
+  /**
+   * 每幀更新遠程小怪射擊（由 GameScene.update 呼叫）
+   */
+  public updateRangedSkill(delta: number, playerX: number, playerY: number): void {
+    if (this.isDying || !this.isRanged || !this.onRangedShoot) return;
+
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // 只在攻擊範圍內射擊
+    if (dist > this.rangedAttackRange) return;
+
+    this.rangedFireTimer -= delta;
+    if (this.rangedFireTimer <= 0) {
+      this.rangedFireTimer = this.rangedFireInterval;
+      if (dist > 1) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        this.onRangedShoot(this.x, this.y, nx * this.rangedProjSpeed, ny * this.rangedProjSpeed, this.rangedProjDamage);
+      }
     }
   }
 
@@ -573,6 +630,26 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillRect(-8, -16, 16, 10);
       g.fillStyle(0xff0000, 1);
       g.fillCircle(-5, -2, 3); g.fillCircle(5, -2, 3);
+
+    } else if (enemyId === 'ranged') {
+      // 橙黃色遠程射手：瘦小身形 + 弓箭
+      g.fillStyle(0xffaa00, 0.20); g.fillCircle(0, 0, 16);
+      g.fillStyle(0xcc6600, 1);
+      g.fillRect(-7, -3, 14, 14);   // 身體
+      g.fillStyle(0xffcc88, 1);
+      g.fillCircle(0, -11, 8);      // 頭
+      // 弓（左側弧線用兩條線模擬）
+      g.lineStyle(2, 0x884400, 1);
+      g.lineBetween(-12, -8, -14, 0);
+      g.lineBetween(-14, 0, -12, 8);
+      // 弓弦
+      g.lineStyle(1, 0xffdd88, 0.8);
+      g.lineBetween(-12, -8, -12, 8);
+      // 箭
+      g.fillStyle(0xffdd00, 1);
+      g.fillRect(-11, -1, 14, 2);
+      g.fillTriangle(3, -3, 3, 3, 8, 0);
+      g.lineStyle(1.5, 0xff8800, 0.7); g.strokeCircle(0, 0, 14);
     }
 
     g.setPosition(this.x, this.y);

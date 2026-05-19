@@ -53,6 +53,14 @@ export interface EnemyData {
   baseDamage: number;
   expDrop: number;
   collisionRadius: number;
+  /** 遠程攻擊範圍（px），有值表示此敵人為遠程型 */
+  attackRange?: number;
+  /** 遠程攻擊間隔（秒） */
+  fireInterval?: number;
+  /** 投射物速度（px/s） */
+  projectileSpeed?: number;
+  /** 投射物傷害 */
+  projectileDamage?: number;
 }
 
 // 玩家最終屬性（StatCalculator 輸出）

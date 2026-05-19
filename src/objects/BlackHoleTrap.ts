@@ -22,7 +22,7 @@ export class BlackHoleTrap {
   private moveAngle: number;  // 移動方向（弧度）
   private moveSpeed: number;  // 移動速度（px/s）
 
-  private readonly PULL_STRENGTH = 60; // 吸力強度（px/s，邊緣處）
+  private readonly PULL_STRENGTH = 90; // 吸力強度（px/s），玩家可逃脫
 
   /** 是否已標記銷毀 */
   public isDead: boolean = false;
@@ -134,7 +134,7 @@ export class BlackHoleTrap {
 
     this.syncVisualPosition();
 
-    // 吸引玩家（不造成傷害）
+    // 吸引玩家（不造成傷害，只干擾走位）
     const dx = this.x - player.x;
     const dy = this.y - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -143,9 +143,10 @@ export class BlackHoleTrap {
       // 越靠近吸力越強，邊緣吸力最弱
       const strengthFactor = 1 - dist / this.radius;
       const pull = this.PULL_STRENGTH * strengthFactor * dt;
-      player.setPosition(
-        player.x + (dx / dist) * pull,
-        player.y + (dy / dist) * pull
+      // 使用 applyExternalMove 確保碰撞體與視覺圖形同步移動
+      player.applyExternalMove(
+        (dx / dist) * pull,
+        (dy / dist) * pull
       );
     }
 

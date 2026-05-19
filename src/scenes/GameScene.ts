@@ -16,6 +16,7 @@ import { getEnemyById } from '../data/enemies';
 import { resetDamageNumberCounter } from '../objects/Enemy';
 import { EliteProjectile } from '../objects/EliteProjectile';
 import { BlackHoleTrap } from '../objects/BlackHoleTrap';
+import { DropItem, DropItemType } from '../objects/DropItem';
 
 interface GameSceneData {
   characterId: string;
@@ -161,6 +162,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private blackHoleTraps: BlackHoleTrap[] = [];
   private readonly MAX_BLACK_HOLES = 4;
 
+  // ── 掉落道具陣列 ──────────────────────────────────────────────────────
+  private dropItems: DropItem[] = [];
+  private readonly MAX_DROP_ITEMS = 12;
+
+  // ── 遠程小怪投射物（與精英投射物共用 EliteProjectile 類別）──────────
+  private rangedProjectiles: EliteProjectile[] = [];
+  private readonly MAX_RANGED_PROJECTILES = 50;
+
+  // ── 加速 buff 計時（ms，> 0 表示加速中）──────────────────────────────
+  private speedBoostTimer: number = 0;
+  private readonly SPEED_BOOST_DURATION = 5000;
+  private readonly SPEED_BOOST_MULT = 1.3;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -196,6 +210,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 重置黑洞陷阱陣列
     this.blackHoleTraps = [];
+
+    // 重置掉落道具、遠程投射物、加速 buff
+    this.dropItems = [];
+    this.rangedProjectiles = [];
+    this.speedBoostTimer = 0;
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
@@ -371,6 +390,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (enemy.isElite) {
         enemy.updateEliteSkill(delta, this.player.x, this.player.y);
       }
+      // 遠程小怪射擊更新
+      if (enemy.isRanged) {
+        enemy.updateRangedSkill(delta, this.player.x, this.player.y);
+      }
     }
 
     // ── 精英怪事件觸發（測試：15 / 30 / 45 秒；正式：150 / 300 / 450 秒）──
@@ -484,6 +507,51 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       hole.destroy();
       const idx = this.blackHoleTraps.indexOf(hole);
       if (idx !== -1) this.blackHoleTraps.splice(idx, 1);
+    }
+
+    // ── 加速 buff 計時 ────────────────────────────────────────────────
+    if (this.speedBoostTimer > 0) {
+      this.speedBoostTimer -= delta;
+      if (this.speedBoostTimer <= 0) {
+        this.speedBoostTimer = 0;
+        // 恢復正常速度（重新計算 stats）
+        this.player.recalculateStats();
+      }
+    }
+
+    // ── 遠程小怪投射物更新與碰撞 ──────────────────────────────────────
+    const deadRangedProj: EliteProjectile[] = [];
+    for (const proj of this.rangedProjectiles) {
+      if (proj.isDead) { deadRangedProj.push(proj); continue; }
+      const expired = proj.updateProjectile(delta);
+      if (expired) { deadRangedProj.push(proj); continue; }
+      const pdx = this.player.x - proj.x;
+      const pdy = this.player.y - proj.y;
+      if (Math.sqrt(pdx * pdx + pdy * pdy) <= PLAYER_COLLISION_RADIUS + 6) {
+        this.player.currentHP = Math.max(0, this.player.currentHP - proj.damage);
+        deadRangedProj.push(proj);
+      }
+    }
+    for (const proj of deadRangedProj) {
+      const idx = this.rangedProjectiles.indexOf(proj);
+      if (idx !== -1) this.rangedProjectiles.splice(idx, 1);
+      if (!proj.isDead) proj.destroy();
+    }
+
+    // ── 掉落道具更新與拾取 ────────────────────────────────────────────
+    const deadItems: DropItem[] = [];
+    for (const item of this.dropItems) {
+      const alive = item.update(delta);
+      if (!alive) { deadItems.push(item); continue; }
+      if (item.checkPickup(this.player)) {
+        this.applyDropItem(item.type);
+        deadItems.push(item);
+      }
+    }
+    for (const item of deadItems) {
+      item.destroy();
+      const idx = this.dropItems.indexOf(item);
+      if (idx !== -1) this.dropItems.splice(idx, 1);
     }
   }
 
@@ -820,6 +888,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     } else {
       // 在死亡位置生成 XPGem
       this.spawnXPGem(deathX, deathY, expValue);
+      // 機率掉落道具（測試掉落率 12%，正式建議改回 4%）
+      this.trySpawnDropItem(deathX, deathY);
     }
 
     // 更新擊殺計數器
@@ -947,16 +1017,44 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       state.damageMultiplier
     );
 
+    // 遠程小怪注入射擊回呼
+    if (enemy.isRanged) {
+      enemy.onRangedShoot = (px, py, vx, vy, dmg) => {
+        if (this.rangedProjectiles.length >= this.MAX_RANGED_PROJECTILES) {
+          const oldest = this.rangedProjectiles.shift();
+          if (oldest && !oldest.isDead) oldest.destroy();
+        }
+        const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
+        this.rangedProjectiles.push(proj);
+      };
+    }
+
     this.enemyGroup.add(enemy);
   }
 
   /**
    * 依生成比例隨機選擇敵人種類 ID
+   * ranged 射手：1:30 後加入，比例隨時間增加
    */
   private pickEnemyType(ratio: { basic: number; fast: number; tank: number }): string {
+    // 遠程射手比例（1:30 後開始，5:00 後提高）
+    let rangedRatio = 0;
+    if (this.elapsedSeconds >= 90 && this.elapsedSeconds < 300) {
+      rangedRatio = 0.10;
+    } else if (this.elapsedSeconds >= 300) {
+      rangedRatio = 0.15;
+    }
+
     const r = Math.random();
-    if (r < ratio.basic) return 'basic';
-    if (r < ratio.basic + ratio.fast) return 'fast';
+    if (rangedRatio > 0 && r < rangedRatio) return 'ranged';
+
+    // 剩餘比例分配給原有三種
+    const remaining = r - rangedRatio;
+    const scale = 1 - rangedRatio;
+    const adjBasic = ratio.basic * scale;
+    const adjFast  = ratio.fast  * scale;
+    if (remaining < adjBasic) return 'basic';
+    if (remaining < adjBasic + adjFast) return 'fast';
     return 'tank';
   }
 
@@ -1149,6 +1247,100 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.tweens.add({
       targets: label, y: H * 0.25, alpha: 0, duration: 2200, ease: 'Power2',
       onComplete: () => label.destroy(),
+    });
+  }
+
+  /**
+   * 機率掉落道具（普通小怪死亡時呼叫）
+   * 測試掉落率 12%（heal 5% / speed 4% / bomb 3%）
+   * 正式版建議改回 4%（heal 2% / speed 1% / bomb 1%）
+   */
+  private trySpawnDropItem(x: number, y: number): void {
+    const r = Math.random();
+    let type: DropItemType | null = null;
+    if      (r < 0.05) type = 'heal';
+    else if (r < 0.09) type = 'speed';
+    else if (r < 0.12) type = 'bomb';
+    if (!type) return;
+
+    if (this.dropItems.length >= this.MAX_DROP_ITEMS) {
+      const oldest = this.dropItems.shift();
+      if (oldest) oldest.destroy();
+    }
+    const item = new DropItem(this, x, y, type);
+    this.dropItems.push(item);
+  }
+
+  /**
+   * 套用道具效果
+   */
+  private applyDropItem(type: DropItemType): void {
+    switch (type) {
+      case 'heal': {
+        const healAmt = Math.max(25, Math.floor(this.player.stats.maxHP * 0.20));
+        this.player.currentHP = Math.min(this.player.stats.maxHP, this.player.currentHP + healAmt);
+        // 綠色閃光提示
+        this.showPickupEffect(this.player.x, this.player.y, 0x00ff66, '+ 回血');
+        break;
+      }
+      case 'speed': {
+        this.speedBoostTimer = this.SPEED_BOOST_DURATION;
+        // 直接修改 stats.moveSpeed（乘以倍率）
+        this.player.stats.moveSpeed = this.player.stats.moveSpeed * this.SPEED_BOOST_MULT;
+        this.showPickupEffect(this.player.x, this.player.y, 0x00ccff, '+ 加速');
+        break;
+      }
+      case 'bomb': {
+        // 清除玩家周圍 260px 的普通敵人
+        const BOMB_RADIUS = 260;
+        const BOMB_DMG_ELITE = 80;
+        const enemies = this.enemyGroup.getChildren() as Enemy[];
+        const toKill: Enemy[] = [];
+        for (const e of enemies) {
+          if (e.isDying) continue;
+          const dx = e.x - this.player.x;
+          const dy = e.y - this.player.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= BOMB_RADIUS) {
+            if (e.isElite) {
+              e.takeDamage(BOMB_DMG_ELITE);
+            } else {
+              toKill.push(e);
+            }
+          }
+        }
+        for (const e of toKill) this.handleEnemyDeath(e);
+        // 爆炸視覺
+        this.showBombEffect(this.player.x, this.player.y, BOMB_RADIUS);
+        this.showPickupEffect(this.player.x, this.player.y, 0xff8800, '清怪！');
+        break;
+      }
+    }
+  }
+
+  /** 道具拾取文字提示 */
+  private showPickupEffect(x: number, y: number, color: number, text: string): void {
+    const hex = '#' + color.toString(16).padStart(6, '0');
+    const t = this.add.text(x, y - 30, text, {
+      fontSize: '18px', color: hex, fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(25).setScrollFactor(1);
+    this.tweens.add({
+      targets: t, y: y - 70, alpha: 0, duration: 1000, ease: 'Power2',
+      onComplete: () => t.destroy(),
+    });
+  }
+
+  /** bomb 爆炸圓形視覺 */
+  private showBombEffect(x: number, y: number, radius: number): void {
+    const g = this.add.graphics();
+    g.fillStyle(0xff6600, 0.30);
+    g.fillCircle(x, y, radius);
+    g.lineStyle(3, 0xffd700, 0.8);
+    g.strokeCircle(x, y, radius);
+    g.setDepth(20);
+    this.tweens.add({
+      targets: g, alpha: 0, scaleX: 1.2, scaleY: 1.2, duration: 400, ease: 'Power2',
+      onComplete: () => g.destroy(),
     });
   }
 

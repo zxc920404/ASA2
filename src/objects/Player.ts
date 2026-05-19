@@ -108,6 +108,19 @@ export class Player extends Phaser.GameObjects.Rectangle {
   }
 
   /**
+   * 外部強制位移（黑洞吸引、擊退等效果用）
+   * 移動碰撞體並同步視覺圖形
+   */
+  public applyExternalMove(dx: number, dy: number, worldWidth: number = 3200, worldHeight: number = 3200): void {
+    const halfW = this.width / 2;
+    const halfH = this.height / 2;
+    const newX = Phaser.Math.Clamp(this.x + dx, halfW, worldWidth - halfW);
+    const newY = Phaser.Math.Clamp(this.y + dy, halfH, worldHeight - halfH);
+    this.setPosition(newX, newY);
+    this.syncVisual();
+  }
+
+  /**
    * 每幀移動更新（僅鍵盤輸入，保留向下相容）
    */
   public move(

@@ -28,6 +28,19 @@ export const ENEMIES: EnemyData[] = [
     expDrop: 15,
     collisionRadius: 20,
   },
+  {
+    id: 'ranged',
+    name: '邪修射手',
+    baseHP: 45,
+    baseMoveSpeed: 55,
+    baseDamage: 5,
+    expDrop: 10,
+    collisionRadius: 14,
+    attackRange: 290,
+    fireInterval: 2.8,
+    projectileSpeed: 200,
+    projectileDamage: 7,
+  },
 ];
 
 export const getEnemyById = (id: string): EnemyData | undefined => {
