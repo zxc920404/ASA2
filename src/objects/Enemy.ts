@@ -144,7 +144,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.currentHP -= actualDamage;
 
     this.hitFlashTimer = 120;
-    this.visual.setAlpha(0.0);
+    if (this.visual && this.visual.active) {
+      this.visual.setAlpha(0.0);
+    }
     this.showFlashOverlay();
 
     if (fromX !== undefined && fromY !== undefined) {
@@ -175,7 +177,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.hitFlashTimer -= delta;
       if (this.hitFlashTimer <= 0) {
         this.hitFlashTimer = 0;
-        this.visual.setAlpha(1);
+        if (this.visual && this.visual.active) {
+          this.visual.setAlpha(1);
+        }
       }
     }
   }
@@ -653,6 +657,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   private showFlashOverlay(): void {
     if (this.isDying) return; // 死亡中不建立閃白
+    if (!this.scene || !this.scene.sys.isActive()) return; // scene 已失效
     const flash = this.scene.add.graphics();
     flash.fillStyle(0xffffff, 0.92);
     flash.fillCircle(0, 0, this.collisionRadius + 5);
@@ -679,15 +684,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   private showDamageNumber(damage: number): void {
     if (activeDamageNumbers >= MAX_DAMAGE_NUMBERS) return;
+    if (!this.scene || !this.scene.sys.isActive()) return; // scene 已失效
     activeDamageNumbers++;
 
     // 隨機偏移：x ±12，y -8 到 +4
-    const offsetX = (Math.random() - 0.5) * 24;   // -12 ~ +12
-    const offsetY = Math.random() * 12 - 8;        // -8 ~ +4
+    const offsetX = (Math.random() - 0.5) * 24;
+    const offsetY = Math.random() * 12 - 8;
 
     // 飄動方向：隨機往上、左上、右上
-    const driftX = (Math.random() - 0.5) * 22;    // -11 ~ +11
-    const driftY = -(22 + Math.random() * 16);     // -22 ~ -38（往上）
+    const driftX = (Math.random() - 0.5) * 22;
+    const driftY = -(22 + Math.random() * 16);
 
     const isZero = damage === 0;
     const color = isZero ? '#aaaaaa' : '#ff4444';
@@ -714,6 +720,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       duration: 80, ease: 'Back.Out',
       onComplete: () => {
         if (!text || !text.active) { activeDamageNumbers = Math.max(0, activeDamageNumbers - 1); return; }
+        // 確認 scene 仍然有效
+        if (!this.scene || !this.scene.sys || !this.scene.sys.isActive()) {
+          if (text && text.active) text.destroy();
+          activeDamageNumbers = Math.max(0, activeDamageNumbers - 1);
+          return;
+        }
         this.scene.tweens.add({
           targets: text,
           scaleX: 1.0, scaleY: 1.0,

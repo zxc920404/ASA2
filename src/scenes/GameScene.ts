@@ -363,6 +363,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 暫停時停止所有遊戲邏輯（Requirement 1.2、1.5）
     if (this.isPaused) return;
 
+    try {
+      this._updateInternal(time, delta);
+    } catch (e) {
+      console.error('[GameScene] update crash:', e);
+    }
+  }
+
+  private _updateInternal(time: number, delta: number): void {
+
     // 累積遊戲時間
     this.elapsedSeconds += delta / 1000;
 
@@ -633,7 +642,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const idx = this.dropItems.indexOf(item);
       if (idx !== -1) this.dropItems.splice(idx, 1);
     }
-  }
+  } // end _updateInternal
 
   /**
    * 建立直向警告 UI 元素（任務 11）
