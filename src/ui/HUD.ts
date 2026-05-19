@@ -188,48 +188,54 @@ export class HUD {
   }
 
   /**
-   * 武器欄（左側，內縮 56px 避免貼邊）與被動欄（右側，內縮 56px 避免和按鈕重疊）
-   * 武器欄：x=56, y=68，每格 16px 高
-   * 被動欄：x=W-56-slotW, y=68，每格 16px 高
-   * 兩欄寬度 60px，透明度低，不擋戰鬥
+   * 武器欄 / 被動欄座標常數（buildSlots 與 updateSlots 共用）
+   * 垂直置中：panelY = round((H - totalH) / 2)
+   * 水平：武器欄 x=72，被動欄 x=W-72-slotW
    */
-  private buildSlots(W: number, H: number): void {
+  private static slotLayout(W: number, H: number) {
     const MAX_SLOTS = 6;
     const slotW = 60;
     const slotH = 16;
     const slotGap = 2;
-    const totalH = MAX_SLOTS * (slotH + slotGap) + 18;
+    const headerH = 18;
+    const totalH = MAX_SLOTS * (slotH + slotGap) + headerH;
+    const wX = 72;
+    const pX = W - 72 - slotW;
+    // 垂直置中，但不低於 y=80（避免和左上 HUD 重疊）
+    const panelY = Math.max(80, Math.round((H - totalH) / 2));
+    const wY = panelY + headerH;
+    const pY = panelY + headerH;
+    return { MAX_SLOTS, slotW, slotH, slotGap, totalH, headerH, wX, pX, wY, pY, panelY };
+  }
 
-    // 武器欄：左側內縮，避免貼邊
-    const wX = 56;
-    const wY = 68;
-
-    // 被動欄：右側內縮，避免和暫停/屬性按鈕重疊
-    // 暫停按鈕 x=W-32，屬性按鈕 x=W-88，被動欄右邊界 = W-56
-    const pX = W - 56 - slotW;
-    const pY = 68;
+  /**
+   * 武器欄（左側，x=72）與被動欄（右側，x=W-72-slotW）
+   * 兩欄垂直置中對齊，y 相同
+   */
+  private buildSlots(W: number, H: number): void {
+    const { MAX_SLOTS, slotW, slotH, slotGap, totalH, headerH, wX, pX, wY, pY, panelY } = HUD.slotLayout(W, H);
 
     // 武器欄背景
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
     this.weaponPanelBg.fillStyle(0x000000, 0.35);
-    this.weaponPanelBg.fillRoundedRect(wX - 2, wY - 14, slotW + 4, totalH, 4);
+    this.weaponPanelBg.fillRoundedRect(wX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
     this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.15);
-    this.weaponPanelBg.strokeRoundedRect(wX - 2, wY - 14, slotW + 4, totalH, 4);
+    this.weaponPanelBg.strokeRoundedRect(wX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
 
     this.weaponHeaderText = this.scene.add.text(
-      wX + slotW / 2, wY - 7,
+      wX + slotW / 2, panelY + headerH / 2,
       '武器', uiText(9, '#ccaa44')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
     // 被動欄背景
     this.passivePanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
     this.passivePanelBg.fillStyle(0x000000, 0.35);
-    this.passivePanelBg.fillRoundedRect(pX - 2, pY - 14, slotW + 4, totalH, 4);
+    this.passivePanelBg.fillRoundedRect(pX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
     this.passivePanelBg.lineStyle(1, 0xd4af37, 0.15);
-    this.passivePanelBg.strokeRoundedRect(pX - 2, pY - 14, slotW + 4, totalH, 4);
+    this.passivePanelBg.strokeRoundedRect(pX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
 
     this.passiveHeaderText = this.scene.add.text(
-      pX + slotW / 2, pY - 7,
+      pX + slotW / 2, panelY + headerH / 2,
       '被動', uiText(9, '#7799cc')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
@@ -335,14 +341,9 @@ export class HUD {
   }
 
   private updateSlots(player: Player): void {
-    const MAX_SLOTS = 6;
-    const slotW = 60;
-    const slotH = 16;
-    const slotGap = 2;
-    const wX = 56;
-    const wY = 68;
-    const pX = this.scene.scale.width - 56 - slotW;
-    const pY = 68;
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    const { MAX_SLOTS, slotW, slotH, slotGap, wX, pX, wY, pY } = HUD.slotLayout(W, H);
 
     for (let i = 0; i < MAX_SLOTS; i++) {
       const ws = player.equipment.weapons[i];

@@ -4,11 +4,13 @@ import { uiText, uiTitle } from './UIStyles';
 /**
  * PausePanel — 暫停面板
  * 包含：繼續遊戲、返回主選單（含二次確認）
+ *
+ * 重要：所有 GameObjects 必須 setScrollFactor(0)，
+ * 否則在 GameScene 攝影機跟隨玩家時座標會偏移，導致點擊熱區失效。
  */
 export class PausePanel {
   private scene: Phaser.Scene;
 
-  // ── 主暫停面板元素 ────────────────────────────────────────────────────
   private overlay!: Phaser.GameObjects.Graphics;
   private titleShadow!: Phaser.GameObjects.Text;
   private titleText!: Phaser.GameObjects.Text;
@@ -23,11 +25,19 @@ export class PausePanel {
   private mainMenuBtnText!: Phaser.GameObjects.Text;
   private mainMenuHitArea!: Phaser.GameObjects.Rectangle;
 
-  // ── 二次確認面板元素 ──────────────────────────────────────────────────
-  private confirmContainer!: Phaser.GameObjects.Container;
+  // 確認面板（所有子物件都要 setScrollFactor(0)）
+  private confirmOverlay!: Phaser.GameObjects.Graphics;
+  private confirmPanel!: Phaser.GameObjects.Graphics;
+  private confirmMsg!: Phaser.GameObjects.Text;
+  private cancelG!: Phaser.GameObjects.Graphics;
+  private cancelTxt!: Phaser.GameObjects.Text;
+  private cancelHit!: Phaser.GameObjects.Rectangle;
+  private okG!: Phaser.GameObjects.Graphics;
+  private okTxt!: Phaser.GameObjects.Text;
+  private okHit!: Phaser.GameObjects.Rectangle;
 
   private _isShowing: boolean = false;
-  private _onMainMenuConfirm: (() => void) | null = null;
+  private _resumeCallback: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -44,31 +54,31 @@ export class PausePanel {
     this.overlay.fillStyle(0x000000, 0.65);
     this.overlay.fillRect(0, 0, W, H);
     this.overlay.fillStyle(0x0a0a1a, 0.3);
-    this.overlay.fillRect(W * 0.25, H * 0.22, W * 0.5, H * 0.56);
+    this.overlay.fillRect(W * 0.25, H * 0.20, W * 0.5, H * 0.60);
 
     // ── 標題 ──────────────────────────────────────────────────────────────
     this.titleShadow = this.scene.add.text(
-      Math.round(W * 0.5) + 2, Math.round(H * 0.34) + 2, '已暫停',
+      Math.round(W * 0.5) + 2, Math.round(H * 0.32) + 2, '已暫停',
       uiTitle(36, '#330000')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     this.titleText = this.scene.add.text(
-      Math.round(W * 0.5), Math.round(H * 0.34), '已暫停',
+      Math.round(W * 0.5), Math.round(H * 0.32), '已暫停',
       uiTitle(36, '#ffffff')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     // ── 裝飾線 ────────────────────────────────────────────────────────────
     this.decorLineTop = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.decorLineTop.lineStyle(1.5, 0xd4af37, 0.7);
-    this.decorLineTop.lineBetween(W * 0.38, H * 0.28, W * 0.62, H * 0.28);
+    this.decorLineTop.lineBetween(W * 0.38, H * 0.26, W * 0.62, H * 0.26);
 
     this.decorLineBot = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.decorLineBot.lineStyle(1.5, 0xd4af37, 0.7);
-    this.decorLineBot.lineBetween(W * 0.38, H * 0.41, W * 0.62, H * 0.41);
+    this.decorLineBot.lineBetween(W * 0.38, H * 0.40, W * 0.62, H * 0.40);
 
-    // ── 繼續遊戲按鈕（y = H*0.52）────────────────────────────────────────
-    const resumeX = W * 0.5;
-    const resumeY = H * 0.52;
+    // ── 繼續遊戲按鈕 ──────────────────────────────────────────────────────
+    const resumeX = Math.round(W * 0.5);
+    const resumeY = Math.round(H * 0.52);
     const btnW = 220;
     const btnH = 50;
 
@@ -79,8 +89,10 @@ export class PausePanel {
       uiText(18, '#ffffff', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
 
-    this.resumeHitArea = this.scene.add.rectangle(resumeX, resumeY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0)
-      .setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
+    this.resumeHitArea = this.scene.add.rectangle(
+      resumeX, resumeY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0
+    ).setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
+
     this.resumeHitArea.on('pointerover', () => {
       this.drawBtn(this.resumeBtnGraphics, resumeX, resumeY, btnW, btnH, true, 0x6b0f0f, 0xd4af37);
       this.resumeBtnText.setColor('#ffd700');
@@ -90,9 +102,9 @@ export class PausePanel {
       this.resumeBtnText.setColor('#ffffff');
     });
 
-    // ── 返回主選單按鈕（y = H*0.65）──────────────────────────────────────
-    const menuX = W * 0.5;
-    const menuY = H * 0.65;
+    // ── 返回主選單按鈕 ────────────────────────────────────────────────────
+    const menuX = Math.round(W * 0.5);
+    const menuY = Math.round(H * 0.66);
 
     this.mainMenuBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawBtn(this.mainMenuBtnGraphics, menuX, menuY, btnW, btnH, false, 0x0f1828, 0x556677);
@@ -101,8 +113,10 @@ export class PausePanel {
       uiText(16, '#aaaacc', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
 
-    this.mainMenuHitArea = this.scene.add.rectangle(menuX, menuY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0)
-      .setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
+    this.mainMenuHitArea = this.scene.add.rectangle(
+      menuX, menuY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0
+    ).setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
+
     this.mainMenuHitArea.on('pointerover', () => {
       this.drawBtn(this.mainMenuBtnGraphics, menuX, menuY, btnW, btnH, true, 0x0f1828, 0x556677);
       this.mainMenuBtnText.setColor('#ffffff');
@@ -111,10 +125,12 @@ export class PausePanel {
       this.drawBtn(this.mainMenuBtnGraphics, menuX, menuY, btnW, btnH, false, 0x0f1828, 0x556677);
       this.mainMenuBtnText.setColor('#aaaacc');
     });
-    this.mainMenuHitArea.on('pointerdown', () => this.showConfirm());
+    this.mainMenuHitArea.on('pointerdown', () => {
+      console.log('[PausePanel] return main clicked');
+      this.showConfirm();
+    });
 
-    // ── 二次確認面板 ──────────────────────────────────────────────────────
-    this.confirmContainer = this.scene.add.container(0, 0).setDepth(110).setVisible(false);
+    // ── 確認面板（所有物件都要 setScrollFactor(0)）────────────────────────
     this.buildConfirmPanel(W, H);
   }
 
@@ -127,84 +143,84 @@ export class PausePanel {
     const py = Math.round(cy - panelH / 2);
     const r = 10;
 
-    // 遮罩
-    const overlay2 = this.scene.add.graphics();
-    overlay2.fillStyle(0x000000, 0.55);
-    overlay2.fillRect(0, 0, W, H);
-    this.confirmContainer.add(overlay2);
+    // 確認遮罩
+    this.confirmOverlay = this.scene.add.graphics().setScrollFactor(0).setDepth(110);
+    this.confirmOverlay.fillStyle(0x000000, 0.55);
+    this.confirmOverlay.fillRect(0, 0, W, H);
 
-    // 面板背景
-    const panel = this.scene.add.graphics();
-    panel.fillStyle(0x080818, 0.97);
-    panel.fillRoundedRect(px, py, panelW, panelH, r);
-    panel.lineStyle(1.5, 0xd4af37, 0.8);
-    panel.strokeRoundedRect(px, py, panelW, panelH, r);
-    panel.lineStyle(1, 0xffd700, 0.12);
-    panel.strokeRoundedRect(px + 3, py + 3, panelW - 6, panelH - 6, r - 2);
-    this.confirmContainer.add(panel);
+    // 確認面板背景
+    this.confirmPanel = this.scene.add.graphics().setScrollFactor(0).setDepth(111);
+    this.confirmPanel.fillStyle(0x080818, 0.97);
+    this.confirmPanel.fillRoundedRect(px, py, panelW, panelH, r);
+    this.confirmPanel.lineStyle(1.5, 0xd4af37, 0.8);
+    this.confirmPanel.strokeRoundedRect(px, py, panelW, panelH, r);
+    this.confirmPanel.lineStyle(1, 0xffd700, 0.12);
+    this.confirmPanel.strokeRoundedRect(px + 3, py + 3, panelW - 6, panelH - 6, r - 2);
 
     // 提示文字
-    const msg = this.scene.add.text(cx, cy - 32,
+    this.confirmMsg = this.scene.add.text(cx, cy - 32,
       '確定要返回主選單嗎？\n本局進度將會結束。',
       uiText(14, '#dddddd', { align: 'center', lineSpacing: 6 })
-    ).setOrigin(0.5, 0.5);
-    this.confirmContainer.add(msg);
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(112);
 
     // 取消按鈕
-    const cancelX = Math.round(cx - 70);
-    const confirmX = Math.round(cx + 70);
-    const btnY = Math.round(cy + 44);
-    const sbW = 110;
-    const sbH = 38;
+    const cancelX = Math.round(cx - 72);
+    const confirmX = Math.round(cx + 72);
+    const btnY = Math.round(cy + 46);
+    const sbW = 116;
+    const sbH = 40;
 
-    const cancelG = this.scene.add.graphics();
-    this.drawBtn(cancelG, cancelX, btnY, sbW, sbH, false, 0x1a1a2a, 0x556677);
-    this.confirmContainer.add(cancelG);
+    this.cancelG = this.scene.add.graphics().setScrollFactor(0).setDepth(111);
+    this.drawBtn(this.cancelG, cancelX, btnY, sbW, sbH, false, 0x1a1a2a, 0x556677);
 
-    const cancelTxt = this.scene.add.text(cancelX, btnY, '取消',
+    this.cancelTxt = this.scene.add.text(cancelX, btnY, '取消',
       uiText(14, '#aaaacc', { fontStyle: 'bold' })
-    ).setOrigin(0.5, 0.5);
-    this.confirmContainer.add(cancelTxt);
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(112);
 
-    const cancelHit = this.scene.add.rectangle(cancelX, btnY, Math.max(sbW, 88), Math.max(sbH, 48), 0, 0)
-      .setInteractive({ useHandCursor: true });
-    cancelHit.on('pointerover', () => {
-      this.drawBtn(cancelG, cancelX, btnY, sbW, sbH, true, 0x1a1a2a, 0x556677);
-      cancelTxt.setColor('#ffffff');
+    this.cancelHit = this.scene.add.rectangle(
+      cancelX, btnY, Math.max(sbW, 88), Math.max(sbH, 48), 0, 0
+    ).setScrollFactor(0).setDepth(113).setInteractive({ useHandCursor: true });
+
+    this.cancelHit.on('pointerover', () => {
+      this.drawBtn(this.cancelG, cancelX, btnY, sbW, sbH, true, 0x1a1a2a, 0x556677);
+      this.cancelTxt.setColor('#ffffff');
     });
-    cancelHit.on('pointerout', () => {
-      this.drawBtn(cancelG, cancelX, btnY, sbW, sbH, false, 0x1a1a2a, 0x556677);
-      cancelTxt.setColor('#aaaacc');
+    this.cancelHit.on('pointerout', () => {
+      this.drawBtn(this.cancelG, cancelX, btnY, sbW, sbH, false, 0x1a1a2a, 0x556677);
+      this.cancelTxt.setColor('#aaaacc');
     });
-    cancelHit.on('pointerdown', () => this.hideConfirm());
-    this.confirmContainer.add(cancelHit);
+    this.cancelHit.on('pointerdown', () => this.hideConfirm());
 
     // 確定返回按鈕
-    const okG = this.scene.add.graphics();
-    this.drawBtn(okG, confirmX, btnY, sbW, sbH, false, 0x5a0a0a, 0xd4af37);
-    this.confirmContainer.add(okG);
+    this.okG = this.scene.add.graphics().setScrollFactor(0).setDepth(111);
+    this.drawBtn(this.okG, confirmX, btnY, sbW, sbH, false, 0x5a0a0a, 0xd4af37);
 
-    const okTxt = this.scene.add.text(confirmX, btnY, '確定返回',
+    this.okTxt = this.scene.add.text(confirmX, btnY, '確定返回',
       uiText(14, '#ffffff', { fontStyle: 'bold' })
-    ).setOrigin(0.5, 0.5);
-    this.confirmContainer.add(okTxt);
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(112);
 
-    const okHit = this.scene.add.rectangle(confirmX, btnY, Math.max(sbW, 88), Math.max(sbH, 48), 0, 0)
-      .setInteractive({ useHandCursor: true });
-    okHit.on('pointerover', () => {
-      this.drawBtn(okG, confirmX, btnY, sbW, sbH, true, 0x5a0a0a, 0xd4af37);
-      okTxt.setColor('#ffd700');
+    this.okHit = this.scene.add.rectangle(
+      confirmX, btnY, Math.max(sbW, 88), Math.max(sbH, 48), 0, 0
+    ).setScrollFactor(0).setDepth(113).setInteractive({ useHandCursor: true });
+
+    this.okHit.on('pointerover', () => {
+      this.drawBtn(this.okG, confirmX, btnY, sbW, sbH, true, 0x5a0a0a, 0xd4af37);
+      this.okTxt.setColor('#ffd700');
     });
-    okHit.on('pointerout', () => {
-      this.drawBtn(okG, confirmX, btnY, sbW, sbH, false, 0x5a0a0a, 0xd4af37);
-      okTxt.setColor('#ffffff');
+    this.okHit.on('pointerout', () => {
+      this.drawBtn(this.okG, confirmX, btnY, sbW, sbH, false, 0x5a0a0a, 0xd4af37);
+      this.okTxt.setColor('#ffffff');
     });
-    okHit.on('pointerdown', () => {
+    this.okHit.on('pointerdown', () => {
+      console.log('[PausePanel] confirm return main');
+      // 直接從 scene 跳轉，不依賴外部回呼
       this.hideConfirm();
       this.hide();
-      if (this._onMainMenuConfirm) this._onMainMenuConfirm();
+      this.scene.scene.start('MainMenuScene');
     });
-    this.confirmContainer.add(okHit);
+
+    // 初始隱藏確認面板
+    this.setConfirmVisible(false);
   }
 
   private drawBtn(
@@ -227,23 +243,37 @@ export class PausePanel {
     g.strokeRoundedRect(x, y, w, h, r);
   }
 
+  private setConfirmVisible(visible: boolean): void {
+    this.confirmOverlay.setVisible(visible);
+    this.confirmPanel.setVisible(visible);
+    this.confirmMsg.setVisible(visible);
+    this.cancelG.setVisible(visible);
+    this.cancelTxt.setVisible(visible);
+    this.cancelHit.setVisible(visible);
+    this.okG.setVisible(visible);
+    this.okTxt.setVisible(visible);
+    this.okHit.setVisible(visible);
+  }
+
   private showConfirm(): void {
-    this.confirmContainer.setVisible(true);
+    this.setConfirmVisible(true);
   }
 
   private hideConfirm(): void {
-    this.confirmContainer.setVisible(false);
+    this.setConfirmVisible(false);
   }
 
   // ── 公開 API ──────────────────────────────────────────────────────────
 
   public onResumeClick(callback: () => void): void {
+    this._resumeCallback = callback;
     this.resumeHitArea.on('pointerdown', callback);
   }
 
-  /** 設定「確定返回主選單」的回呼 */
-  public onMainMenuConfirm(callback: () => void): void {
-    this._onMainMenuConfirm = callback;
+  /** 保留向下相容，但跳轉邏輯已內建在 okHit.pointerdown */
+  public onMainMenuConfirm(_callback: () => void): void {
+    // 跳轉邏輯已直接寫在 okHit 的 pointerdown 事件中
+    // 此方法保留以避免 GameScene 呼叫時報錯
   }
 
   public show(): void {
@@ -259,7 +289,7 @@ export class PausePanel {
     this.mainMenuBtnGraphics.setVisible(true);
     this.mainMenuBtnText.setVisible(true);
     this.mainMenuHitArea.setVisible(true);
-    this.confirmContainer.setVisible(false); // 確認面板預設隱藏
+    this.setConfirmVisible(false);
   }
 
   public hide(): void {
@@ -275,7 +305,7 @@ export class PausePanel {
     this.mainMenuBtnGraphics.setVisible(false);
     this.mainMenuBtnText.setVisible(false);
     this.mainMenuHitArea.setVisible(false);
-    this.confirmContainer.setVisible(false);
+    this.setConfirmVisible(false);
   }
 
   public isShowing(): boolean {
@@ -294,6 +324,14 @@ export class PausePanel {
     this.mainMenuBtnGraphics?.destroy();
     this.mainMenuBtnText?.destroy();
     this.mainMenuHitArea?.destroy();
-    this.confirmContainer?.destroy(true);
+    this.confirmOverlay?.destroy();
+    this.confirmPanel?.destroy();
+    this.confirmMsg?.destroy();
+    this.cancelG?.destroy();
+    this.cancelTxt?.destroy();
+    this.cancelHit?.destroy();
+    this.okG?.destroy();
+    this.okTxt?.destroy();
+    this.okHit?.destroy();
   }
 }
