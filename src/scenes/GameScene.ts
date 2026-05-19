@@ -212,6 +212,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private debugText!: Phaser.GameObjects.Text;
   private debugUpdateTimer: number = 0;
   private readonly DEBUG_UPDATE_INTERVAL = 500; // 每 500ms 更新一次
+  /** Debug 面板開關：false = 正式遊戲不顯示，true = 開發測試用 */
+  private readonly SHOW_DEBUG_HUD = false;
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -353,20 +355,23 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 設定螢幕方向偵測（任務 11）
     this.setupOrientationDetection();
 
-    // ── Debug 效能顯示（右下角，每 500ms 更新）──────────────────────────
+    // ── Debug 效能顯示（預設關閉，SHOW_DEBUG_HUD=true 才建立）────────────
     this.debugUpdateTimer = 0;
-    // Debug 面板：縮小並移至左下角，不擋右側操作區
-    // 正式版可設 setVisible(false) 隱藏
-    this.debugText = this.add.text(
-      8, this.scale.height - 8,
-      '', {
-        fontSize: '9px',
-        color: '#ffff00',
-        backgroundColor: '#00000088',
-        padding: { x: 3, y: 2 },
-        resolution: 2,
-      }
-    ).setOrigin(0, 1).setScrollFactor(0).setDepth(200).setAlpha(0.7);
+    if (this.SHOW_DEBUG_HUD) {
+      // Debug 面板：左下角，搖桿上方，不擋操作區
+      // 搖桿在 H*0.75，Debug 放在搖桿上方 130px 處
+      const dbgY = Math.round(this.scale.height * 0.75 - 130);
+      this.debugText = this.add.text(
+        8, dbgY,
+        '', {
+          fontSize: '9px',
+          color: '#ffff00',
+          backgroundColor: '#00000088',
+          padding: { x: 3, y: 2 },
+          resolution: 2,
+        }
+      ).setOrigin(0, 1).setScrollFactor(0).setDepth(200).setAlpha(0.75);
+    }
 
     // 場景關閉時清理方向監聽（任務 11）
     this.events.once('shutdown', () => {
@@ -417,26 +422,28 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 更新 HUD 快取資料（實際渲染由 HUD 內部計時器負責）
     this.hud.update(this.player, this.elapsedSeconds, this.killCount);
 
-    // ── Debug 顯示更新（每 500ms）────────────────────────────────────────
-    this.debugUpdateTimer += delta;
-    if (this.debugUpdateTimer >= this.DEBUG_UPDATE_INTERVAL) {
-      this.debugUpdateTimer = 0;
-      const fps = Math.round(this.game.loop.actualFps);
-      const enemyCount = this.enemyGroup.getLength();
-      const xpGems = this.xpGemGroup.getLength();
-      const eliteProj = this.eliteProjectiles.length;
-      const rangedProj = this.rangedProjectiles.length;
-      const drops = this.dropItems.length;
-      const holes = this.blackHoleTraps.length;
-      const joystickVecDbg = this.virtualJoystick.getVector();
-      this.debugText.setText(
-        `FPS:${fps} E:${enemyCount} XP:${xpGems}\n` +
-        `EP:${eliteProj} RP:${rangedProj} D:${drops} BH:${holes}\n` +
-        `Pause:${this.pauseReason} isPaused:${this.isPaused}\n` +
-        `P:${Math.round(this.player.x)},${Math.round(this.player.y)}\n` +
-        `Input:${joystickVecDbg.x.toFixed(1)},${joystickVecDbg.y.toFixed(1)}\n` +
-        `Lv:${this.player.level} Exp:${Math.round(this.player.currentExp)}`
-      );
+    // ── Debug 顯示更新（每 500ms，僅 SHOW_DEBUG_HUD=true 時執行）──────────
+    if (this.SHOW_DEBUG_HUD && this.debugText) {
+      this.debugUpdateTimer += delta;
+      if (this.debugUpdateTimer >= this.DEBUG_UPDATE_INTERVAL) {
+        this.debugUpdateTimer = 0;
+        const fps = Math.round(this.game.loop.actualFps);
+        const enemyCount = this.enemyGroup.getLength();
+        const xpGems = this.xpGemGroup.getLength();
+        const eliteProj = this.eliteProjectiles.length;
+        const rangedProj = this.rangedProjectiles.length;
+        const drops = this.dropItems.length;
+        const holes = this.blackHoleTraps.length;
+        const joystickVecDbg = this.virtualJoystick.getVector();
+        this.debugText.setText(
+          `FPS:${fps} E:${enemyCount} XP:${xpGems}\n` +
+          `EP:${eliteProj} RP:${rangedProj} D:${drops} BH:${holes}\n` +
+          `Pause:${this.pauseReason} isPaused:${this.isPaused}\n` +
+          `P:${Math.round(this.player.x)},${Math.round(this.player.y)}\n` +
+          `Input:${joystickVecDbg.x.toFixed(1)},${joystickVecDbg.y.toFixed(1)}\n` +
+          `Lv:${this.player.level} Exp:${Math.round(this.player.currentExp)}`
+        );
+      }
     }
 
     // 讀取 WASD 輸入並移動玩家（Requirement 2.1、2.2、2.3、2.4）
