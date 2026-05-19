@@ -5,7 +5,7 @@ export const CHARACTERS: CharacterData[] = [
     id: 'swordsman',
     name: '劍客',
     baseHP: 200,
-    baseMoveSpeed: 130,
+    baseMoveSpeed: 160,
     baseAttackPower: 1.2,
     basePickupRange: 80,
     startingWeaponId: 'guardian_ring', // 守心環
@@ -15,7 +15,7 @@ export const CHARACTERS: CharacterData[] = [
     id: 'assassin',
     name: '刺客',
     baseHP: 130,
-    baseMoveSpeed: 170,
+    baseMoveSpeed: 190,
     baseAttackPower: 1.5,
     basePickupRange: 100,
     startingWeaponId: 'swift_blade', // 疾風刃
@@ -25,7 +25,7 @@ export const CHARACTERS: CharacterData[] = [
     id: 'taoist',
     name: '道士',
     baseHP: 160,
-    baseMoveSpeed: 110,
+    baseMoveSpeed: 145,
     baseAttackPower: 1.0,
     basePickupRange: 140,
     startingWeaponId: 'flame_seal', // 赤焰印
