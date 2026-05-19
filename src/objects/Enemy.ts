@@ -45,8 +45,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 回呼：由 GameScene 注入，用於生成遠程小怪投射物 */
   public onRangedShoot?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
-  /** 視覺圖形 */
-  private visual!: Phaser.GameObjects.Graphics;
+  /** 視覺圖形（Image，使用 generateTexture 生成的 key；fallback 為 Graphics） */
+  private visual!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   /** 護盾光圈（shield 用） */
   private shieldVisual?: Phaser.GameObjects.Graphics;
   /** 衝撞警示線（charger 用） */
@@ -120,8 +120,17 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.lastDamageTime = -Infinity;
 
     scene.add.existing(this);
-    this.visual = scene.add.graphics();
-    this.drawVisual(enemyData.id);
+
+    // 建立視覺：優先使用 generateTexture 生成的 Image，fallback 為 Graphics
+    const texKey = `enemy_${enemyData.id}`;
+    if (scene.textures.exists(texKey)) {
+      const img = scene.add.image(x, y, texKey);
+      img.setDepth(4);
+      this.visual = img;
+    } else {
+      this.visual = scene.add.graphics();
+      this.drawVisual(enemyData.id);
+    }
 
     // 遠程小怪初始化
     if (enemyData.attackRange) {
@@ -257,9 +266,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   /**
    * 套用精英怪外觀（建構後呼叫）
+   * 精英怪使用 Graphics 繪製（charger/shooter/shield 有獨特外觀）
    */
   public applyEliteVisual(type: EliteType): void {
     this.eliteType = type;
+    // 精英怪：銷毀原本的 Image，改用 Graphics
+    if (this.visual && this.visual.active) {
+      this.visual.destroy();
+    }
+    const g = this.scene.add.graphics();
+    this.visual = g;
     this.drawVisual(type);
   }
 
@@ -561,6 +577,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ─────────────────────────────────────────────────────────────────────────
 
   private drawVisual(enemyId: string): void {
+    // 只有 Graphics 才能繪製；Image 已有 texture，不需要重繪
+    if (!(this.visual instanceof Phaser.GameObjects.Graphics)) return;
     const g = this.visual;
     g.clear();
 

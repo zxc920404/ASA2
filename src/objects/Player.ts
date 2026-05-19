@@ -5,7 +5,7 @@ import { calculateStats } from '../systems/StatCalculator';
 /**
  * Player 遊戲物件
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，32×32）
- * 視覺圖形由 Graphics 繪製，跟隨 Rectangle 位置
+ * 視覺圖形由 Image（Sprite Texture）顯示，跟隨 Rectangle 位置
  */
 export class Player extends Phaser.GameObjects.Rectangle {
   public characterId: string;
@@ -17,8 +17,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
   private charData: CharacterData;
 
-  /** 視覺圖形（武俠人形佔位） */
-  private visual!: Phaser.GameObjects.Graphics;
+  /** 視覺圖形（Image，使用 generateTexture 生成的 key） */
+  private visual!: Phaser.GameObjects.Image;
 
   constructor(
     scene: Phaser.Scene,
@@ -47,55 +47,40 @@ export class Player extends Phaser.GameObjects.Rectangle {
     // 加入場景並啟用
     scene.add.existing(this);
 
-    // 建立視覺圖形
-    this.visual = scene.add.graphics();
-    this.drawVisual();
+    // 建立視覺 Image（使用對應角色的 texture key）
+    const textureKey = `player_${charData.id}`;
+    // fallback：若 texture 不存在則用 Graphics 繪製
+    if (scene.textures.exists(textureKey)) {
+      this.visual = scene.add.image(x, y, textureKey);
+    } else {
+      // fallback：建立 Graphics 並轉為 Image
+      this.visual = scene.add.image(x, y, '__DEFAULT');
+      this.drawFallbackVisual();
+    }
+    this.visual.setDepth(5);
+    this.visual.setDisplaySize(64, 64);
   }
 
   /**
-   * 繪製武俠人形視覺圖形
+   * fallback：texture 不存在時用 Graphics 繪製（不應發生，generateSpriteTextures 已預先生成）
    */
-  private drawVisual(): void {
-    const g = this.visual;
-    g.clear();
-
-    // 身體光暈（外圈，半透明）
-    g.fillStyle(0x4488ff, 0.15);
-    g.fillCircle(0, 0, 20);
-
-    // 腿部
-    g.fillStyle(0x223366, 1);
-    g.fillRect(-7, 10, 5, 10);
-    g.fillRect(2, 10, 5, 10);
-
-    // 身體
-    g.fillStyle(0x2255aa, 1);
-    g.fillRect(-9, -4, 18, 16);
-
-    // 頭部
-    g.fillStyle(0xddccaa, 1);
-    g.fillCircle(0, -12, 9);
-
-    // 劍（金色細長矩形）
-    g.fillStyle(0xffd700, 1);
-    g.fillRect(10, -18, 3, 26);
-    // 劍柄護手
-    g.fillRect(7, -4, 9, 3);
-
-    // 腰帶
-    g.fillStyle(0xd4af37, 0.8);
-    g.fillRect(-9, 4, 18, 3);
-
-    // 更新位置
-    g.setPosition(this.x, this.y);
+  private drawFallbackVisual(): void {
+    // 用 Graphics 直接繪製在 visual 位置（僅作保底）
+    const g = this.scene.add.graphics();
+    const cx = this.x, cy = this.y;
+    g.fillStyle(0x4488ff, 0.15); g.fillCircle(cx, cy, 22);
+    g.fillStyle(0x2255aa, 1); g.fillRect(cx - 10, cy - 6, 20, 16);
+    g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - 14, 10);
+    g.fillStyle(0xffd700, 1); g.fillRect(cx + 10, cy - 20, 3, 28);
     g.setDepth(5);
+    // 不儲存 g，讓它留在場景（不影響碰撞）
   }
 
   /**
    * 同步視覺圖形位置
    */
   private syncVisual(): void {
-    if (this.visual) {
+    if (this.visual && this.visual.active) {
       this.visual.setPosition(this.x, this.y);
     }
   }

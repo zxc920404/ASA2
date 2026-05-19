@@ -9,6 +9,7 @@ const PICKUP_RADIUS = 22;
 /**
  * DropItem — 小怪機率掉落的臨時道具
  * heal：回血  speed：加速  bomb：清怪
+ * 視覺優先使用 generateTexture 生成的 Image，fallback 為 Graphics
  */
 export class DropItem {
   private scene: Phaser.Scene;
@@ -19,7 +20,7 @@ export class DropItem {
   private lifetime: number = 12000; // 12 秒後自動消失
   public isDead: boolean = false;
 
-  private visual!: Phaser.GameObjects.Graphics;
+  private visual!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   private label!: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, type: DropItemType) {
@@ -31,48 +32,24 @@ export class DropItem {
   }
 
   private buildVisual(): void {
-    const g = this.scene.add.graphics();
-    g.setPosition(this.x, this.y);
-    g.setDepth(12);
+    const texKey = `item_${this.type}`;
 
-    switch (this.type) {
-      case 'heal':
-        // 綠色光球
-        g.fillStyle(0x00cc44, 0.30); g.fillCircle(0, 0, 16);
-        g.fillStyle(0x00ff66, 0.85); g.fillCircle(0, 0, 10);
-        g.lineStyle(2, 0x00ff88, 0.9); g.strokeCircle(0, 0, 14);
-        // 十字
-        g.fillStyle(0xffffff, 0.9);
-        g.fillRect(-2, -7, 4, 14);
-        g.fillRect(-7, -2, 14, 4);
-        break;
-      case 'speed':
-        // 青色風符
-        g.fillStyle(0x0088ff, 0.30); g.fillCircle(0, 0, 16);
-        g.fillStyle(0x00ccff, 0.85); g.fillCircle(0, 0, 10);
-        g.lineStyle(2, 0x44ddff, 0.9); g.strokeCircle(0, 0, 14);
-        // 閃電符號
-        g.fillStyle(0xffffff, 0.9);
-        g.fillTriangle(2, -8, -4, 1, 0, 1);
-        g.fillTriangle(-2, 8, 4, -1, 0, -1);
-        break;
-      case 'bomb':
-        // 紅色爆破符
-        g.fillStyle(0xff4400, 0.30); g.fillCircle(0, 0, 16);
-        g.fillStyle(0xff6600, 0.85); g.fillCircle(0, 0, 10);
-        g.lineStyle(2, 0xff8800, 0.9); g.strokeCircle(0, 0, 14);
-        // 爆炸星形（4 個三角）
-        g.fillStyle(0xffd700, 0.9);
-        g.fillTriangle(0, -9, -3, -3, 3, -3);
-        g.fillTriangle(0, 9, -3, 3, 3, 3);
-        g.fillTriangle(-9, 0, -3, -3, -3, 3);
-        g.fillTriangle(9, 0, 3, -3, 3, 3);
-        break;
+    if (this.scene.textures.exists(texKey)) {
+      // 使用 generateTexture 生成的 Image
+      const img = this.scene.add.image(this.x, this.y, texKey);
+      img.setDepth(12);
+      img.setDisplaySize(32, 32);
+      this.visual = img;
+    } else {
+      // fallback：Graphics
+      const g = this.scene.add.graphics();
+      g.setPosition(this.x, this.y);
+      g.setDepth(12);
+      this.drawFallbackGraphics(g);
+      this.visual = g;
     }
 
-    this.visual = g;
-
-    // 閃爍動畫（快消失時加快閃爍）
+    // 閃爍動畫
     this.scene.tweens.add({
       targets: this.visual,
       alpha: 0.4,
@@ -81,6 +58,37 @@ export class DropItem {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+  }
+
+  /** fallback Graphics 繪製 */
+  private drawFallbackGraphics(g: Phaser.GameObjects.Graphics): void {
+    switch (this.type) {
+      case 'heal':
+        g.fillStyle(0x00cc44, 0.30); g.fillCircle(0, 0, 16);
+        g.fillStyle(0x00ff66, 0.85); g.fillCircle(0, 0, 10);
+        g.lineStyle(2, 0x00ff88, 0.9); g.strokeCircle(0, 0, 14);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillRect(-2, -7, 4, 14); g.fillRect(-7, -2, 14, 4);
+        break;
+      case 'speed':
+        g.fillStyle(0x0088ff, 0.30); g.fillCircle(0, 0, 16);
+        g.fillStyle(0x00ccff, 0.85); g.fillCircle(0, 0, 10);
+        g.lineStyle(2, 0x44ddff, 0.9); g.strokeCircle(0, 0, 14);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillTriangle(2, -8, -4, 1, 0, 1);
+        g.fillTriangle(-2, 8, 4, -1, 0, -1);
+        break;
+      case 'bomb':
+        g.fillStyle(0xff4400, 0.30); g.fillCircle(0, 0, 16);
+        g.fillStyle(0xff6600, 0.85); g.fillCircle(0, 0, 10);
+        g.lineStyle(2, 0xff8800, 0.9); g.strokeCircle(0, 0, 14);
+        g.fillStyle(0xffd700, 0.9);
+        g.fillTriangle(0, -9, -3, -3, 3, -3);
+        g.fillTriangle(0, 9, -3, 3, 3, 3);
+        g.fillTriangle(-9, 0, -3, -3, -3, 3);
+        g.fillTriangle(9, 0, 3, -3, 3, 3);
+        break;
+    }
   }
 
   /**

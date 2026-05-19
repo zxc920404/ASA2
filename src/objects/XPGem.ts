@@ -3,8 +3,8 @@ import Phaser from 'phaser';
 /**
  * XPGem（經驗球）遊戲物件
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，12×12）
- * 視覺圖形為發光小圓點（Graphics）
- * 持有 expValue（整數），進入玩家拾取範圍後以 200px/s 磁吸移動（Requirement 9.1、9.3）
+ * 視覺圖形優先使用 'xp_gem' texture（Image），fallback 為 Graphics
+ * 持有 expValue（整數），進入玩家拾取範圍後以 200px/s 磁吸移動
  */
 export class XPGem extends Phaser.GameObjects.Rectangle {
   public expValue: number;
@@ -12,8 +12,8 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
 
   private static readonly ATTRACT_SPEED = 200;
 
-  /** 視覺圖形（發光圓點） */
-  private visual!: Phaser.GameObjects.Graphics;
+  /** 視覺圖形（Image 或 Graphics） */
+  private visual!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   /** 防重複 destroy */
   private _destroyed: boolean = false;
   /** 防重複 destroy（別名，與 _destroyed 同步） */
@@ -28,31 +28,28 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
 
     scene.add.existing(this);
 
-    // 建立發光圓點視覺
-    this.visual = scene.add.graphics();
-    this.drawVisual();
+    // 優先使用 texture，fallback 為 Graphics
+    if (scene.textures.exists('xp_gem')) {
+      const img = scene.add.image(x, y, 'xp_gem');
+      img.setDepth(3);
+      img.setDisplaySize(16, 16);
+      this.visual = img;
+    } else {
+      const g = scene.add.graphics();
+      this.drawFallbackVisual(g, x, y);
+      this.visual = g;
+    }
   }
 
   /**
-   * 繪製發光小圓點
+   * fallback：繪製發光小圓點（texture 不存在時使用）
    */
-  private drawVisual(): void {
-    const g = this.visual;
+  private drawFallbackVisual(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
     g.clear();
-
-    // 外圈光暈（半透明亮綠，半徑 8px）
-    g.fillStyle(0x44ff88, 0.35);
-    g.fillCircle(0, 0, 8);
-
-    // 中圈（亮綠，半徑 5px）
-    g.fillStyle(0x22ee66, 0.85);
-    g.fillCircle(0, 0, 5);
-
-    // 中心白點（半徑 2px）
-    g.fillStyle(0xffffff, 0.9);
-    g.fillCircle(0, 0, 2);
-
-    g.setPosition(this.x, this.y);
+    g.fillStyle(0x44ff88, 0.35); g.fillCircle(0, 0, 8);
+    g.fillStyle(0x22ee66, 0.85); g.fillCircle(0, 0, 5);
+    g.fillStyle(0xffffff, 0.9);  g.fillCircle(0, 0, 2);
+    g.setPosition(x, y);
     g.setDepth(3);
   }
 
@@ -60,7 +57,7 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
    * 同步視覺圖形位置
    */
   private syncVisual(): void {
-    if (this.visual) {
+    if (this.visual && this.visual.active) {
       this.visual.setPosition(this.x, this.y);
     }
   }
