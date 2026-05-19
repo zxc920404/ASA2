@@ -8,6 +8,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.2,
     baseAttackRange: 120,
     projectileSpeed: 0,
+    iconKey: 'weapon_icon_guardian_ring',
     levelStats: [
       // Lv1：基礎，1 個環繞體
       { damage: 10, count: 1 },
@@ -34,6 +35,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.8,
     baseAttackRange: 200,
     projectileSpeed: 400,
+    iconKey: 'weapon_icon_swift_blade',
     levelStats: [
       // Lv1：基礎，單發
       { damage: 12, count: 1, interval: 0.8 },
@@ -60,6 +62,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.8,
     baseAttackRange: 150,
     projectileSpeed: 250,
+    iconKey: 'weapon_icon_flame_seal',
     levelStats: [
       // Lv1：前期傷害微幅提升
       { damage: 18, radius: 80, interval: 1.8 },
@@ -86,6 +89,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.0,
     baseAttackRange: 180,
     projectileSpeed: 350,
+    iconKey: 'weapon_icon_ice_spike',
     levelStats: [
       // Lv1：基礎，pierce 1
       { damage: 16, pierce: 1 },
@@ -112,6 +116,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.6,
     baseAttackRange: 160,
     projectileSpeed: 300,
+    iconKey: 'weapon_icon_thunder_claw',
     levelStats: [
       // Lv1：基礎，單發，傷害提升
       { damage: 10, count: 1, interval: 0.6 },
@@ -138,6 +143,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 2.6,
     baseAttackRange: 130,
     projectileSpeed: 220,
+    iconKey: 'weapon_icon_poison_mist',
     levelStats: [
       // Lv1：單發小毒霧
       { damage: 8,  range: 130, radius: 45, count: 1, interval: 2.6, duration: 2.2 },

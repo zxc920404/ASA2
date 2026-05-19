@@ -1788,7 +1788,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 預先生成所有 Sprite Texture（用 Phaser Graphics 繪製後 generateTexture 快取）
-   * 只在 texture 不存在時生成，避免 scene restart 重複建立
+   * 只在 texture 不存在時生成，避免 scene restart 重複建立。
+   * 若外部 PNG 已載入（enemy_img_<id>），則直接複製為 enemy_<id> key，
+   * 否則 fallback 至程式繪製圖形。
    * key 清單：
    *   player_swordsman / player_assassin / player_taoist
    *   enemy_basic / enemy_fast / enemy_tank / enemy_ranged
@@ -1805,9 +1807,36 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       return g;
     };
 
-    // ── 玩家：劍客（藍色武俠人形，64×64）────────────────────────────────
-    if (!tex.exists('player_swordsman')) {
+    // helper：若外部 PNG 已載入，複製為目標 key；否則用 cb 程式繪製
+    const ensureTexture = (
+      targetKey: string,
+      externalKey: string | undefined,
+      w: number,
+      h: number,
+      cb: (g: Phaser.GameObjects.Graphics) => void
+    ) => {
+      if (tex.exists(targetKey)) return; // 已存在，跳過
+      if (externalKey && tex.exists(externalKey)) {
+        // 外部 PNG 已載入：複製 frame 為新 key
+        const srcTex = tex.get(externalKey);
+        if (srcTex && srcTex.key !== '__MISSING') {
+          // 用 Image 繪製到 RenderTexture 再 saveTexture
+          const rt = this.add.renderTexture(0, 0, w, h).setVisible(false);
+          rt.draw(externalKey, w / 2, h / 2);
+          rt.saveTexture(targetKey);
+          rt.destroy();
+          return;
+        }
+      }
+      // Fallback：程式繪製
       const g = makeG();
+      cb(g);
+      g.generateTexture(targetKey, w, h);
+      g.destroy();
+    };
+
+    // ── 玩家：劍客（藍色武俠人形，64×64）────────────────────────────────
+    ensureTexture('player_swordsman', undefined, 64, 64, (g) => {
       const cx = 32, cy = 32;
       g.fillStyle(0x4488ff, 0.15); g.fillCircle(cx, cy, 22);
       g.fillStyle(0x223366, 1); g.fillRect(cx - 8, cy + 8, 6, 12); g.fillRect(cx + 2, cy + 8, 6, 12);
@@ -1815,13 +1844,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - 14, 10);
       g.fillStyle(0xffd700, 1); g.fillRect(cx + 10, cy - 20, 3, 28); g.fillRect(cx + 7, cy - 6, 9, 3);
       g.fillStyle(0xd4af37, 0.8); g.fillRect(cx - 10, cy + 2, 20, 3);
-      g.generateTexture('player_swordsman', 64, 64);
-      g.destroy();
-    }
+    });
 
     // ── 玩家：刺客（深紫色輕裝，64×64）──────────────────────────────────
-    if (!tex.exists('player_assassin')) {
-      const g = makeG();
+    ensureTexture('player_assassin', undefined, 64, 64, (g) => {
       const cx = 32, cy = 32;
       g.fillStyle(0x8800ff, 0.15); g.fillCircle(cx, cy, 20);
       g.fillStyle(0x220044, 1); g.fillRect(cx - 7, cy + 8, 5, 12); g.fillRect(cx + 2, cy + 8, 5, 12);
@@ -1829,13 +1855,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - 13, 9);
       g.fillStyle(0xcccccc, 1); g.fillRect(cx - 14, cy - 18, 2, 22); g.fillRect(cx + 12, cy - 18, 2, 22);
       g.fillStyle(0xaa44ff, 0.8); g.fillRect(cx - 8, cy + 2, 16, 3);
-      g.generateTexture('player_assassin', 64, 64);
-      g.destroy();
-    }
+    });
 
     // ── 玩家：道士（白灰道袍，64×64）────────────────────────────────────
-    if (!tex.exists('player_taoist')) {
-      const g = makeG();
+    ensureTexture('player_taoist', undefined, 64, 64, (g) => {
       const cx = 32, cy = 32;
       g.fillStyle(0xffaa00, 0.15); g.fillCircle(cx, cy, 22);
       g.fillStyle(0xaaaaaa, 1); g.fillRect(cx - 10, cy + 6, 20, 14);
@@ -1845,13 +1868,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(0xffdd88, 1); g.fillRect(cx + 10, cy - 16, 2, 20);
       g.fillStyle(0xffffff, 0.7); g.fillRect(cx + 8, cy - 16, 6, 4);
       g.fillStyle(0xffaa00, 0.8); g.fillRect(cx - 9, cy + 2, 18, 3);
-      g.generateTexture('player_taoist', 64, 64);
-      g.destroy();
-    }
+    });
 
     // ── 普通小怪（紅色武士，48×48）───────────────────────────────────────
-    if (!tex.exists('enemy_basic')) {
-      const g = makeG();
+    ensureTexture('enemy_basic', 'enemy_img_basic', 48, 48, (g) => {
       const cx = 24, cy = 24;
       g.fillStyle(0xcc2222, 0.2); g.fillCircle(cx, cy, 18);
       g.fillStyle(0x881111, 1); g.fillRect(cx - 8, cy - 2, 16, 14);
@@ -1859,13 +1879,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.lineStyle(2, 0xff6666, 1);
       g.lineBetween(cx - 12, cy + 2, cx - 18, cy - 4);
       g.lineBetween(cx + 12, cy + 2, cx + 18, cy - 4);
-      g.generateTexture('enemy_basic', 48, 48);
-      g.destroy();
-    }
+    });
 
     // ── 快速小怪（橙色菱形，40×40）───────────────────────────────────────
-    if (!tex.exists('enemy_fast')) {
-      const g = makeG();
+    ensureTexture('enemy_fast', 'enemy_img_fast', 40, 40, (g) => {
       const cx = 20, cy = 20;
       g.fillStyle(0xff6600, 0.2); g.fillCircle(cx, cy, 14);
       g.fillStyle(0xcc4400, 1);
@@ -1875,13 +1892,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.lineBetween(cx - 16, cy - 6, cx - 8, cy - 6);
       g.lineBetween(cx - 18, cy, cx - 10, cy);
       g.lineBetween(cx - 16, cy + 6, cx - 8, cy + 6);
-      g.generateTexture('enemy_fast', 40, 40);
-      g.destroy();
-    }
+    });
 
     // ── 坦克小怪（紫色重甲，52×52）───────────────────────────────────────
-    if (!tex.exists('enemy_tank')) {
-      const g = makeG();
+    ensureTexture('enemy_tank', 'enemy_img_tank', 52, 52, (g) => {
       const cx = 26, cy = 26;
       g.fillStyle(0x6600aa, 0.2); g.fillCircle(cx, cy, 22);
       g.fillStyle(0x440077, 1); g.fillCircle(cx, cy, 16);
@@ -1891,13 +1905,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillRect(cx - 8, cy - 16, 16, 10);
       g.fillStyle(0xff0000, 1);
       g.fillCircle(cx - 5, cy - 2, 3); g.fillCircle(cx + 5, cy - 2, 3);
-      g.generateTexture('enemy_tank', 52, 52);
-      g.destroy();
-    }
+    });
 
     // ── 遠程小怪（橙黃弓箭手，44×44）────────────────────────────────────
-    if (!tex.exists('enemy_ranged')) {
-      const g = makeG();
+    ensureTexture('enemy_ranged', 'enemy_img_ranged', 44, 44, (g) => {
       const cx = 22, cy = 22;
       g.fillStyle(0xffaa00, 0.20); g.fillCircle(cx, cy, 16);
       g.fillStyle(0xcc6600, 1); g.fillRect(cx - 7, cy - 3, 14, 14);
@@ -1909,48 +1920,36 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.lineBetween(cx - 12, cy - 8, cx - 12, cy + 8);
       g.fillStyle(0xffdd00, 1); g.fillRect(cx - 11, cy - 1, 14, 2);
       g.fillTriangle(cx + 3, cy - 3, cx + 3, cy + 3, cx + 8, cy);
-      g.generateTexture('enemy_ranged', 44, 44);
-      g.destroy();
-    }
+    });
 
     // ── XP 經驗球（亮綠發光圓，20×20）───────────────────────────────────
-    if (!tex.exists('xp_gem')) {
-      const g = makeG();
+    ensureTexture('xp_gem', undefined, 20, 20, (g) => {
       g.fillStyle(0x44ff88, 0.35); g.fillCircle(10, 10, 8);
       g.fillStyle(0x22ee66, 0.85); g.fillCircle(10, 10, 5);
       g.fillStyle(0xffffff, 0.9);  g.fillCircle(10, 10, 2);
-      g.generateTexture('xp_gem', 20, 20);
-      g.destroy();
-    }
+    });
 
     // ── heal 補包（綠色十字球，32×32）────────────────────────────────────
-    if (!tex.exists('item_heal')) {
-      const g = makeG();
+    ensureTexture('item_heal', undefined, 32, 32, (g) => {
       g.fillStyle(0x00cc44, 0.30); g.fillCircle(16, 16, 14);
       g.fillStyle(0x00ff66, 0.85); g.fillCircle(16, 16, 10);
       g.lineStyle(2, 0x00ff88, 0.9); g.strokeCircle(16, 16, 13);
       g.fillStyle(0xffffff, 0.9);
       g.fillRect(14, 9, 4, 14); g.fillRect(9, 14, 14, 4);
-      g.generateTexture('item_heal', 32, 32);
-      g.destroy();
-    }
+    });
 
     // ── speed 加速（青色閃電球，32×32）───────────────────────────────────
-    if (!tex.exists('item_speed')) {
-      const g = makeG();
+    ensureTexture('item_speed', undefined, 32, 32, (g) => {
       g.fillStyle(0x0088ff, 0.30); g.fillCircle(16, 16, 14);
       g.fillStyle(0x00ccff, 0.85); g.fillCircle(16, 16, 10);
       g.lineStyle(2, 0x44ddff, 0.9); g.strokeCircle(16, 16, 13);
       g.fillStyle(0xffffff, 0.9);
       g.fillTriangle(18, 8, 12, 17, 16, 17);
       g.fillTriangle(14, 24, 20, 15, 16, 15);
-      g.generateTexture('item_speed', 32, 32);
-      g.destroy();
-    }
+    });
 
     // ── bomb 清場（紅橙爆炸球，32×32）────────────────────────────────────
-    if (!tex.exists('item_bomb')) {
-      const g = makeG();
+    ensureTexture('item_bomb', undefined, 32, 32, (g) => {
       g.fillStyle(0xff4400, 0.30); g.fillCircle(16, 16, 14);
       g.fillStyle(0xff6600, 0.85); g.fillCircle(16, 16, 10);
       g.lineStyle(2, 0xff8800, 0.9); g.strokeCircle(16, 16, 13);
@@ -1959,8 +1958,6 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillTriangle(16, 25, 13, 19, 19, 19);
       g.fillTriangle(7, 16, 13, 13, 13, 19);
       g.fillTriangle(25, 16, 19, 13, 19, 19);
-      g.generateTexture('item_bomb', 32, 32);
-      g.destroy();
-    }
+    });
   }
 }

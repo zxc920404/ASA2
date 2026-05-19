@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
+import { AssetLoader } from '../utils/AssetLoader';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +13,15 @@ export class MainMenuScene extends Phaser.Scene {
 
     // ── 深色武俠風漸層背景 ──────────────────────────────────────────────────
     this.drawBackground(W, H);
+
+    // ── 主選單背景圖（menuback.png，若已載入則覆蓋程式繪製背景）──────────
+    if (AssetLoader.hasTexture(this, 'ui_bg_main_menu')) {
+      const bg = this.add.image(W * 0.5, H * 0.5, 'ui_bg_main_menu').setDepth(3);
+      // 等比縮放至填滿畫面（cover 模式）
+      const scaleX = W / bg.width;
+      const scaleY = H / bg.height;
+      bg.setScale(Math.max(scaleX, scaleY));
+    }
 
     // ── 半透明中央面板 ──────────────────────────────────────────────────────
     this.drawCenterPanel(W, H);

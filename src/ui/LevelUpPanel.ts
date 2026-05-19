@@ -3,6 +3,7 @@ import { UpgradeOption } from '../types/index';
 import { getWeaponById, WEAPONS } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
 import { uiText, uiTitle } from './UIStyles';
+import { AssetLoader } from '../utils/AssetLoader';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper：武器升級差異描述
@@ -207,6 +208,15 @@ function getTypeTag(option: UpgradeOption): { label: string; color: number } {
   return { label: '被動升級', color: 0x4466cc };
 }
 
+/** 取得升級選項的圖示 key（用於升級卡顯示） */
+function getOptionIconKey(option: UpgradeOption): string | undefined {
+  if (option.type === 'healHp') return undefined;
+  if (option.type === 'newWeapon' || option.type === 'upgradeWeapon') {
+    return getWeaponById(option.id)?.iconKey;
+  }
+  return getPassiveById(option.id)?.iconKey;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LevelUpPanel
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,6 +309,17 @@ export class LevelUpPanel {
       uiText(11, '#ffffff', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
     this.container.add(tagText);
+
+    // ── 圖示（武器/被動 icon，若有的話）────────────────────────────────────
+    const iconKey = getOptionIconKey(option);
+    const iconSize = 28;
+    const iconY = cardTop + cardH * 0.155;
+    if (iconKey && AssetLoader.hasTexture(this.scene, iconKey)) {
+      const iconImg = this.scene.add.image(cx, iconY, iconKey)
+        .setDisplaySize(iconSize, iconSize)
+        .setScrollFactor(0).setDepth(102);
+      this.container.add(iconImg);
+    }
 
     const nameText = this.scene.add.text(cx, cardTop + cardH * 0.18, getOptionName(option),
       uiText(15, '#ffffff', { fontStyle: 'bold', wordWrap: { width: cardW - 16 }, align: 'center' })

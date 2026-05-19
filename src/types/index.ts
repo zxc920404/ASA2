@@ -11,6 +11,10 @@ export interface CharacterData {
   basePickupRange: number; // 50～200 px
   startingWeaponId: string;
   trait: CharacterTrait;
+  /** 宗門選擇畫面小圖示 key（對應 public/assets/sects/icons/<id>.png） */
+  iconKey?: string;
+  /** 宗門選擇畫面立繪 key（對應 public/assets/sects/portraits/<id>.png） */
+  portraitKey?: string;
 }
 
 // 武器每級升級數值（統一結構，每級只給一個主要提升）
@@ -34,6 +38,8 @@ export interface WeaponData {
   baseAttackRange: number;      // px（fallback 用）
   projectileSpeed: number;      // px/s（fallback 用）
   levelStats: WeaponLevelStats[]; // 長度 8，索引 0 = Lv1
+  /** HUD / 升級卡 / 武器欄圖示 key（對應 public/assets/icons/weapons/<id>.png） */
+  iconKey?: string;
 }
 
 // 被動道具定義
@@ -42,6 +48,8 @@ export interface PassiveData {
   name: string;
   stat: 'moveSpeed' | 'hp' | 'attackPower' | 'pickupRange' | 'attackRange' | 'attackSpeed';
   bonusPerLevel: number; // 每級加成量
+  /** HUD / 升級卡 / 被動欄圖示 key（對應 public/assets/icons/passives/<id>.png） */
+  iconKey?: string;
 }
 
 // 敵人定義
@@ -61,6 +69,8 @@ export interface EnemyData {
   projectileSpeed?: number;
   /** 投射物傷害 */
   projectileDamage?: number;
+  /** GameScene 生成敵人時顯示的 sprite key（對應 public/assets/enemies/<id>.png） */
+  spriteKey?: string;
 }
 
 // 玩家最終屬性（StatCalculator 輸出）

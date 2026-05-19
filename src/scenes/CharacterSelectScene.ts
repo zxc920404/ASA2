@@ -3,6 +3,7 @@ import { CharacterData } from '../types/index';
 import { CHARACTERS } from '../data/characters';
 import { getWeaponById } from '../data/weapons';
 import { uiText, uiTitle, FONT_FAMILY } from '../ui/UIStyles';
+import { AssetLoader } from '../utils/AssetLoader';
 
 // ── 宗門資料（UI 顯示用，不影響 id / 戰鬥邏輯）──────────────────────────
 const SECT_INFO: Record<string, {
@@ -246,6 +247,30 @@ export class CharacterSelectScene extends Phaser.Scene {
     sect: { primary: number; accent: number },
     charId: string
   ): void {
+    const charData = CHARACTERS.find(c => c.id === charId);
+
+    // 優先使用 iconKey（Shield / SWORD / FIRE PNG）
+    if (charData?.iconKey && AssetLoader.hasTexture(this, charData.iconKey)) {
+      const img = this.add.image(cx, cy, charData.iconKey).setDepth(9);
+      // 縮放至適合卡片的大小（最大 64px）
+      const maxSize = 64;
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      img.setScale(scale);
+      return;
+    }
+
+    // 次選：portraitKey 立繪
+    if (charData?.portraitKey && AssetLoader.hasTexture(this, charData.portraitKey)) {
+      const img = this.add.image(cx, cy, charData.portraitKey).setDepth(9);
+      const maxW = 80;
+      const maxH = 100;
+      const scaleX = maxW / img.width;
+      const scaleY = maxH / img.height;
+      img.setScale(Math.min(scaleX, scaleY, 1));
+      return;
+    }
+
+    // Fallback：程式繪製人形圖示
     const g = this.add.graphics().setDepth(9);
     g.fillStyle(sect.accent, 0.12);
     g.fillCircle(cx, cy, 22);

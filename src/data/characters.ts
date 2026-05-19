@@ -10,6 +10,8 @@ export const CHARACTERS: CharacterData[] = [
     basePickupRange: 80,
     startingWeaponId: 'guardian_ring', // 守心環
     trait: '屬性加成型',
+    iconKey: 'sect_icon_swordsman',
+    portraitKey: 'sect_portrait_swordsman',
   },
   {
     id: 'assassin',
@@ -20,6 +22,8 @@ export const CHARACTERS: CharacterData[] = [
     basePickupRange: 100,
     startingWeaponId: 'swift_blade', // 疾風刃
     trait: '條件觸發型',
+    iconKey: 'sect_icon_assassin',
+    portraitKey: 'sect_portrait_assassin',
   },
   {
     id: 'taoist',
@@ -30,6 +34,8 @@ export const CHARACTERS: CharacterData[] = [
     basePickupRange: 140,
     startingWeaponId: 'flame_seal', // 赤焰印
     trait: '行為修改型',
+    iconKey: 'sect_icon_taoist',
+    portraitKey: 'sect_portrait_taoist',
   },
 ];
 

@@ -3,6 +3,7 @@ import { Player } from '../objects/Player';
 import { getWeaponById } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
 import { uiText } from './UIStyles';
+import { AssetLoader } from '../utils/AssetLoader';
 
 /**
  * HUD — 遊戲內抬頭顯示器
@@ -40,11 +41,13 @@ export class HUD {
   private weaponPanelBg!: Phaser.GameObjects.Graphics;
   private weaponSlotBgs: Phaser.GameObjects.Graphics[] = [];
   private weaponSlotTexts: Phaser.GameObjects.Text[] = [];
+  private weaponSlotIcons: (Phaser.GameObjects.Image | null)[] = [];
   private weaponHeaderText!: Phaser.GameObjects.Text;
 
   private passivePanelBg!: Phaser.GameObjects.Graphics;
   private passiveSlotBgs: Phaser.GameObjects.Graphics[] = [];
   private passiveSlotTexts: Phaser.GameObjects.Text[] = [];
+  private passiveSlotIcons: (Phaser.GameObjects.Image | null)[] = [];
   private passiveHeaderText!: Phaser.GameObjects.Text;
 
   private updateTimer!: Phaser.Time.TimerEvent;
@@ -247,6 +250,7 @@ export class HUD {
         '--', uiText(9, '#2a2a2a')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.weaponSlotTexts.push(wTxt);
+      this.weaponSlotIcons.push(null);
 
       const pBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
       pBg.fillStyle(0x111111, 0.40);
@@ -260,6 +264,7 @@ export class HUD {
         '--', uiText(9, '#2a2a2a')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.passiveSlotTexts.push(pTxt);
+      this.passiveSlotIcons.push(null);
     }
   }
 
@@ -332,26 +337,94 @@ export class HUD {
 
   private updateSlots(player: Player): void {
     const MAX_SLOTS = 6;
+    const slotW = 60;
+    const slotH = 16;
+    const slotGap = 2;
+    const wX = 8;
+    const wY = 68;
+    const pX = this.scene.scale.width - 8 - slotW;
+    const pY = 68;
+
     for (let i = 0; i < MAX_SLOTS; i++) {
       const ws = player.equipment.weapons[i];
+      const wySlot = wY + i * (slotH + slotGap);
+
       if (ws) {
         const w = getWeaponById(ws.weaponId);
-        this.weaponSlotTexts[i].setText(`${w?.name ?? ws.weaponId} L${ws.level}`);
-        this.weaponSlotTexts[i].setColor('#ffdd88');
+        const iconKey = w?.iconKey;
+
+        // 嘗試顯示圖示
+        if (iconKey && AssetLoader.hasTexture(this.scene, iconKey)) {
+          // 有圖示：顯示 icon + 等級文字
+          if (!this.weaponSlotIcons[i]) {
+            const img = this.scene.add.image(
+              wX + slotH / 2, wySlot + slotH / 2, iconKey
+            ).setScrollFactor(0).setDepth(11);
+            img.setDisplaySize(slotH - 2, slotH - 2);
+            this.weaponSlotIcons[i] = img;
+          } else {
+            this.weaponSlotIcons[i]!.setTexture(iconKey).setVisible(true);
+            this.weaponSlotIcons[i]!.setPosition(wX + slotH / 2, wySlot + slotH / 2);
+          }
+          this.weaponSlotTexts[i].setText(`L${ws.level}`);
+          this.weaponSlotTexts[i].setColor('#ffdd88');
+          this.weaponSlotTexts[i].setX(wX + slotH + 2 + (slotW - slotH - 2) / 2);
+        } else {
+          // Fallback：純文字
+          if (this.weaponSlotIcons[i]) {
+            this.weaponSlotIcons[i]!.setVisible(false);
+          }
+          this.weaponSlotTexts[i].setText(`${w?.name ?? ws.weaponId} L${ws.level}`);
+          this.weaponSlotTexts[i].setColor('#ffdd88');
+          this.weaponSlotTexts[i].setX(wX + slotW / 2);
+        }
       } else {
+        if (this.weaponSlotIcons[i]) {
+          this.weaponSlotIcons[i]!.setVisible(false);
+        }
         this.weaponSlotTexts[i].setText('--');
         this.weaponSlotTexts[i].setColor('#2a2a2a');
+        this.weaponSlotTexts[i].setX(wX + slotW / 2);
       }
     }
+
     for (let i = 0; i < MAX_SLOTS; i++) {
       const ps = player.equipment.passives[i];
+      const pySlot = pY + i * (slotH + slotGap);
+
       if (ps) {
         const p = getPassiveById(ps.passiveId);
-        this.passiveSlotTexts[i].setText(`${p?.name ?? ps.passiveId} L${ps.level}`);
-        this.passiveSlotTexts[i].setColor('#88ccff');
+        const iconKey = p?.iconKey;
+
+        if (iconKey && AssetLoader.hasTexture(this.scene, iconKey)) {
+          if (!this.passiveSlotIcons[i]) {
+            const img = this.scene.add.image(
+              pX + slotH / 2, pySlot + slotH / 2, iconKey
+            ).setScrollFactor(0).setDepth(11);
+            img.setDisplaySize(slotH - 2, slotH - 2);
+            this.passiveSlotIcons[i] = img;
+          } else {
+            this.passiveSlotIcons[i]!.setTexture(iconKey).setVisible(true);
+            this.passiveSlotIcons[i]!.setPosition(pX + slotH / 2, pySlot + slotH / 2);
+          }
+          this.passiveSlotTexts[i].setText(`L${ps.level}`);
+          this.passiveSlotTexts[i].setColor('#88ccff');
+          this.passiveSlotTexts[i].setX(pX + slotH + 2 + (slotW - slotH - 2) / 2);
+        } else {
+          if (this.passiveSlotIcons[i]) {
+            this.passiveSlotIcons[i]!.setVisible(false);
+          }
+          this.passiveSlotTexts[i].setText(`${p?.name ?? ps.passiveId} L${ps.level}`);
+          this.passiveSlotTexts[i].setColor('#88ccff');
+          this.passiveSlotTexts[i].setX(pX + slotW / 2);
+        }
       } else {
+        if (this.passiveSlotIcons[i]) {
+          this.passiveSlotIcons[i]!.setVisible(false);
+        }
         this.passiveSlotTexts[i].setText('--');
         this.passiveSlotTexts[i].setColor('#2a2a2a');
+        this.passiveSlotTexts[i].setX(pX + slotW / 2);
       }
     }
   }
@@ -394,7 +467,9 @@ export class HUD {
     this.passiveHeaderText?.destroy();
     for (const g of this.weaponSlotBgs) g?.destroy();
     for (const t of this.weaponSlotTexts) t?.destroy();
+    for (const img of this.weaponSlotIcons) img?.destroy();
     for (const g of this.passiveSlotBgs) g?.destroy();
     for (const t of this.passiveSlotTexts) t?.destroy();
+    for (const img of this.passiveSlotIcons) img?.destroy();
   }
 }

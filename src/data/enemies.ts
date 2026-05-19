@@ -9,6 +9,7 @@ export const ENEMIES: EnemyData[] = [
     baseDamage: 8,
     expDrop: 5,
     collisionRadius: 16,
+    spriteKey: 'enemy_img_basic',
   },
   {
     id: 'fast',
@@ -18,6 +19,7 @@ export const ENEMIES: EnemyData[] = [
     baseDamage: 7,
     expDrop: 5,
     collisionRadius: 12,
+    spriteKey: 'enemy_img_fast',
   },
   {
     id: 'tank',
@@ -27,6 +29,7 @@ export const ENEMIES: EnemyData[] = [
     baseDamage: 18,
     expDrop: 15,
     collisionRadius: 20,
+    spriteKey: 'enemy_img_tank',
   },
   {
     id: 'ranged',
@@ -40,6 +43,7 @@ export const ENEMIES: EnemyData[] = [
     fireInterval: 2.8,
     projectileSpeed: 200,
     projectileDamage: 7,
+    spriteKey: 'enemy_img_ranged',
   },
 ];
 
