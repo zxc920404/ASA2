@@ -96,8 +96,16 @@ export const MetaProgression = {
     return _data.destinyPoints;
   },
 
-  /** 增加天命點並儲存 */
+  /** 增加天命點（只更新記憶體，不立即寫 localStorage）
+   * 局內擊殺請用此方法，結算時再呼叫 save() */
   addDestinyPoints(amount: number): void {
+    if (amount <= 0) return;
+    _data.destinyPoints += amount;
+    // 不在此處寫 localStorage，避免每次擊殺都觸發 I/O
+  },
+
+  /** 增加天命點並立即寫入 localStorage（結算時使用） */
+  addDestinyPointsAndSave(amount: number): void {
     if (amount <= 0) return;
     _data.destinyPoints += amount;
     saveToStorage(_data);

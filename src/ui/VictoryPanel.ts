@@ -111,8 +111,7 @@ export class VictoryPanel {
       this.elements.push(val);
     }
 
-    // 天命點（勝利額外 +100）
-    MetaProgression.addDestinyPoints(runDestinyPoints);
+    // 天命點顯示（已在 GameScene.triggerVictory 結算，此處只顯示）
     const totalDp = MetaProgression.getDestinyPoints();
     const dpLbl = this.scene.add.text(W * 0.5, statsY + 88, '✦ 天命點', {
       fontSize: '11px', color: '#888888',

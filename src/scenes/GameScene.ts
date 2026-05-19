@@ -751,8 +751,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const maxLevel = this.player.level; // 等級只增不減，當前等級即最高等級
     const score = kills * 10 + seconds * 2 + maxLevel * 50;
 
-    // 天命點結算：加入永久存檔
-    MetaProgression.addDestinyPoints(this.runDestinyPoints);
+    // 天命點結算：加入永久存檔（只在結算時寫一次 localStorage）
+    MetaProgression.addDestinyPointsAndSave(this.runDestinyPoints);
 
     const result = {
       survivalSeconds: this.elapsedSeconds,
@@ -803,13 +803,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     if (this.portraitIcon) this.portraitIcon.setVisible(false);
     if (this.portraitText) this.portraitText.setVisible(false);
 
-    // 顯示 VictoryPanel
+    // 勝利天命點結算（本局 + 100 獎勵），只在此處寫一次 localStorage
+    const victoryDestinyPoints = this.runDestinyPoints + 100;
+    MetaProgression.addDestinyPointsAndSave(victoryDestinyPoints);
+
+    // 顯示 VictoryPanel（傳入已結算的天命點數字，僅供顯示）
     this.victoryPanel = new VictoryPanel(
       this,
       this.player,
       this.elapsedSeconds,
       this.killCount,
-      this.runDestinyPoints + 100, // 勝利額外 +100 天命點
+      victoryDestinyPoints, // 僅顯示用，不再重複加入
       () => {
         // 重新開始：回到角色選擇
         this.scene.start('CharacterSelectScene');
@@ -944,7 +948,6 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 精英怪掉落多顆 XP gem（散落在死亡位置附近）
     if (enemy.isElite) {
-      console.log('[Elite] killed');
       const gemCount = 12;
       for (let i = 0; i < gemCount; i++) {
         const angle = (i / gemCount) * Math.PI * 2;
@@ -958,14 +961,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     } else {
       // 在死亡位置生成 XPGem
       this.spawnXPGem(deathX, deathY, expValue);
-      // 機率掉落道具（測試掉落率 12%，正式建議改回 4%）
+      // 機率掉落道具
       this.trySpawnDropItem(deathX, deathY);
     }
 
     // 更新擊殺計數器
     this.killCount++;
 
-    // 天命點獲取（依敵人類型）
+    // 天命點獲取（只更新記憶體，不寫 localStorage）
     if (enemy.isElite) {
       this.runDestinyPoints += 25;
     } else if (enemy.isRanged) {
