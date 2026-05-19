@@ -14,6 +14,7 @@ import { VirtualJoystick } from '../ui/VirtualJoystick';
 import { getCharacterById } from '../data/characters';
 import { getEnemyById } from '../data/enemies';
 import { resetDamageNumberCounter } from '../objects/Enemy';
+import { EliteProjectile } from '../objects/EliteProjectile';
 
 interface GameSceneData {
   characterId: string;
@@ -152,6 +153,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /** 45 秒（測試用）精英怪是否已生成 */
   private eliteSpawned450: boolean = false;
 
+  // ── 精英投射物陣列（shooter 用）──────────────────────────────────────
+  private eliteProjectiles: EliteProjectile[] = [];
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -181,6 +185,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.eliteSpawned150 = false;
     this.eliteSpawned300 = false;
     this.eliteSpawned450 = false;
+
+    // 重置精英投射物陣列
+    this.eliteProjectiles = [];
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
@@ -351,6 +358,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           }
         }
       }
+
+      // 精英技能更新
+      if (enemy.isElite) {
+        enemy.updateEliteSkill(delta, this.player.x, this.player.y);
+      }
     }
 
     // ── 精英怪事件觸發（測試：15 / 30 / 45 秒；正式：150 / 300 / 450 秒）──
@@ -421,6 +433,29 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 處理被吸收的 XPGem（Requirement 9.2）
     for (const gem of absorbedGems) {
       this.absorbXPGem(gem);
+    }
+
+    // ── 精英投射物更新與碰撞檢測 ──────────────────────────────────────
+    const deadProjectiles: EliteProjectile[] = [];
+    for (const proj of this.eliteProjectiles) {
+      if (proj.isDead) { deadProjectiles.push(proj); continue; }
+
+      const expired = proj.updateProjectile(delta);
+      if (expired) { deadProjectiles.push(proj); continue; }
+
+      // 碰撞玩家
+      const pdx = this.player.x - proj.x;
+      const pdy = this.player.y - proj.y;
+      const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+      if (pdist <= PLAYER_COLLISION_RADIUS + 6) {
+        this.player.currentHP = Math.max(0, this.player.currentHP - proj.damage);
+        deadProjectiles.push(proj);
+      }
+    }
+    for (const proj of deadProjectiles) {
+      const idx = this.eliteProjectiles.indexOf(proj);
+      if (idx !== -1) this.eliteProjectiles.splice(idx, 1);
+      if (!proj.isDead) proj.destroy();
     }
   }
 
@@ -1004,75 +1039,62 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 生成精英怪（測試：15/30/45 秒；正式：150/300/450 秒，各一隻）
-   * - 不受普通怪上限限制
-   * - 生成在玩家畫面外 350～500px
-   * - 建構後呼叫 applyEliteVisual() 重繪外觀
-   * @param wave 第幾波精英（1/2/3）
+   * wave 1 → charger（衝撞型）
+   * wave 2 → shooter（遠程型）
+   * wave 3 → shield（護盾型）
    */
   private spawnEliteEnemy(wave: number): void {
-    // 取得當前難度狀態作為基準
     const state = this.difficultyScaler.getState(this.elapsedSeconds);
-
-    // 精英怪使用 'tank' 的 EnemyData 作為基底（厚血型）
     const baseData = getEnemyById('tank');
     if (!baseData) return;
 
-    // 精英怪能力倍率（隨波次遞增）
-    // wave 1: HP×8, 傷害×1.5
-    // wave 2: HP×12, 傷害×1.8
-    // wave 3: HP×18, 傷害×2.2
     const hpScales  = [8,   12,  18 ];
     const dmgScales = [1.5, 1.8, 2.2];
-    const speeds    = [55,  55,  60 ];
+    const speeds    = [70,  45,  50 ];   // charger 快一點，shooter/shield 慢
     const hpScale  = hpScales [wave - 1] ?? 8;
     const dmgScale = dmgScales[wave - 1] ?? 1.5;
     const eliteSpeed = speeds[wave - 1] ?? 55;
 
-    // 計算精英怪生成位置（距玩家 350～500px，畫面外）
     const { x, y } = this.calcEliteSpawnPosition();
 
-    // 建立精英怪（使用難度倍率 × 精英倍率）
-    const elite = new Enemy(
-      this,
-      x,
-      y,
-      baseData,
+    const elite = new Enemy(this, x, y, baseData,
       state.hpMultiplier * hpScale,
       state.damageMultiplier * dmgScale
     );
 
-    // 標記為精英、覆寫速度
     elite.isElite = true;
     elite.moveSpeed = eliteSpeed;
-    // collisionRadius 用於碰撞判定（Rectangle size 已固定，這裡只影響接觸傷害距離）
     elite.collisionRadius = 28;
 
-    // 重繪為精英外觀（金色大型武將）
-    elite.applyEliteVisual();
+    // 指定類型並套用外觀
+    const types: Array<'charger' | 'shooter' | 'shield'> = ['charger', 'shooter', 'shield'];
+    const eliteType = types[wave - 1] ?? 'charger';
+    elite.applyEliteVisual(eliteType);
 
-    // 加入敵人群組（不受普通怪上限限制，直接 add）
+    // shooter 注入投射物生成回呼
+    if (eliteType === 'shooter') {
+      elite.onShootProjectile = (px, py, vx, vy, dmg) => {
+        const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
+        this.eliteProjectiles.push(proj);
+      };
+    }
+
     this.enemyGroup.add(elite);
 
-    console.log(`[Elite] spawn wave ${wave}`, Math.round(x), Math.round(y));
+    const typeNames = ['衝撞型精英', '遠程型精英', '護盾型精英'];
+    console.log(`[Elite] spawn wave ${wave} (${eliteType})`, Math.round(x), Math.round(y));
 
-    // 顯示精英怪出現提示文字（畫面中央，短暫顯示）
     const W = this.scale.width;
     const H = this.scale.height;
-    const waveNames = ['初階精英', '中階精英', '高階精英'];
-    const label = this.add.text(W * 0.5, H * 0.3, `⚠ ${waveNames[wave - 1] ?? '精英'}出現！`, {
-      fontSize: '22px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(50);
+    const label = this.add.text(W * 0.5, H * 0.3,
+      `⚠ ${typeNames[wave - 1] ?? '精英'}出現！`, {
+        fontSize: '22px', color: '#ffd700', fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 4,
+      }
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(50);
 
     this.tweens.add({
-      targets: label,
-      y: H * 0.25,
-      alpha: 0,
-      duration: 2200,
-      ease: 'Power2',
+      targets: label, y: H * 0.25, alpha: 0, duration: 2200, ease: 'Power2',
       onComplete: () => label.destroy(),
     });
   }

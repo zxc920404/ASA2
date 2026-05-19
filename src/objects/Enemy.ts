@@ -1,24 +1,22 @@
 import Phaser from 'phaser';
 import { EnemyData } from '../types/index';
+import { EliteProjectile, getActiveEliteProjectileCount } from './EliteProjectile';
 
 /** 傷害數字同時上限 */
 const MAX_DAMAGE_NUMBERS = 25;
 /** 全域傷害數字計數（跨所有敵人） */
 let activeDamageNumbers = 0;
 
-/**
- * 重置傷害數字計數器（場景重新開始時呼叫）
- * 防止跨場景殘留計數導致傷害數字無法顯示
- */
 export function resetDamageNumberCounter(): void {
   activeDamageNumbers = 0;
 }
 
-/**
- * Enemy 遊戲物件
- * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體）
- * 視覺圖形由 Graphics 繪製，跟隨 Rectangle 位置
- */
+/** 精英怪類型 */
+export type EliteType = 'charger' | 'shooter' | 'shield';
+
+/** charger 衝撞狀態 */
+type ChargerState = 'idle' | 'windup' | 'dashing';
+
 export class Enemy extends Phaser.GameObjects.Rectangle {
   public dataId: string;
   public currentHP: number;
@@ -27,21 +25,47 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public contactDamage: number;
   public collisionRadius: number;
 
-  /** 是否為精英怪（影響外觀與掉落） */
+  /** 是否為精英怪 */
   public isElite: boolean = false;
+  /** 精英怪類型 */
+  public eliteType?: EliteType;
 
   /** 視覺圖形 */
   private visual!: Phaser.GameObjects.Graphics;
+  /** 護盾光圈（shield 用） */
+  private shieldVisual?: Phaser.GameObjects.Graphics;
+  /** 衝撞警示線（charger 用） */
+  private chargeWarning?: Phaser.GameObjects.Graphics;
 
-  /** 是否正在播放死亡特效（防止重複處理） */
   public isDying: boolean = false;
-
-  /** 受擊閃白計時（毫秒，> 0 時顯示白色） */
   private hitFlashTimer: number = 0;
-
-  /** 擊退偏移（世界座標） */
   private knockbackX: number = 0;
   private knockbackY: number = 0;
+
+  // ── charger 狀態 ──────────────────────────────────────────────────────
+  private chargerCooldown: number = 3000;   // 首次衝撞等待（ms）
+  private chargerState: ChargerState = 'idle';
+  private chargerWindupTimer: number = 0;
+  private chargerDashTimer: number = 0;
+  private chargerDirX: number = 0;
+  private chargerDirY: number = 0;
+  private readonly CHARGER_COOLDOWN   = 5000;
+  private readonly CHARGER_WINDUP     = 600;
+  private readonly CHARGER_DASH_DUR   = 650;
+  private readonly CHARGER_DASH_SPEED = 320;
+
+  // ── shooter 狀態 ──────────────────────────────────────────────────────
+  private shooterCooldown: number = 2000;   // 首次射擊等待（ms）
+  private readonly SHOOTER_COOLDOWN = 3000;
+  /** 回呼：由 GameScene 注入，用於生成投射物 */
+  public onShootProjectile?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
+
+  // ── shield 狀態 ──────────────────────────────────────────────────────
+  private shieldCooldown: number = 3000;    // 首次護盾等待（ms）
+  private shieldActive: boolean = false;
+  private shieldTimer: number = 0;
+  private readonly SHIELD_COOLDOWN = 6000;
+  private readonly SHIELD_DURATION = 2000;
 
   constructor(
     scene: Phaser.Scene,
@@ -62,7 +86,6 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.lastDamageTime = -Infinity;
 
     scene.add.existing(this);
-
     this.visual = scene.add.graphics();
     this.drawVisual(enemyData.id);
   }
@@ -71,31 +94,27 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // 公開方法
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * 受到傷害：扣血 + 閃白 + 擊退 + 傷害數字
-   * @param damage    傷害值（正整數）
-   * @param fromX     攻擊來源 X（用於計算擊退方向），不傳則不擊退
-   * @param fromY     攻擊來源 Y
-   * @returns 是否死亡（currentHP <= 0）
-   */
   public takeDamage(damage: number, fromX?: number, fromY?: number): boolean {
     if (this.isDying) return false;
 
-    // 扣血
-    this.currentHP -= damage;
+    // shield 護盾減傷 70%
+    let actualDamage = damage;
+    if (this.shieldActive) {
+      actualDamage = Math.ceil(damage * 0.3);
+    }
 
-    // 閃白（持續 120ms）
+    this.currentHP -= actualDamage;
+
     this.hitFlashTimer = 120;
-    this.visual.setAlpha(0.0); // 先隱藏原始圖形，改顯示白色覆蓋
+    this.visual.setAlpha(0.0);
     this.showFlashOverlay();
 
-    // 輕微擊退（若有來源位置）
     if (fromX !== undefined && fromY !== undefined) {
       const dx = this.x - fromX;
       const dy = this.y - fromY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 0) {
-        const knockDist = 12; // 擊退距離 px
+        const knockDist = this.shieldActive ? 4 : 12;
         this.knockbackX = (dx / dist) * knockDist;
         this.knockbackY = (dy / dist) * knockDist;
         this.setPosition(this.x + this.knockbackX, this.y + this.knockbackY);
@@ -103,206 +122,349 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       }
     }
 
-    // 傷害數字
-    this.showDamageNumber(damage);
-
+    this.showDamageNumber(actualDamage);
     return this.currentHP <= 0;
   }
 
-  /**
-   * 播放死亡特效（縮小 + 淡出），完成後銷毀自身
-   * 呼叫後不應再操作此物件
-   */
   public playDeathEffect(): void {
     if (this.isDying) return;
     this.isDying = true;
 
-    // 紅色小爆點
+    // 清理精英特效
+    if (this.shieldVisual && this.shieldVisual.active) {
+      this.shieldVisual.destroy();
+    }
+    if (this.chargeWarning && this.chargeWarning.active) {
+      this.chargeWarning.destroy();
+    }
+
     this.spawnDeathParticles();
 
-    // 視覺縮小淡出
     this.scene.tweens.add({
       targets: this.visual,
-      scaleX: 0,
-      scaleY: 0,
-      alpha: 0,
-      duration: 220,
-      ease: 'Power2',
+      scaleX: 0, scaleY: 0, alpha: 0,
+      duration: 220, ease: 'Power2',
       onComplete: () => {
-        if (this.visual && this.visual.active) {
-          this.visual.destroy();
-        }
+        if (this.visual && this.visual.active) this.visual.destroy();
       },
     });
 
-    // 透明碰撞體直接銷毀（不等 tween）
-    // 延遲一幀確保 GameScene 已從 group 移除
     this.scene.time.delayedCall(10, () => {
-      if (this.active) {
-        super.destroy();
-      }
+      if (this.active) super.destroy();
     });
   }
 
-  /**
-   * 每幀更新受擊閃白計時（由 GameScene.update 呼叫）
-   */
   public updateHitFlash(delta: number): void {
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= delta;
       if (this.hitFlashTimer <= 0) {
         this.hitFlashTimer = 0;
-        // 恢復原始視覺
         this.visual.setAlpha(1);
       }
     }
   }
 
-  /**
-   * 每幀朝玩家位置移動，並套用分離向量避免與其他敵人重疊
-   * @param playerX     玩家 X 座標
-   * @param playerY     玩家 Y 座標
-   * @param delta       幀時間差（毫秒）
-   * @param separationX 分離向量 X（由 GameScene 計算，預設 0）
-   * @param separationY 分離向量 Y（由 GameScene 計算，預設 0）
-   */
   public moveTowardPlayer(
-    playerX: number,
-    playerY: number,
-    delta: number,
-    separationX: number = 0,
-    separationY: number = 0
+    playerX: number, playerY: number, delta: number,
+    separationX: number = 0, separationY: number = 0
   ): void {
     if (this.isDying) return;
+    // charger 衝刺中：沿鎖定方向移動，不追玩家
+    if (this.eliteType === 'charger' && this.chargerState === 'dashing') {
+      const dt = delta / 1000;
+      this.setPosition(
+        this.x + this.chargerDirX * this.CHARGER_DASH_SPEED * dt,
+        this.y + this.chargerDirY * this.CHARGER_DASH_SPEED * dt
+      );
+      this.syncVisual();
+      return;
+    }
+    // charger 蓄力中：停頓（不移動）
+    if (this.eliteType === 'charger' && this.chargerState === 'windup') return;
 
     const dx = playerX - this.x;
     const dy = playerY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-
     if (dist < 1) return;
 
     const dt = delta / 1000;
-
-    // 追玩家方向（正規化）
     const chaseX = dx / dist;
     const chaseY = dy / dist;
-
-    // 最終方向 = 追玩家方向 + 分離向量（分離向量已由 GameScene 正規化並乘以強度）
     let finalX = chaseX + separationX;
     let finalY = chaseY + separationY;
-
-    // 正規化最終方向（確保速度不超過 moveSpeed）
     const finalLen = Math.sqrt(finalX * finalX + finalY * finalY);
-    if (finalLen > 0) {
-      finalX /= finalLen;
-      finalY /= finalLen;
-    }
+    if (finalLen > 0) { finalX /= finalLen; finalY /= finalLen; }
 
     this.setPosition(
       this.x + finalX * this.moveSpeed * dt,
       this.y + finalY * this.moveSpeed * dt
     );
-
     this.syncVisual();
   }
 
   /**
-   * 套用精英怪外觀（建構後呼叫，重繪為金色大型武將）
-   * 必須在 isElite = true 之後呼叫
+   * 套用精英怪外觀（建構後呼叫）
    */
-  public applyEliteVisual(): void {
-    this.drawVisual('elite');
+  public applyEliteVisual(type: EliteType): void {
+    this.eliteType = type;
+    this.drawVisual(type);
   }
 
   /**
-   * 銷毀時同步清除視覺圖形
+   * 每幀更新精英技能（由 GameScene.update 呼叫）
    */
-  public destroy(fromScene?: boolean): void {
-    if (this.visual && this.visual.active) {
-      this.visual.destroy();
+  public updateEliteSkill(delta: number, playerX: number, playerY: number): void {
+    if (this.isDying || !this.isElite) return;
+
+    switch (this.eliteType) {
+      case 'charger': this.updateCharger(delta, playerX, playerY); break;
+      case 'shooter': this.updateShooter(delta, playerX, playerY); break;
+      case 'shield':  this.updateShield(delta); break;
     }
+  }
+
+  public destroy(fromScene?: boolean): void {
+    if (this.visual && this.visual.active) this.visual.destroy();
+    if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
+    if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();
     super.destroy(fromScene);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 私有方法
+  // 精英技能私有方法
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private updateCharger(delta: number, playerX: number, playerY: number): void {
+    switch (this.chargerState) {
+      case 'idle':
+        this.chargerCooldown -= delta;
+        if (this.chargerCooldown <= 0) {
+          // 進入蓄力
+          this.chargerState = 'windup';
+          this.chargerWindupTimer = this.CHARGER_WINDUP;
+          // 鎖定衝刺方向
+          const dx = playerX - this.x;
+          const dy = playerY - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0) { this.chargerDirX = dx / dist; this.chargerDirY = dy / dist; }
+          // 顯示紅色警示線
+          this.showChargeWarning();
+        }
+        break;
+
+      case 'windup':
+        this.chargerWindupTimer -= delta;
+        // 更新警示線位置
+        if (this.chargeWarning && this.chargeWarning.active) {
+          this.chargeWarning.setPosition(this.x, this.y);
+        }
+        if (this.chargerWindupTimer <= 0) {
+          // 進入衝刺
+          this.chargerState = 'dashing';
+          this.chargerDashTimer = this.CHARGER_DASH_DUR;
+          if (this.chargeWarning && this.chargeWarning.active) {
+            this.chargeWarning.destroy();
+            this.chargeWarning = undefined;
+          }
+        }
+        break;
+
+      case 'dashing':
+        this.chargerDashTimer -= delta;
+        if (this.chargerDashTimer <= 0) {
+          // 衝刺結束，回到 idle
+          this.chargerState = 'idle';
+          this.chargerCooldown = this.CHARGER_COOLDOWN;
+        }
+        break;
+    }
+  }
+
+  private updateShooter(delta: number, playerX: number, playerY: number): void {
+    this.shooterCooldown -= delta;
+    if (this.shooterCooldown > 0) return;
+    this.shooterCooldown = this.SHOOTER_COOLDOWN;
+
+    if (!this.onShootProjectile) return;
+    // 場上投射物已達上限時跳過
+    if (getActiveEliteProjectileCount() >= 30) return;
+
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const speed = 250;
+    const baseDmg = Math.ceil(this.contactDamage * 0.6);
+    // 扇形 3 顆：中央 + 左偏 20° + 右偏 20°
+    const angles = [0, -0.35, 0.35]; // radians
+    const baseAngle = Math.atan2(dy, dx);
+    for (const offset of angles) {
+      const a = baseAngle + offset;
+      this.onShootProjectile(
+        this.x, this.y,
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        baseDmg
+      );
+    }
+  }
+
+  private updateShield(delta: number): void {
+    if (this.shieldActive) {
+      this.shieldTimer -= delta;
+      // 更新護盾光圈位置
+      if (this.shieldVisual && this.shieldVisual.active) {
+        this.shieldVisual.setPosition(this.x, this.y);
+      }
+      if (this.shieldTimer <= 0) {
+        // 護盾結束
+        this.shieldActive = false;
+        this.shieldCooldown = this.SHIELD_COOLDOWN;
+        if (this.shieldVisual && this.shieldVisual.active) {
+          this.shieldVisual.destroy();
+          this.shieldVisual = undefined;
+        }
+      }
+    } else {
+      this.shieldCooldown -= delta;
+      if (this.shieldCooldown <= 0) {
+        // 開啟護盾
+        this.shieldActive = true;
+        this.shieldTimer = this.SHIELD_DURATION;
+        this.showShieldVisual();
+      }
+    }
+  }
+
+  private showChargeWarning(): void {
+    if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();
+    const g = this.scene.add.graphics();
+    g.setPosition(this.x, this.y);
+    g.setDepth(9);
+    // 紅色方向線（長 120px）
+    g.lineStyle(3, 0xff2200, 0.85);
+    g.lineBetween(0, 0, this.chargerDirX * 120, this.chargerDirY * 120);
+    // 紅色警示圓圈
+    g.lineStyle(2, 0xff4400, 0.6);
+    g.strokeCircle(0, 0, 32);
+    this.chargeWarning = g;
+  }
+
+  private showShieldVisual(): void {
+    if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
+    const g = this.scene.add.graphics();
+    g.setPosition(this.x, this.y);
+    g.setDepth(9);
+    g.fillStyle(0x00ffcc, 0.18);
+    g.fillCircle(0, 0, 36);
+    g.lineStyle(2.5, 0x00ffcc, 0.75);
+    g.strokeCircle(0, 0, 36);
+    this.shieldVisual = g;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 視覺私有方法
   // ─────────────────────────────────────────────────────────────────────────
 
   private drawVisual(enemyId: string): void {
     const g = this.visual;
     g.clear();
 
-    if (enemyId === 'elite') {
-      // ── 精英怪外觀：金色大型武將 ──────────────────────────────────────
-      // 外圈金色光暈（半透明，半徑 32px）
-      g.fillStyle(0xffd700, 0.18);
-      g.fillCircle(0, 0, 32);
-      // 中圈橙色光暈（半透明，半徑 24px）
-      g.fillStyle(0xff8800, 0.22);
-      g.fillCircle(0, 0, 24);
-      // 腿部（深紅）
-      g.fillStyle(0x660000, 1);
-      g.fillRect(-10, 12, 7, 14);
-      g.fillRect(3, 12, 7, 14);
-      // 身體（深紅）
-      g.fillStyle(0x990000, 1);
-      g.fillRect(-13, -6, 26, 20);
-      // 頭部（膚色）
-      g.fillStyle(0xddccaa, 1);
-      g.fillCircle(0, -16, 12);
-      // 金色頭盔
+    if (enemyId === 'charger') {
+      // 紅金色衝鋒武將
+      g.fillStyle(0xff4400, 0.20); g.fillCircle(0, 0, 30);
+      g.fillStyle(0xcc2200, 1);
+      g.fillRect(-12, -5, 24, 18);   // 身體
+      g.fillStyle(0xffaa00, 1);
+      g.fillCircle(0, -15, 11);      // 頭
       g.fillStyle(0xffd700, 1);
-      g.fillRect(-12, -24, 24, 10);
-      g.fillRect(-4, -30, 8, 8);
-      // 大刀（金色）
-      g.fillStyle(0xffd700, 1);
-      g.fillRect(14, -28, 5, 38);
-      g.fillRect(10, -28, 14, 6);
-      // 腰帶（金色）
+      g.fillRect(-11, -22, 22, 9);   // 頭盔
+      g.fillRect(-3, -28, 6, 7);
+      g.fillRect(13, -26, 4, 34);    // 長矛
+      g.fillRect(9, -26, 12, 5);
       g.fillStyle(0xffd700, 0.9);
-      g.fillRect(-13, 6, 26, 4);
-      // 金色外框線
-      g.lineStyle(2, 0xffd700, 0.7);
-      g.strokeCircle(0, 0, 26);
+      g.fillRect(-12, 5, 24, 4);     // 腰帶
+      g.lineStyle(2, 0xff6600, 0.7); g.strokeCircle(0, 0, 26);
+
+    } else if (enemyId === 'shooter') {
+      // 紫藍色遠程法師
+      g.fillStyle(0x6600ff, 0.20); g.fillCircle(0, 0, 26);
+      g.fillStyle(0x330088, 1);
+      g.fillRect(-10, -4, 20, 16);   // 身體
+      g.fillStyle(0x9933ff, 1);
+      g.fillCircle(0, -13, 10);      // 頭
+      g.fillStyle(0x6600cc, 1);
+      g.fillTriangle(0, -28, -10, -13, 10, -13); // 法師帽
+      g.fillStyle(0xaaaaff, 1);
+      g.fillCircle(-14, 2, 5);       // 左手法球
+      g.fillCircle(14, 2, 5);        // 右手法球
+      g.fillStyle(0xffffff, 0.7);
+      g.fillCircle(-14, 2, 2);
+      g.fillCircle(14, 2, 2);
+      g.lineStyle(2, 0xaa44ff, 0.7); g.strokeCircle(0, 0, 22);
+
+    } else if (enemyId === 'shield') {
+      // 金青色重甲護盾怪
+      g.fillStyle(0x00ccaa, 0.20); g.fillCircle(0, 0, 32);
+      g.fillStyle(0x005544, 1);
+      g.fillRect(-14, -6, 28, 22);   // 身體
+      g.fillStyle(0xddccaa, 1);
+      g.fillCircle(0, -16, 11);      // 頭
+      g.fillStyle(0x00aa88, 1);
+      g.fillRect(-13, -24, 26, 10);  // 頭盔
+      g.fillRect(-4, -30, 8, 7);
+      // 盾牌（左側大矩形）
+      g.fillStyle(0x008866, 1);
+      g.fillRect(-26, -10, 14, 24);
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(-26, -10, 14, 3);
+      g.fillRect(-26, 11, 14, 3);
+      g.fillRect(-26, 0, 3, 14);
+      g.fillStyle(0xffd700, 0.9);
+      g.fillRect(-14, 6, 28, 4);     // 腰帶
+      g.lineStyle(2.5, 0x00ffcc, 0.7); g.strokeCircle(0, 0, 28);
+
+    } else if (enemyId === 'elite') {
+      // 舊版通用精英（向下相容）
+      g.fillStyle(0xffd700, 0.18); g.fillCircle(0, 0, 32);
+      g.fillStyle(0xff8800, 0.22); g.fillCircle(0, 0, 24);
+      g.fillStyle(0x660000, 1);
+      g.fillRect(-10, 12, 7, 14); g.fillRect(3, 12, 7, 14);
+      g.fillStyle(0x990000, 1); g.fillRect(-13, -6, 26, 20);
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -16, 12);
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(-12, -24, 24, 10); g.fillRect(-4, -30, 8, 8);
+      g.fillRect(14, -28, 5, 38); g.fillRect(10, -28, 14, 6);
+      g.fillStyle(0xffd700, 0.9); g.fillRect(-13, 6, 26, 4);
+      g.lineStyle(2, 0xffd700, 0.7); g.strokeCircle(0, 0, 26);
 
     } else if (enemyId === 'basic') {
-      g.fillStyle(0xcc2222, 0.2);
-      g.fillCircle(0, 0, 18);
-      g.fillStyle(0x881111, 1);
-      g.fillRect(-8, -2, 16, 14);
-      g.fillStyle(0xff4444, 1);
-      g.fillCircle(0, -10, 9);
+      g.fillStyle(0xcc2222, 0.2); g.fillCircle(0, 0, 18);
+      g.fillStyle(0x881111, 1); g.fillRect(-8, -2, 16, 14);
+      g.fillStyle(0xff4444, 1); g.fillCircle(0, -10, 9);
       g.lineStyle(2, 0xff6666, 1);
-      g.lineBetween(-12, 2, -18, -4);
-      g.lineBetween(-12, 6, -20, 6);
-      g.lineBetween(-12, 10, -18, 16);
-      g.lineBetween(12, 2, 18, -4);
-      g.lineBetween(12, 6, 20, 6);
-      g.lineBetween(12, 10, 18, 16);
+      g.lineBetween(-12, 2, -18, -4); g.lineBetween(-12, 6, -20, 6);
+      g.lineBetween(-12, 10, -18, 16); g.lineBetween(12, 2, 18, -4);
+      g.lineBetween(12, 6, 20, 6); g.lineBetween(12, 10, 18, 16);
 
     } else if (enemyId === 'fast') {
-      g.fillStyle(0xff6600, 0.2);
-      g.fillCircle(0, 0, 14);
+      g.fillStyle(0xff6600, 0.2); g.fillCircle(0, 0, 14);
       g.fillStyle(0xcc4400, 1);
       g.fillTriangle(0, -14, -10, 2, 10, 2);
       g.fillTriangle(0, 14, -10, 2, 10, 2);
       g.lineStyle(1.5, 0xffaa44, 0.8);
-      g.lineBetween(-16, -6, -8, -6);
-      g.lineBetween(-18, 0, -10, 0);
+      g.lineBetween(-16, -6, -8, -6); g.lineBetween(-18, 0, -10, 0);
       g.lineBetween(-16, 6, -8, 6);
 
     } else if (enemyId === 'tank') {
-      g.fillStyle(0x6600aa, 0.2);
-      g.fillCircle(0, 0, 22);
-      g.fillStyle(0x440077, 1);
-      g.fillCircle(0, 0, 16);
+      g.fillStyle(0x6600aa, 0.2); g.fillCircle(0, 0, 22);
+      g.fillStyle(0x440077, 1); g.fillCircle(0, 0, 16);
       g.fillStyle(0x8833cc, 1);
-      g.fillRect(-14, -6, 10, 12);
-      g.fillRect(4, -6, 10, 12);
+      g.fillRect(-14, -6, 10, 12); g.fillRect(4, -6, 10, 12);
       g.fillRect(-8, -16, 16, 10);
       g.fillStyle(0xff0000, 1);
-      g.fillCircle(-5, -2, 3);
-      g.fillCircle(5, -2, 3);
+      g.fillCircle(-5, -2, 3); g.fillCircle(5, -2, 3);
     }
 
     g.setPosition(this.x, this.y);
@@ -315,61 +477,36 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     }
   }
 
-  /** 顯示短暫白色覆蓋（閃白效果） */
   private showFlashOverlay(): void {
     const flash = this.scene.add.graphics();
     flash.fillStyle(0xffffff, 0.85);
     flash.fillCircle(0, 0, this.collisionRadius + 4);
     flash.setPosition(this.x, this.y);
     flash.setDepth(6);
-
     this.scene.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 120,
+      targets: flash, alpha: 0, duration: 120,
       onComplete: () => {
         flash.destroy();
-        // 閃白結束後恢復視覺
-        if (this.visual && this.visual.active) {
-          this.visual.setAlpha(1);
-        }
+        if (this.visual && this.visual.active) this.visual.setAlpha(1);
       },
     });
   }
 
-  /** 顯示傷害數字（上浮淡出） */
   private showDamageNumber(damage: number): void {
     if (activeDamageNumbers >= MAX_DAMAGE_NUMBERS) return;
-
     activeDamageNumbers++;
     const offsetX = (Math.random() - 0.5) * 20;
     const text = this.scene.add.text(
-      this.x + offsetX,
-      this.y - this.collisionRadius - 4,
+      this.x + offsetX, this.y - this.collisionRadius - 4,
       `-${damage}`,
-      {
-        fontSize: '14px',
-        color: '#ff4444',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }
+      { fontSize: '14px', color: '#ff4444', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }
     ).setOrigin(0.5, 1).setDepth(20);
-
     this.scene.tweens.add({
-      targets: text,
-      y: text.y - 28,
-      alpha: 0,
-      duration: 500,
-      ease: 'Power1',
-      onComplete: () => {
-        text.destroy();
-        activeDamageNumbers--;
-      },
+      targets: text, y: text.y - 28, alpha: 0, duration: 500, ease: 'Power1',
+      onComplete: () => { text.destroy(); activeDamageNumbers--; },
     });
   }
 
-  /** 死亡時生成紅色小爆點 */
   private spawnDeathParticles(): void {
     const count = 5;
     for (let i = 0; i < count; i++) {
@@ -379,17 +516,13 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       dot.fillCircle(0, 0, 4);
       dot.setPosition(this.x, this.y);
       dot.setDepth(7);
-
       const speed = 40 + Math.random() * 40;
       this.scene.tweens.add({
         targets: dot,
         x: dot.x + Math.cos(angle) * speed,
         y: dot.y + Math.sin(angle) * speed,
-        alpha: 0,
-        scaleX: 0.2,
-        scaleY: 0.2,
-        duration: 300 + Math.random() * 150,
-        ease: 'Power2',
+        alpha: 0, scaleX: 0.2, scaleY: 0.2,
+        duration: 300 + Math.random() * 150, ease: 'Power2',
         onComplete: () => dot.destroy(),
       });
     }
