@@ -1224,7 +1224,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           // 移動方向：隨機，速度 35～60px/s
           const moveAngle = Math.random() * Math.PI * 2;
           const moveSpeed = 35 + Math.random() * 25;
-          const hole = new BlackHoleTrap(this, hx, hy, 80, 4000, moveAngle, moveSpeed);
+          const hole = new BlackHoleTrap(this, hx, hy, 100, 4000, moveAngle, moveSpeed);
           this.blackHoleTraps.push(hole);
         }
       };

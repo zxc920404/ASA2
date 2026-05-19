@@ -22,7 +22,7 @@ export class BlackHoleTrap {
   private moveAngle: number;  // 移動方向（弧度）
   private moveSpeed: number;  // 移動速度（px/s）
 
-  private readonly PULL_STRENGTH = 90; // 吸力強度（px/s），玩家可逃脫
+  private readonly PULL_STRENGTH = 120; // 吸力強度（px/s），玩家可逃脫
 
   /** 是否已標記銷毀 */
   public isDead: boolean = false;
