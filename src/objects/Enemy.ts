@@ -664,31 +664,78 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   private showFlashOverlay(): void {
     const flash = this.scene.add.graphics();
-    flash.fillStyle(0xffffff, 0.85);
-    flash.fillCircle(0, 0, this.collisionRadius + 4);
+    flash.fillStyle(0xffffff, 0.92);
+    flash.fillCircle(0, 0, this.collisionRadius + 5);
     flash.setPosition(this.x, this.y);
     flash.setDepth(6);
     this.scene.tweens.add({
-      targets: flash, alpha: 0, duration: 120,
+      targets: flash, alpha: 0, duration: 100,
       onComplete: () => {
         flash.destroy();
         if (this.visual && this.visual.active) this.visual.setAlpha(1);
       },
     });
+
+    // 輕量縮放回饋（scale 1.0 → 1.08 → 1.0，不建立額外物件）
+    if (this.visual && this.visual.active) {
+      this.scene.tweens.add({
+        targets: this.visual,
+        scaleX: 1.08, scaleY: 1.08,
+        duration: 55, ease: 'Power1',
+        yoyo: true,
+      });
+    }
   }
 
   private showDamageNumber(damage: number): void {
     if (activeDamageNumbers >= MAX_DAMAGE_NUMBERS) return;
     activeDamageNumbers++;
-    const offsetX = (Math.random() - 0.5) * 20;
+
+    // 隨機偏移：x ±12，y -8 到 +4
+    const offsetX = (Math.random() - 0.5) * 24;   // -12 ~ +12
+    const offsetY = Math.random() * 12 - 8;        // -8 ~ +4
+
+    // 飄動方向：隨機往上、左上、右上
+    const driftX = (Math.random() - 0.5) * 22;    // -11 ~ +11
+    const driftY = -(22 + Math.random() * 16);     // -22 ~ -38（往上）
+
+    const isZero = damage === 0;
+    const color = isZero ? '#aaaaaa' : '#ff4444';
+    const displayText = isZero ? '格擋' : `-${damage}`;
+    const fontSize = isZero ? '12px' : (damage >= 30 ? '17px' : '14px');
+
     const text = this.scene.add.text(
-      this.x + offsetX, this.y - this.collisionRadius - 4,
-      `-${damage}`,
-      { fontSize: '14px', color: '#ff4444', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }
-    ).setOrigin(0.5, 1).setDepth(20);
+      this.x + offsetX,
+      this.y - this.collisionRadius + offsetY,
+      displayText,
+      {
+        fontSize,
+        color,
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }
+    ).setOrigin(0.5, 1).setDepth(20).setScale(0.7);
+
+    // Pop-up 彈跳：scale 0.7 → 1.1 → 1.0，再飄移淡出
     this.scene.tweens.add({
-      targets: text, y: text.y - 28, alpha: 0, duration: 500, ease: 'Power1',
-      onComplete: () => { text.destroy(); activeDamageNumbers--; },
+      targets: text,
+      scaleX: 1.1, scaleY: 1.1,
+      duration: 80, ease: 'Back.Out',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: text,
+          scaleX: 1.0, scaleY: 1.0,
+          x: text.x + driftX,
+          y: text.y + driftY,
+          alpha: 0,
+          duration: 480, ease: 'Power1',
+          onComplete: () => {
+            text.destroy();
+            activeDamageNumbers--;
+          },
+        });
+      },
     });
   }
 

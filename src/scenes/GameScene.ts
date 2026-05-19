@@ -1117,9 +1117,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     bg.fillStyle(0x1a2a1a, 1);
     bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // 石板格紋（64×64，深色線條，alpha 0.3）
+    // 石板格紋（64×64，深色線條，alpha 降至 0.12 避免干擾戰鬥視覺）
     const gridG = this.add.graphics().setDepth(-1);
-    gridG.lineStyle(1, 0x000000, 0.3);
+    gridG.lineStyle(1, 0x000000, 0.12);
     const tileSize = 64;
     for (let x = 0; x <= WORLD_WIDTH; x += tileSize) {
       gridG.lineBetween(x, 0, x, WORLD_HEIGHT);
@@ -1150,6 +1150,67 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     cornerG.fillTriangle(0, WORLD_HEIGHT, 180, WORLD_HEIGHT, 0, WORLD_HEIGHT - 160);
     // 右下
     cornerG.fillTriangle(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH - 180, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT - 160);
+
+    // 地圖裝飾物（靜態，不可碰撞，depth 0，不每幀更新）
+    this.spawnMapDecorations();
+  }
+
+  /**
+   * 生成地圖裝飾物（碎石、草叢、小石塊）
+   * 純視覺，不可碰撞，不每幀更新，scene 關閉時由 Phaser 自動清理
+   */
+  private spawnMapDecorations(): void {
+    const COUNT = 100; // 保守數量，避免影響效能
+    const MARGIN = 80; // 距邊界最小距離
+    const decG = this.add.graphics().setDepth(0);
+
+    // 預先定義裝飾類型：0=碎石, 1=草叢, 2=小石塊
+    const rng = (min: number, max: number) => min + Math.random() * (max - min);
+
+    for (let i = 0; i < COUNT; i++) {
+      const x = rng(MARGIN, WORLD_WIDTH - MARGIN);
+      const y = rng(MARGIN, WORLD_HEIGHT - MARGIN);
+
+      // 避開地圖中央訓練場（半徑 400px 內不放裝飾）
+      const dx = x - WORLD_WIDTH / 2;
+      const dy = y - WORLD_HEIGHT / 2;
+      if (dx * dx + dy * dy < 400 * 400) continue;
+
+      const type = Math.floor(Math.random() * 3);
+
+      if (type === 0) {
+        // 碎石：2～3 個小圓，灰褐色
+        const count = 2 + Math.floor(Math.random() * 2);
+        for (let j = 0; j < count; j++) {
+          const ox = rng(-6, 6);
+          const oy = rng(-4, 4);
+          const r = rng(2.5, 5);
+          const gray = 0x556655 + Math.floor(Math.random() * 0x111111);
+          decG.fillStyle(gray, 0.55);
+          decG.fillCircle(x + ox, y + oy, r);
+        }
+      } else if (type === 1) {
+        // 草叢：3～4 條短線，深綠色
+        const blades = 3 + Math.floor(Math.random() * 2);
+        for (let j = 0; j < blades; j++) {
+          const ox = rng(-7, 7);
+          const h = rng(5, 10);
+          const lean = rng(-3, 3);
+          decG.lineStyle(1.5, 0x2a5a2a, 0.5);
+          decG.lineBetween(x + ox, y, x + ox + lean, y - h);
+        }
+      } else {
+        // 小石塊：不規則多邊形（用矩形模擬）
+        const w = rng(6, 12);
+        const h = rng(4, 8);
+        const angle = rng(0, Math.PI);
+        const col = 0x445544 + Math.floor(Math.random() * 0x111111);
+        decG.fillStyle(col, 0.45);
+        // 用兩個重疊矩形模擬不規則石塊
+        decG.fillRect(x - w / 2, y - h / 2, w, h);
+        decG.fillRect(x - w * 0.35, y - h * 0.7, w * 0.7, h * 0.5);
+      }
+    }
   }
 
   /**
