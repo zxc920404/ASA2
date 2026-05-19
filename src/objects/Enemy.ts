@@ -247,6 +247,15 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   /**
+   * 重新定位（Enemy Recycle 用）
+   * 只移動位置並同步視覺，不重建物件、不重置 HP 或任何狀態
+   */
+  public relocate(x: number, y: number): void {
+    this.setPosition(x, y);
+    this.syncVisual();
+  }
+
+  /**
    * 套用精英怪外觀（建構後呼叫）
    */
   public applyEliteVisual(type: EliteType): void {

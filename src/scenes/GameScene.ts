@@ -65,6 +65,14 @@ const FINAL_WAVE_START_SEC = 9 * 60;
 /** 最後怪潮敵人上限（比平時多，但仍保守）*/
 const MAX_ENEMIES_FINAL_WAVE = 100;
 
+// ── Enemy Recycle 機制（模仿 Vampire Survivors 怪物重新定位）──────────────
+/** 超過此距離的普通小怪會被重新定位（px） */
+const RECYCLE_DISTANCE = 1200;
+/** 重新定位後距玩家的距離（px），落在視野外 */
+const RECYCLE_SPAWN_DISTANCE = 700;
+/** Recycle 檢查間隔（ms），不每幀檢查以節省效能 */
+const RECYCLE_CHECK_INTERVAL = 800;
+
 export class GameScene extends Phaser.Scene implements IGameScene {
   private characterId: string = '';
   private player!: Player;
@@ -196,6 +204,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private hpRecoveryTimer: number = 0;
   private readonly HP_RECOVERY_INTERVAL = 1000; // 每 1 秒回血一次
 
+  // ── Enemy Recycle 計時（ms）──────────────────────────────────────────
+  /** 距離過遠的普通小怪重新定位計時器 */
+  private recycleTimer: number = 0;
+
   // ── Debug 顯示 ────────────────────────────────────────────────────────
   private debugText!: Phaser.GameObjects.Text;
   private debugUpdateTimer: number = 0;
@@ -247,6 +259,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 重置本局天命點
     this.runDestinyPoints = 0;
     this.hpRecoveryTimer = 0;
+    this.recycleTimer = 0;
 
     // 讀取局外進度
     MetaProgression.load();
@@ -668,6 +681,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       item.destroy();
       const idx = this.dropItems.indexOf(item);
       if (idx !== -1) this.dropItems.splice(idx, 1);
+    }
+
+    // ── Enemy Recycle：每 800ms 檢查一次，將太遠的普通小怪重新定位 ──
+    this.recycleTimer += delta;
+    if (this.recycleTimer >= RECYCLE_CHECK_INTERVAL) {
+      this.recycleTimer = 0;
+      this.recycleDistantEnemies();
     }
   } // end _updateInternal
 
@@ -1591,6 +1611,65 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     spawnY = Phaser.Math.Clamp(spawnY, 32, WORLD_HEIGHT - 32);
 
     return { x: spawnX, y: spawnY };
+  }
+
+  /**
+   * Enemy Recycle 機制（模仿 Vampire Survivors）
+   * 每 800ms 呼叫一次，將距離玩家超過 RECYCLE_DISTANCE 的普通小怪
+   * 重新定位到玩家視野外的隨機方向，讓怪物看起來像從其他方向重新湧出。
+   *
+   * 規則：
+   * - 只處理普通小怪（isElite === false）
+   * - 精英怪 / Boss 不可 recycle
+   * - 不刪除 Enemy 物件，只重設位置（保留 HP、速度、回呼等所有狀態）
+   * - 新位置距玩家 RECYCLE_SPAWN_DISTANCE px，落在視野外
+   * - 限制在世界邊界內
+   */
+  private recycleDistantEnemies(): void {
+    const enemies = this.enemyGroup.getChildren() as Enemy[];
+    const px = this.player.x;
+    const py = this.player.y;
+
+    // 取得攝影機可視範圍（用於確保新位置在視野外）
+    const cam = this.cameras.main;
+    const camHalfW = cam.width  * 0.5;
+    const camHalfH = cam.height * 0.5;
+
+    for (const enemy of enemies) {
+      // 跳過：死亡中、已標記死亡、精英怪
+      if (enemy.isDying || enemy.deathHandled || enemy.isDead) continue;
+      if (enemy.isElite) continue; // 精英 / Boss 不 recycle
+
+      // 計算與玩家的距離
+      const dx = enemy.x - px;
+      const dy = enemy.y - py;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq < RECYCLE_DISTANCE * RECYCLE_DISTANCE) continue; // 距離未超標，跳過
+
+      // 選一個隨機角度，重新定位到玩家視野外
+      const angle = Math.random() * Math.PI * 2;
+      let newX = px + Math.cos(angle) * RECYCLE_SPAWN_DISTANCE;
+      let newY = py + Math.sin(angle) * RECYCLE_SPAWN_DISTANCE;
+
+      // 確保新位置在視野外（若落在畫面內則推到邊緣外）
+      const relX = newX - px;
+      const relY = newY - py;
+      const isInsideView = Math.abs(relX) < camHalfW && Math.abs(relY) < camHalfH;
+      if (isInsideView) {
+        // 沿同方向推到視野邊緣外
+        const pushDist = Math.max(camHalfW, camHalfH) + 20;
+        newX = px + Math.cos(angle) * pushDist;
+        newY = py + Math.sin(angle) * pushDist;
+      }
+
+      // 限制在世界邊界內
+      newX = Phaser.Math.Clamp(newX, 16, WORLD_WIDTH  - 16);
+      newY = Phaser.Math.Clamp(newY, 16, WORLD_HEIGHT - 16);
+
+      // 重新定位（只移動位置，不重建物件）
+      enemy.relocate(newX, newY);
+    }
   }
 
   /**
