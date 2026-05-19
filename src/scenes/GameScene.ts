@@ -18,6 +18,7 @@ import { EliteProjectile } from '../objects/EliteProjectile';
 import { BlackHoleTrap } from '../objects/BlackHoleTrap';
 import { DropItem, DropItemType } from '../objects/DropItem';
 import { MetaProgression } from '../systems/MetaProgression';
+import { EliteLineAttack } from '../objects/EliteLineAttack';
 
 interface GameSceneData {
   characterId: string;
@@ -171,6 +172,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private blackHoleTraps: BlackHoleTrap[] = [];
   private readonly MAX_BLACK_HOLES = 4;
 
+  // ── 直線攻擊陣列（shield Boss 用）────────────────────────────────────
+  private lineAttacks: EliteLineAttack[] = [];
+
   // ── 掉落道具陣列 ──────────────────────────────────────────────────────
   private dropItems: DropItem[] = [];
   private readonly MAX_DROP_ITEMS = 12;
@@ -231,6 +235,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 重置黑洞陷阱陣列
     this.blackHoleTraps = [];
+
+    // 重置直線攻擊陣列
+    this.lineAttacks = [];
 
     // 重置掉落道具、遠程投射物、加速 buff
     this.dropItems = [];
@@ -608,6 +615,26 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
+    // ── 直線攻擊更新（shield Boss 技能）──────────────────────────────
+    const deadLineAttacks: EliteLineAttack[] = [];
+    let lineAttackHitThisFrame = false; // 同一輪只允許扣一次血
+    for (const la of this.lineAttacks) {
+      if (la.isDead) { deadLineAttacks.push(la); continue; }
+      const result = la.update(delta, this.player, lineAttackHitThisFrame);
+      if (result.hit) {
+        lineAttackHitThisFrame = true;
+        this.player.currentHP = Math.max(0, this.player.currentHP - la.getDamage());
+      }
+      if (result.shouldDestroy) {
+        deadLineAttacks.push(la);
+      }
+    }
+    for (const la of deadLineAttacks) {
+      la.destroy();
+      const idx = this.lineAttacks.indexOf(la);
+      if (idx !== -1) this.lineAttacks.splice(idx, 1);
+    }
+
     // ── 遠程小怪投射物更新與碰撞 ──────────────────────────────────────
     const deadRangedProj: EliteProjectile[] = [];
     for (const proj of this.rangedProjectiles) {
@@ -938,9 +965,28 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.runDestinyPoints += 1;
     }
 
-    // 5. 生成 XP gem（普通怪 1 顆，精英暫時也 1 顆，穩定後再恢復多顆）
-    this.spawnXPGem(deathX, deathY, expValue);
+    // 5. 生成 XP gem
+    if (isElite) {
+      // 精英 / Boss：掉落 12 顆 XP gem，每顆 expValue=30，以死亡位置為中心散開
+      const ELITE_GEM_COUNT = 12;
+      const ELITE_GEM_VALUE = 30;
+      for (let i = 0; i < ELITE_GEM_COUNT; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 20 + Math.random() * 60; // 20～80px 散開
+        const gx = deathX + Math.cos(angle) * dist;
+        const gy = deathY + Math.sin(angle) * dist;
+        this.spawnXPGem(gx, gy, ELITE_GEM_VALUE);
+      }
+    } else {
+      // 普通怪：1 顆 XP
+      this.spawnXPGem(deathX, deathY, expValue);
+    }
     console.log('[Death] 3 xp spawn ok');
+
+    // 5b. 普通怪機率掉落道具（精英不掉落道具）
+    if (!isElite) {
+      this.trySpawnDropItem(deathX, deathY);
+    }
 
     // 6. 從群組移除
     this.enemyGroup.remove(enemy, false, false);
@@ -1357,6 +1403,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           this.blackHoleTraps.push(hole);
         }
       };
+
+      // 注入外圍直線射擊回呼
+      elite.onLineAttack = (targetX: number, targetY: number, count: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.spawnLineAttacks(targetX, targetY, count);
+      };
     }
 
     this.enemyGroup.add(elite);
@@ -1413,9 +1465,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         break;
       }
       case 'speed': {
+        // 重複拾取時刷新計時，不永久疊加速度
+        const wasActive = this.speedBoostTimer > 0;
         this.speedBoostTimer = this.SPEED_BOOST_DURATION;
-        // 直接修改 stats.moveSpeed（乘以倍率）
-        this.player.stats.moveSpeed = this.player.stats.moveSpeed * this.SPEED_BOOST_MULT;
+        if (!wasActive) {
+          // 只在未加速時才套用倍率（避免重複疊加）
+          this.player.stats.moveSpeed = this.player.stats.moveSpeed * this.SPEED_BOOST_MULT;
+        }
         this.showPickupEffect(this.player.x, this.player.y, 0x00ccff, '+ 加速');
         break;
       }
@@ -1471,6 +1527,53 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       targets: g, alpha: 0, scaleX: 1.2, scaleY: 1.2, duration: 400, ease: 'Power2',
       onComplete: () => g.destroy(),
     });
+  }
+
+  /**
+   * 生成外圍直線射擊（shield Boss 技能）
+   * 攻擊從玩家周圍外側射向玩家施法瞬間位置
+   * @param targetX 施法瞬間玩家 X（鎖定，不追蹤）
+   * @param targetY 施法瞬間玩家 Y
+   * @param count   本次攻擊道數（1～8）
+   */
+  private spawnLineAttacks(targetX: number, targetY: number, count: number): void {
+    if (this.isPaused || this.isGameOver || this.isVictory) return;
+    if (!this.scene.isActive()) return;
+
+    // 攻擊參數
+    const START_DIST = 600;   // 攻擊起點距目標點距離（px）
+    const LINE_LENGTH = 1100; // 攻擊線長度（px）
+    const LINE_WIDTH = 32;    // 攻擊線寬度（px）
+    const LINE_DAMAGE = 15;   // 傷害值
+    const WARNING_TIME = 700; // 預警時間（ms）
+
+    // 第一道的基礎角度（隨機，讓每次方向不同）
+    const baseAngle = Math.random() * Math.PI * 2;
+
+    for (let i = 0; i < count; i++) {
+      // 均勻分布攻擊方向
+      const incomingAngle = baseAngle + (i / count) * Math.PI * 2;
+
+      // 起點：從目標點外圍 START_DIST 處
+      const startX = targetX + Math.cos(incomingAngle) * START_DIST;
+      const startY = targetY + Math.sin(incomingAngle) * START_DIST;
+
+      // 攻擊方向：從外圍射向目標點（反向）
+      const attackAngle = incomingAngle + Math.PI;
+
+      const la = new EliteLineAttack(
+        this,
+        startX, startY,
+        attackAngle,
+        LINE_LENGTH,
+        LINE_WIDTH,
+        LINE_DAMAGE,
+        WARNING_TIME
+      );
+
+      this.lineAttacks.push(la);
+      la.showWarning();
+    }
   }
 
   /**
@@ -1561,6 +1664,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (!item.isDead) item.destroy();
     }
     this.dropItems = [];
+
+    for (const la of this.lineAttacks) {
+      if (!la.isDead) la.destroy();
+    }
+    this.lineAttacks = [];
   }
 
   /**

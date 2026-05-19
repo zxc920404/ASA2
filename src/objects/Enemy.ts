@@ -92,6 +92,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private readonly BLACKHOLE_COOLDOWN = 8000;
   /** 回呼：由 GameScene 注入，用於生成黑洞（傳入 Boss 座標） */
   public onSpawnBlackHole?: (bossX: number, bossY: number) => void;
+  // 外圍直線射擊技能
+  private lineAttackCooldown: number = 4000; // 首次直線攻擊等待（ms）
+  private readonly LINE_ATTACK_COOLDOWN_MIN = 6000;
+  private readonly LINE_ATTACK_COOLDOWN_MAX = 8000;
+  /** 目前直線攻擊道數（1→2→...→8→1 循環） */
+  public lineAttackCount: number = 1;
+  /** 回呼：由 GameScene 注入，用於觸發直線攻擊 */
+  public onLineAttack?: (targetX: number, targetY: number, count: number) => void;
 
   constructor(
     scene: Phaser.Scene,
@@ -255,7 +263,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     switch (this.eliteType) {
       case 'charger': this.updateCharger(delta, playerX, playerY); break;
       case 'shooter': this.updateShooter(delta, playerX, playerY); break;
-      case 'shield':  this.updateShield(delta); break;
+      case 'shield':  this.updateShield(delta, playerX, playerY); break;
     }
   }
 
@@ -450,7 +458,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     }
   }
 
-  private updateShield(delta: number): void {
+  private updateShield(delta: number, playerX?: number, playerY?: number): void {
     // 護盾邏輯
     if (this.shieldActive) {
       this.shieldTimer -= delta;
@@ -480,6 +488,24 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.blackholeCooldown = this.BLACKHOLE_COOLDOWN;
       if (this.onSpawnBlackHole) {
         this.onSpawnBlackHole(this.x, this.y);
+      }
+    }
+
+    // 外圍直線射擊技能
+    this.lineAttackCooldown -= delta;
+    if (this.lineAttackCooldown <= 0) {
+      // 下次冷卻時間：6～8 秒隨機
+      this.lineAttackCooldown = this.LINE_ATTACK_COOLDOWN_MIN +
+        Math.random() * (this.LINE_ATTACK_COOLDOWN_MAX - this.LINE_ATTACK_COOLDOWN_MIN);
+
+      if (this.onLineAttack && playerX !== undefined && playerY !== undefined) {
+        this.onLineAttack(playerX, playerY, this.lineAttackCount);
+      }
+
+      // 道數遞增，超過 8 重置回 1
+      this.lineAttackCount++;
+      if (this.lineAttackCount > 8) {
+        this.lineAttackCount = 1;
       }
     }
   }
