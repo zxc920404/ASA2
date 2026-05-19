@@ -1,7 +1,150 @@
 import Phaser from 'phaser';
 import { UpgradeOption } from '../types/index';
-import { getWeaponById } from '../data/weapons';
+import { getWeaponById, WEAPONS } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper：武器升級差異描述
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 從 levelStats 陣列中取得「繼承上一級有效值」的完整 stats
+ * 例如 Lv3 只有 count，則 damage 繼承 Lv2 的值
+ */
+function resolveStats(levelStats: unknown[], levelIndex: number): Record<string, number> {
+  const merged: Record<string, number> = {};
+  for (let i = 0; i <= levelIndex && i < levelStats.length; i++) {
+    const s = levelStats[i] as Record<string, number> | undefined;
+    if (!s) continue;
+    for (const key of Object.keys(s)) {
+      const val = s[key];
+      if (val !== undefined && val !== null) {
+        merged[key] = val;
+      }
+    }
+  }
+  return merged;
+}
+
+/** 欄位中文對照 */
+const FIELD_LABELS: Record<string, string> = {
+  damage:          '傷害',
+  count:           '數量',
+  range:           '射程',
+  radius:          '範圍',
+  pierce:          '穿透',
+  duration:        '持續時間',
+  projectileSpeed: '投射物速度',
+};
+
+/**
+ * 計算武器升級差異，回傳描述字串陣列（最多 3 條）
+ */
+export function getWeaponUpgradeDeltaDescription(
+  weaponId: string,
+  currentLevel: number,
+  nextLevel: number
+): string[] {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon || !weapon.levelStats) return ['整體性能提升'];
+
+  const curStats = resolveStats(weapon.levelStats as unknown[], currentLevel - 1);
+  const nxtStats = resolveStats(weapon.levelStats as unknown[], nextLevel - 1);
+
+  const lines: string[] = [];
+
+  // 比較常見欄位
+  const fieldsToCheck = ['damage', 'count', 'range', 'radius', 'pierce', 'duration', 'projectileSpeed'];
+  for (const field of fieldsToCheck) {
+    const cur = curStats[field];
+    const nxt = nxtStats[field];
+    if (cur === undefined && nxt === undefined) continue;
+    const curVal = cur ?? 0;
+    const nxtVal = nxt ?? 0;
+    if (curVal === nxtVal) continue;
+
+    const diff = nxtVal - curVal;
+    const label = FIELD_LABELS[field] ?? field;
+
+    if (field === 'duration') {
+      lines.push(`${label} +${diff.toFixed(1)} 秒`);
+    } else if (Number.isInteger(diff)) {
+      lines.push(`${label} +${diff}`);
+    } else {
+      lines.push(`${label} +${diff.toFixed(1)}`);
+    }
+  }
+
+  // 單獨處理 interval（冷卻）
+  const curInterval = curStats['interval'];
+  const nxtInterval = nxtStats['interval'];
+  if (curInterval !== undefined && nxtInterval !== undefined && curInterval !== nxtInterval) {
+    const diff = curInterval - nxtInterval; // 縮短為正數
+    if (diff > 0) {
+      lines.push(`冷卻縮短 ${diff.toFixed(1)} 秒`);
+    } else {
+      lines.push(`發射節奏調整`);
+    }
+  }
+
+  if (lines.length === 0) return ['整體性能提升'];
+  return lines.slice(0, 3);
+}
+
+/**
+ * 取得新武器 Lv1 基礎效果描述
+ */
+function getNewWeaponDescription(weaponId: string): string[] {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon || !weapon.levelStats || weapon.levelStats.length === 0) return ['自動攻擊敵人'];
+
+  const s = weapon.levelStats[0] as unknown as Record<string, number>;
+  const lines: string[] = [];
+
+  // 簡短功能描述（依武器特性）
+  const funcDesc: Record<string, string> = {
+    guardian_ring: '環繞體持續傷害敵人',
+    swift_blade:   '向最近敵人投擲飛刃',
+    flame_seal:    '投出爆炸火印',
+    ice_spike:     '發射穿透冰錐',
+    thunder_claw:  '快速發射雷電爪',
+    poison_mist:   '投出毒霧，造成範圍持續傷害',
+  };
+  lines.push(funcDesc[weaponId] ?? '自動攻擊敵人');
+
+  if (s['damage'] !== undefined)   lines.push(`傷害：${s['damage']}`);
+  if (s['count'] !== undefined)    lines.push(`數量：${s['count']}`);
+  if (s['radius'] !== undefined)   lines.push(`範圍：${s['radius']}`);
+  if (s['duration'] !== undefined) lines.push(`持續時間：${s['duration'].toFixed(1)} 秒`);
+
+  return lines.slice(0, 3);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper：被動升級差異描述
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getPassiveDeltaLines(passiveId: string, isNew: boolean): string[] {
+  const passive = getPassiveById(passiveId);
+  if (!passive) return ['屬性提升'];
+
+  const bonus = passive.bonusPerLevel;
+  let line = '';
+  switch (passive.stat) {
+    case 'moveSpeed':   line = `移動速度 +${(bonus * 100).toFixed(0)}%`; break;
+    case 'hp':          line = `最大生命 +${bonus}`; break;
+    case 'attackPower': line = `攻擊力 +${(bonus * 100).toFixed(0)}%`; break;
+    case 'pickupRange': line = `拾取範圍 +${bonus}`; break;
+    case 'attackRange': line = `攻擊範圍 +${(bonus * 100).toFixed(0)}%`; break;
+    case 'attackSpeed': line = `攻擊速度 +${(bonus * 100).toFixed(0)}%`; break;
+    default:            line = '屬性提升';
+  }
+  return [line];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 主要顯示邏輯
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** 取得升級選項的顯示名稱 */
 function getOptionName(option: UpgradeOption): string {
@@ -12,52 +155,45 @@ function getOptionName(option: UpgradeOption): string {
   return getPassiveById(option.id)?.name ?? option.id;
 }
 
-/** 取得升級選項的效果描述文字 */
-export function getOptionDescription(option: UpgradeOption): string {
+/** 取得等級標示文字 */
+function getLevelLabel(option: UpgradeOption): string {
+  if (option.type === 'healHp') return '✦ 回復生命';
+  if (option.type === 'newWeapon' || option.type === 'newPassive') return '✦ 新裝備';
+  return `Lv.${option.currentLevel} → Lv.${option.nextLevel}`;
+}
+
+/**
+ * 取得「本次提升」標題文字
+ */
+function getUpgradeTitle(option: UpgradeOption): string {
+  switch (option.type) {
+    case 'healHp':        return '效果：';
+    case 'newWeapon':     return '新武器效果：';
+    case 'upgradeWeapon': return '本次提升：';
+    case 'newPassive':    return '新被動效果：';
+    case 'upgradePassive':return '本次提升：';
+  }
+}
+
+/**
+ * 取得升級詳細描述行（最多 3 條）
+ */
+function getUpgradeLines(option: UpgradeOption): string[] {
   switch (option.type) {
     case 'healHp':
-      return '恢復 30% 最大生命值\n（所有裝備已滿級）';
-    case 'newWeapon': {
-      const weapon = getWeaponById(option.id);
-      return weapon ? `自動攻擊敵人\n初始傷害 ${weapon.levelStats[0]?.damage ?? weapon.baseDamagePerLevel[0]}` : '新武器';
-    }
-    case 'upgradeWeapon': {
-      const weapon = getWeaponById(option.id);
-      if (!weapon) return '傷害提升';
-      const statsCur = weapon.levelStats[option.currentLevel - 1];
-      const statsNext = weapon.levelStats[option.nextLevel - 1];
-      const dmgCur = statsCur?.damage ?? 0;
-      const dmgNext = statsNext?.damage ?? dmgCur;
-      return `基礎傷害\n${dmgCur} → ${dmgNext}`;
-    }
-    case 'newPassive': {
-      const passive = getPassiveById(option.id);
-      if (!passive) return '新被動道具';
-      const bonus = passive.bonusPerLevel;
-      switch (passive.stat) {
-        case 'moveSpeed':   return `移動速度 +${(bonus * 100).toFixed(0)}%`;
-        case 'hp':          return `最大 HP +${bonus}`;
-        case 'attackPower': return `攻擊力 +${(bonus * 100).toFixed(0)}%`;
-        case 'pickupRange': return `拾取範圍 +${bonus}px`;
-        case 'attackRange': return `攻擊範圍 +${(bonus * 100).toFixed(0)}%`;
-        case 'attackSpeed': return `攻擊速度 +${(bonus * 100).toFixed(0)}%`;
-        default:            return '屬性提升';
-      }
-    }
-    case 'upgradePassive': {
-      const passive = getPassiveById(option.id);
-      if (!passive) return '效果提升';
-      const bonus = passive.bonusPerLevel;
-      switch (passive.stat) {
-        case 'moveSpeed':   return `移動速度再 +${(bonus * 100).toFixed(0)}%`;
-        case 'hp':          return `最大 HP 再 +${bonus}`;
-        case 'attackPower': return `攻擊力再 +${(bonus * 100).toFixed(0)}%`;
-        case 'pickupRange': return `拾取範圍再 +${bonus}px`;
-        case 'attackRange': return `攻擊範圍再 +${(bonus * 100).toFixed(0)}%`;
-        case 'attackSpeed': return `攻擊速度再 +${(bonus * 100).toFixed(0)}%`;
-        default:            return '效果提升';
-      }
-    }
+      return ['恢復 30% 最大生命值'];
+
+    case 'newWeapon':
+      return getNewWeaponDescription(option.id);
+
+    case 'upgradeWeapon':
+      return getWeaponUpgradeDeltaDescription(option.id, option.currentLevel, option.nextLevel);
+
+    case 'newPassive':
+      return getPassiveDeltaLines(option.id, true);
+
+    case 'upgradePassive':
+      return getPassiveDeltaLines(option.id, false);
   }
 }
 
@@ -70,9 +206,13 @@ function getTypeTag(option: UpgradeOption): { label: string; color: number } {
   return { label: '被動升級', color: 0x4466cc };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LevelUpPanel
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * LevelUpPanel — Polish 6b 美化版
- * 正式卡片 UI：深色半透明 + 金色邊框 + 類型標籤 + hover 發光
+ * LevelUpPanel — 升級三選一面板
+ * 每張卡片顯示：名稱、等級、本次提升內容
  */
 export class LevelUpPanel {
   private scene: Phaser.Scene;
@@ -102,7 +242,6 @@ export class LevelUpPanel {
     this.container.add(overlay);
 
     // ── 標題 ────────────────────────────────────────────────────────────────
-    // 陰影
     const titleShadow = this.scene.add.text(W * 0.5 + 2, H * 0.17 + 2, '升級！選擇強化', {
       fontSize: '30px', color: '#7a4a00', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
@@ -113,7 +252,6 @@ export class LevelUpPanel {
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(title);
 
-    // 標題裝飾線
     const titleLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     titleLine.lineStyle(1.5, 0xd4af37, 0.6);
     titleLine.lineBetween(W * 0.35, H * 0.22, W * 0.65, H * 0.22);
@@ -122,8 +260,8 @@ export class LevelUpPanel {
     // ── 選項卡片 ─────────────────────────────────────────────────────────────
     const cardXPositions = [W * 0.22, W * 0.50, W * 0.78];
     const cardW = Math.min(W * 0.22, 190);
-    const cardH = H * 0.50;
-    const cardY = H * 0.52;
+    const cardH = H * 0.55;
+    const cardY = H * 0.54;
 
     for (let i = 0; i < options.length; i++) {
       this.buildCard(options[i], cardXPositions[i], cardY, cardW, cardH, W, H);
@@ -143,12 +281,12 @@ export class LevelUpPanel {
     const r = 8;
     const typeTag = getTypeTag(option);
 
-    // ── 卡片 Graphics（可重繪邊框）──────────────────────────────────────────
+    // ── 卡片背景 ────────────────────────────────────────────────────────────
     const cardG = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawCardNormal(cardG, cx, cy, cardW, cardH, r);
     this.container.add(cardG);
 
-    // ── 類型標籤（頂部色塊）────────────────────────────────────────────────
+    // ── 類型標籤 ────────────────────────────────────────────────────────────
     const tagW = cardW * 0.55;
     const tagH = 20;
     const tagG = this.scene.add.graphics().setScrollFactor(0).setDepth(102);
@@ -161,38 +299,46 @@ export class LevelUpPanel {
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
     this.container.add(tagText);
 
-    // ── 選項名稱 ────────────────────────────────────────────────────────────
-    const nameText = this.scene.add.text(cx, cardTop + cardH * 0.22, getOptionName(option), {
-      fontSize: '17px', color: '#ffffff', fontStyle: 'bold',
+    // ── 武器/被動名稱 ────────────────────────────────────────────────────────
+    const nameText = this.scene.add.text(cx, cardTop + cardH * 0.18, getOptionName(option), {
+      fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
       wordWrap: { width: cardW - 16 }, align: 'center',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(nameText);
 
+    // ── 等級標示 ────────────────────────────────────────────────────────────
+    const levelLabel = getLevelLabel(option);
+    const levelText = this.scene.add.text(cx, cardTop + cardH * 0.28, levelLabel, {
+      fontSize: '12px', color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+    this.container.add(levelText);
+
     // ── 分隔線 ──────────────────────────────────────────────────────────────
     const sepLine = this.scene.add.graphics().setScrollFactor(0).setDepth(102);
     sepLine.lineStyle(1, 0x555577, 0.5);
-    sepLine.lineBetween(cx - cardW * 0.35, cardTop + cardH * 0.32, cx + cardW * 0.35, cardTop + cardH * 0.32);
+    sepLine.lineBetween(cx - cardW * 0.38, cardTop + cardH * 0.35, cx + cardW * 0.38, cardTop + cardH * 0.35);
     this.container.add(sepLine);
 
-    // ── 效果描述 ────────────────────────────────────────────────────────────
-    const descText = this.scene.add.text(cx, cardTop + cardH * 0.52, getOptionDescription(option), {
-      fontSize: '13px', color: '#bbbbcc',
-      wordWrap: { width: cardW - 20 }, align: 'center',
+    // ── 本次提升標題 ────────────────────────────────────────────────────────
+    const upgradeTitle = getUpgradeTitle(option);
+    const titleY = cardTop + cardH * 0.42;
+    const upgradeTitleText = this.scene.add.text(cx, titleY, upgradeTitle, {
+      fontSize: '11px', color: '#aaaacc', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
-    this.container.add(descText);
+    this.container.add(upgradeTitleText);
 
-    // ── 等級標示（卡片底部）────────────────────────────────────────────────
-    const cardBottom = cy + cardH * 0.5;
-    const levelLabel = option.type === 'healHp'
-      ? '✦ 回復生命'
-      : (option.type === 'newWeapon' || option.type === 'newPassive')
-        ? '✦ 新裝備'
-        : `Lv ${option.currentLevel} → ${option.nextLevel}`;
+    // ── 升級詳細描述（每行一條） ─────────────────────────────────────────────
+    const upgradeLines = getUpgradeLines(option);
+    const lineSpacing = cardH * 0.11;
+    const firstLineY = cardTop + cardH * 0.52;
 
-    const levelText = this.scene.add.text(cx, cardBottom - cardH * 0.10, levelLabel, {
-      fontSize: '13px', color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
-    this.container.add(levelText);
+    for (let i = 0; i < upgradeLines.length; i++) {
+      const lineText = this.scene.add.text(cx, firstLineY + i * lineSpacing, `• ${upgradeLines[i]}`, {
+        fontSize: '12px', color: '#88ffaa',
+        wordWrap: { width: cardW - 16 }, align: 'center',
+      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
+      this.container.add(lineText);
+    }
 
     // ── 互動熱區 ────────────────────────────────────────────────────────────
     const hitW = Math.max(cardW, 88);
@@ -228,7 +374,6 @@ export class LevelUpPanel {
   ): void {
     g.fillStyle(0x1a1a2e, 0.95);
     g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, r);
-    // 金色發光邊框
     g.lineStyle(2.5, 0xffd700, 1);
     g.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, r);
     g.lineStyle(5, 0xffd700, 0.18);
@@ -243,4 +388,9 @@ export class LevelUpPanel {
   public destroy(): void {
     this.container.destroy(true);
   }
+}
+
+/** 向下相容：保留舊的 getOptionDescription export（供外部可能的引用） */
+export function getOptionDescription(option: UpgradeOption): string {
+  return getUpgradeLines(option).join('\n');
 }
