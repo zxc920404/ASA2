@@ -335,6 +335,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.resumeGame();
     });
 
+    // 設定「確定返回主選單」回呼（清理暫停狀態後跳回主選單）
+    this.pausePanel.onMainMenuConfirm(() => {
+      // 清理暫停狀態，避免重新進入遊戲後仍是 paused
+      this.setPauseReason('none');
+      if (this.spawnTimer) this.spawnTimer.paused = false;
+      this.weaponSystem.resume();
+      this.scene.start('MainMenuScene');
+    });
+
     // 建立屬性面板
     this.playerStatusPanel = new PlayerStatusPanel(this);
 

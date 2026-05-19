@@ -106,11 +106,11 @@ export class HUD {
     this.drawHpBar(1.0);
 
     this.hpText = this.scene.add.text(
-      this.hpBarX + this.hpBarWidth + 4,
-      this.hpBarY + barH / 2,
+      Math.round(this.hpBarX + this.hpBarWidth / 2),
+      Math.round(this.hpBarY + barH / 2),
       '--/--',
-      uiText(9, '#ffffff')
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(11);
+      uiText(9, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 2 })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(12);
 
     // EXP 條（寬 160px，高 6px）
     this.expBarWidth = 160;
@@ -188,9 +188,9 @@ export class HUD {
   }
 
   /**
-   * 武器欄（左側貼邊）與被動欄（右側貼邊）
-   * 武器欄：x=8, y=68（主 HUD 下方 10px），每格 16px 高
-   * 被動欄：x=W-72, y=68（右上按鈕下方），每格 16px 高
+   * 武器欄（左側，內縮 56px 避免貼邊）與被動欄（右側，內縮 56px 避免和按鈕重疊）
+   * 武器欄：x=56, y=68，每格 16px 高
+   * 被動欄：x=W-56-slotW, y=68，每格 16px 高
    * 兩欄寬度 60px，透明度低，不擋戰鬥
    */
   private buildSlots(W: number, H: number): void {
@@ -200,15 +200,14 @@ export class HUD {
     const slotGap = 2;
     const totalH = MAX_SLOTS * (slotH + slotGap) + 18;
 
-    // 武器欄：左側，主 HUD 下方 10px
-    const wX = 8;
-    const wY = 68;  // panelY(6) + panelH(52) + 10
+    // 武器欄：左側內縮，避免貼邊
+    const wX = 56;
+    const wY = 68;
 
-    // 被動欄：右側，右上按鈕下方 12px
-    // 暫停按鈕 x=W-32，半徑 20，右邊界 = W-12
-    // 被動欄右邊界 = W-8，左邊界 = W-8-slotW = W-68
-    const pX = W - 8 - slotW;
-    const pY = 68;  // 按鈕 y=28，半徑 20，底部=48，+20=68
+    // 被動欄：右側內縮，避免和暫停/屬性按鈕重疊
+    // 暫停按鈕 x=W-32，屬性按鈕 x=W-88，被動欄右邊界 = W-56
+    const pX = W - 56 - slotW;
+    const pY = 68;
 
     // 武器欄背景
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
@@ -340,9 +339,9 @@ export class HUD {
     const slotW = 60;
     const slotH = 16;
     const slotGap = 2;
-    const wX = 8;
+    const wX = 56;
     const wY = 68;
-    const pX = this.scene.scale.width - 8 - slotW;
+    const pX = this.scene.scale.width - 56 - slotW;
     const pY = 68;
 
     for (let i = 0; i < MAX_SLOTS; i++) {
