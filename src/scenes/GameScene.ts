@@ -1854,27 +1854,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     };
 
     // helper：若外部 PNG 已載入，複製為目標 key；否則用 cb 程式繪製
+    // 注意：不使用 RenderTexture 複製 PNG（Android WebGL 初始化時可能靜默失敗）
+    // 外部 PNG 由 Enemy 建構子直接使用 enemy_img_* key，此處只負責程式繪製 fallback
     const ensureTexture = (
       targetKey: string,
-      externalKey: string | undefined,
+      _externalKey: string | undefined,
       w: number,
       h: number,
       cb: (g: Phaser.GameObjects.Graphics) => void
     ) => {
       if (tex.exists(targetKey)) return; // 已存在，跳過
-      if (externalKey && tex.exists(externalKey)) {
-        // 外部 PNG 已載入：複製 frame 為新 key
-        const srcTex = tex.get(externalKey);
-        if (srcTex && srcTex.key !== '__MISSING') {
-          // 用 Image 繪製到 RenderTexture 再 saveTexture
-          const rt = this.add.renderTexture(0, 0, w, h).setVisible(false);
-          rt.draw(externalKey, w / 2, h / 2);
-          rt.saveTexture(targetKey);
-          rt.destroy();
-          return;
-        }
-      }
-      // Fallback：程式繪製
+      // 直接程式繪製（不嘗試複製外部 PNG，避免 Android WebGL 初始化問題）
       const g = makeG();
       cb(g);
       g.generateTexture(targetKey, w, h);

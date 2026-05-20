@@ -121,15 +121,31 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     scene.add.existing(this);
 
-    // 建立視覺：優先使用 generateTexture 生成的 Image，fallback 為 Graphics
+    // 建立視覺：
+    // 1. 優先使用 AssetLoader 載入的真實 PNG（enemy_img_<id>）
+    // 2. 次選 generateSpriteTextures 生成的程式繪製 texture（enemy_<id>）
+    // 3. 最後 fallback 為即時 Graphics 繪製
+    // 這樣即使 RenderTexture 在 Android 上失敗，仍能正確顯示
+    const imgKey = `enemy_img_${enemyData.id}`;
     const texKey = `enemy_${enemyData.id}`;
-    if (scene.textures.exists(texKey)) {
+
+    if (scene.textures.exists(imgKey) && scene.textures.get(imgKey).key !== '__MISSING') {
+      // 真實 PNG（AssetLoader 載入）
+      const img = scene.add.image(x, y, imgKey);
+      img.setDepth(5);
+      img.setAlpha(1);
+      this.visual = img;
+    } else if (scene.textures.exists(texKey) && scene.textures.get(texKey).key !== '__MISSING') {
+      // 程式繪製 texture（generateSpriteTextures 生成）
       const img = scene.add.image(x, y, texKey);
       img.setDepth(5);
       img.setAlpha(1);
       this.visual = img;
     } else {
-      this.visual = scene.add.graphics();
+      // 即時 Graphics fallback（最保險，一定可見）
+      const g = scene.add.graphics();
+      g.setAlpha(1);
+      this.visual = g;
       this.drawVisual(enemyData.id);
     }
 
