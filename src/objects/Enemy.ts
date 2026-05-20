@@ -687,48 +687,101 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, r * 0.87);
 
     } else if (enemyId === 'basic') {
-      // 標準紅色近戰小怪：大圓 + 明顯輪廓，確保可見
-      // r = visualRadius（預設 18，來自 ENEMY_VISUAL_SIZE.basic.w/2 = 18）
-      g.fillStyle(0xff2222, 1);    g.fillCircle(0, 0, r);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.28, -r * 0.22, r * 0.17);  // 左眼
-      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.28, -r * 0.22, r * 0.17);  // 右眼
-      g.fillStyle(0xffffff, 1);    g.fillRect(-r * 0.33, r * 0.22, r * 0.67, r * 0.17); // 嘴
-      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, r);
+      // ── 紅衣邪修小兵（r ≈ 18，尺寸 36×36）──────────────────────────
+      // 頭（膚色圓）
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.55, r * 0.32);
+      // 頭盔（深紅）
+      g.fillStyle(0xaa1111, 1);
+      g.fillRect(-r * 0.28, -r * 0.87, r * 0.56, r * 0.22);
+      g.fillRect(-r * 0.1,  -r * 1.0,  r * 0.2,  r * 0.15);
+      // 身體（紅色）
+      g.fillStyle(0xcc2222, 1); g.fillRect(-r * 0.32, -r * 0.22, r * 0.64, r * 0.5);
+      // 腰帶（深色）
+      g.fillStyle(0x880000, 1); g.fillRect(-r * 0.32, r * 0.22, r * 0.64, r * 0.1);
+      // 腿（深紅）
+      g.fillStyle(0xaa1111, 1);
+      g.fillRect(-r * 0.28, r * 0.32, r * 0.22, r * 0.38);
+      g.fillRect( r * 0.06, r * 0.32, r * 0.22, r * 0.38);
+      // 短刃（右側，亮灰）
+      g.fillStyle(0xdddddd, 1); g.fillRect(r * 0.36, -r * 0.3, r * 0.1, r * 0.5);
+      g.fillStyle(0xaaaaaa, 1); g.fillRect(r * 0.3,  -r * 0.3, r * 0.22, r * 0.08);
+      // 外框
+      g.lineStyle(1.5, 0xff6666, 0.9);
+      g.strokeRect(-r * 0.32, -r * 0.22, r * 0.64, r * 0.5);
 
     } else if (enemyId === 'fast') {
-      // 亮橙色快速小怪：菱形 + 明顯輪廓
-      // r = visualRadius（預設 14，來自 ENEMY_VISUAL_SIZE.fast.w/2 = 14）
-      g.fillStyle(0xff8800, 1);
-      g.fillTriangle(0, -r, -r, 0, r, 0);
-      g.fillTriangle(0,  r, -r, 0, r, 0);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.22, -r * 0.22, r * 0.15);
-      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.22, -r * 0.22, r * 0.15);
-      g.lineStyle(3, 0xffffff, 1);
-      g.lineBetween(0, -r, -r, 0); g.lineBetween(-r, 0, 0, r);
-      g.lineBetween(0, -r,  r, 0); g.lineBetween( r, 0, 0, r);
+      // ── 疾行刺客（r ≈ 14，尺寸 28×28）──────────────────────────────
+      // 頭（小，膚色）
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.6, r * 0.26);
+      // 頭巾（橘紅）
+      g.fillStyle(0xff5500, 1);
+      g.fillRect(-r * 0.22, -r * 0.88, r * 0.44, r * 0.18);
+      // 細長身體（橘紅）
+      g.fillStyle(0xff6600, 1); g.fillRect(-r * 0.24, -r * 0.28, r * 0.48, r * 0.52);
+      // 腿（深橘）
+      g.fillStyle(0xcc4400, 1);
+      g.fillRect(-r * 0.22, r * 0.24, r * 0.18, r * 0.42);
+      g.fillRect( r * 0.04, r * 0.24, r * 0.18, r * 0.42);
+      // 速度線（左側兩條，亮黃）
+      g.lineStyle(2, 0xffdd44, 1);
+      g.lineBetween(-r * 1.1, -r * 0.1, -r * 0.3, -r * 0.1);
+      g.lineBetween(-r * 1.2,  r * 0.15, -r * 0.3,  r * 0.15);
+      // 短刀（右側）
+      g.fillStyle(0xcccccc, 1); g.fillRect(r * 0.3, -r * 0.35, r * 0.08, r * 0.4);
+      // 外框
+      g.lineStyle(1.5, 0xffaa44, 0.9);
+      g.strokeRect(-r * 0.24, -r * 0.28, r * 0.48, r * 0.52);
 
     } else if (enemyId === 'tank') {
-      // 深紅色厚重小怪：大圓 + 粗白框，強調厚重
-      // r = visualRadius（預設 24，來自 ENEMY_VISUAL_SIZE.tank.w/2 = 24）
-      g.fillStyle(0xcc0000, 1);    g.fillCircle(0, 0, r);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.25, -r * 0.17, r * 0.17);  // 左眼
-      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.25, -r * 0.17, r * 0.17);  // 右眼
-      g.fillStyle(0xffffff, 1);    g.fillRect(-r * 0.33, r * 0.21, r * 0.67, r * 0.17); // 嘴
-      g.lineStyle(4, 0xffffff, 1); g.strokeCircle(0, 0, r);
+      // ── 重甲力士（r ≈ 24，尺寸 48×48）──────────────────────────────
+      // 頭（膚色，較大）
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.52, r * 0.35);
+      // 頭盔（深紅，厚重）
+      g.fillStyle(0x880000, 1);
+      g.fillRect(-r * 0.35, -r * 0.88, r * 0.7, r * 0.25);
+      g.fillRect(-r * 0.12, -r * 1.05, r * 0.24, r * 0.18);
+      // 寬肩護甲（深紅）
+      g.fillStyle(0xaa0000, 1);
+      g.fillRect(-r * 0.55, -r * 0.28, r * 0.2, r * 0.22); // 左肩
+      g.fillRect( r * 0.35, -r * 0.28, r * 0.2, r * 0.22); // 右肩
+      // 厚重身體（深紅）
+      g.fillStyle(0xcc1111, 1); g.fillRect(-r * 0.42, -r * 0.18, r * 0.84, r * 0.55);
+      // 護甲紋路（暗色橫線）
+      g.fillStyle(0x880000, 1);
+      g.fillRect(-r * 0.42, r * 0.05, r * 0.84, r * 0.07);
+      g.fillRect(-r * 0.42, r * 0.2,  r * 0.84, r * 0.07);
+      // 腰帶（金色）
+      g.fillStyle(0xcc8800, 1); g.fillRect(-r * 0.42, r * 0.32, r * 0.84, r * 0.1);
+      // 腿（深紅，粗）
+      g.fillStyle(0xaa0000, 1);
+      g.fillRect(-r * 0.38, r * 0.42, r * 0.3, r * 0.42);
+      g.fillRect( r * 0.08, r * 0.42, r * 0.3, r * 0.42);
+      // 外框（粗，亮紅）
+      g.lineStyle(2.5, 0xff4444, 1);
+      g.strokeRect(-r * 0.42, -r * 0.18, r * 0.84, r * 0.55);
 
     } else if (enemyId === 'ranged') {
-      // 紫色遠程射手：圓 + 弓形標記
-      // r = visualRadius（預設 18，來自 ENEMY_VISUAL_SIZE.ranged.w/2 = 18）
-      g.fillStyle(0xaa00cc, 1);    g.fillCircle(0, 0, r);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.22, -r * 0.17, r * 0.13);
-      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.22, -r * 0.17, r * 0.13);
-      // 弓（右側）
-      g.lineStyle(3, 0xffffff, 1);
-      g.lineBetween(r * 0.56, -r * 0.56, r * 0.89, 0);
-      g.lineBetween(r * 0.89, 0, r * 0.56, r * 0.56);
-      g.lineStyle(2, 0xffff00, 1);
-      g.lineBetween(r * 0.56, -r * 0.56, r * 0.56, r * 0.56);
-      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, r);
+      // ── 紫袍術士（r ≈ 18，尺寸 36×36）──────────────────────────────
+      // 頭（膚色）
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.55, r * 0.3);
+      // 法師帽（深紫三角）
+      g.fillStyle(0x440066, 1);
+      g.fillTriangle(0, -r * 1.05, -r * 0.28, -r * 0.7, r * 0.28, -r * 0.7);
+      // 紫袍身體
+      g.fillStyle(0x7700aa, 1); g.fillRect(-r * 0.3, -r * 0.22, r * 0.6, r * 0.52);
+      // 袍子下擺（略寬）
+      g.fillStyle(0x660099, 1); g.fillRect(-r * 0.36, r * 0.22, r * 0.72, r * 0.22);
+      // 腰帶（金色）
+      g.fillStyle(0xcc8800, 1); g.fillRect(-r * 0.3, r * 0.2, r * 0.6, r * 0.08);
+      // 左手法球（亮紫）
+      g.fillStyle(0xdd44ff, 1); g.fillCircle(-r * 0.48, r * 0.0, r * 0.18);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle(-r * 0.48, r * 0.0, r * 0.08);
+      // 右手法球（亮紫）
+      g.fillStyle(0xdd44ff, 1); g.fillCircle( r * 0.48, r * 0.0, r * 0.18);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle( r * 0.48, r * 0.0, r * 0.08);
+      // 外框（亮紫）
+      g.lineStyle(1.5, 0xcc66ff, 0.9);
+      g.strokeRect(-r * 0.3, -r * 0.22, r * 0.6, r * 0.52);
     }
 
     g.setPosition(this.x, this.y);
