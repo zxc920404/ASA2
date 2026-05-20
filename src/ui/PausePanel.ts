@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { uiText, uiTitle } from './UIStyles';
+import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 
 /**
  * PausePanel — 暫停面板
@@ -48,6 +49,9 @@ export class PausePanel {
   private createElements(): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
+    const layout = ResponsiveLayout.compute(W, H);
+    const s = layout.uiScale;
+    const cx = layout.centerX;
 
     // ── 遮罩 ──────────────────────────────────────────────────────────────
     this.overlay = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
@@ -57,14 +61,15 @@ export class PausePanel {
     this.overlay.fillRect(W * 0.25, H * 0.20, W * 0.5, H * 0.60);
 
     // ── 標題 ──────────────────────────────────────────────────────────────
+    const titleY = Math.round(H * 0.32);
     this.titleShadow = this.scene.add.text(
-      Math.round(W * 0.5) + 2, Math.round(H * 0.32) + 2, '已暫停',
-      uiTitle(36, '#330000')
+      Math.round(cx) + 2, titleY + 2, '已暫停',
+      uiTitle(Math.round(36 * s), '#330000')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     this.titleText = this.scene.add.text(
-      Math.round(W * 0.5), Math.round(H * 0.32), '已暫停',
-      uiTitle(36, '#ffffff')
+      Math.round(cx), titleY, '已暫停',
+      uiTitle(Math.round(36 * s), '#ffffff')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     // ── 裝飾線 ────────────────────────────────────────────────────────────
@@ -77,20 +82,20 @@ export class PausePanel {
     this.decorLineBot.lineBetween(W * 0.38, H * 0.40, W * 0.62, H * 0.40);
 
     // ── 繼續遊戲按鈕 ──────────────────────────────────────────────────────
-    const resumeX = Math.round(W * 0.5);
+    const resumeX = Math.round(cx);
     const resumeY = Math.round(H * 0.52);
-    const btnW = 220;
-    const btnH = 50;
+    const btnW = Math.round(Math.min(220, W * 0.28) * s);
+    const btnH = layout.btnH;
 
     this.resumeBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawBtn(this.resumeBtnGraphics, resumeX, resumeY, btnW, btnH, false, 0x6b0f0f, 0xd4af37);
 
     this.resumeBtnText = this.scene.add.text(resumeX, resumeY, '▶  繼續遊戲',
-      uiText(18, '#ffffff', { fontStyle: 'bold' })
+      uiText(Math.round(18 * s), '#ffffff', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
 
     this.resumeHitArea = this.scene.add.rectangle(
-      resumeX, resumeY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0
+      resumeX, resumeY, Math.max(btnW, layout.minTouchTarget), Math.max(btnH, layout.minTouchTarget), 0, 0
     ).setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
 
     this.resumeHitArea.on('pointerover', () => {
@@ -103,18 +108,18 @@ export class PausePanel {
     });
 
     // ── 返回主選單按鈕 ────────────────────────────────────────────────────
-    const menuX = Math.round(W * 0.5);
+    const menuX = Math.round(cx);
     const menuY = Math.round(H * 0.66);
 
     this.mainMenuBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawBtn(this.mainMenuBtnGraphics, menuX, menuY, btnW, btnH, false, 0x0f1828, 0x556677);
 
     this.mainMenuBtnText = this.scene.add.text(menuX, menuY, '⌂  返回主選單',
-      uiText(16, '#aaaacc', { fontStyle: 'bold' })
+      uiText(Math.round(16 * s), '#aaaacc', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
 
     this.mainMenuHitArea = this.scene.add.rectangle(
-      menuX, menuY, Math.max(btnW, 88), Math.max(btnH, 48), 0, 0
+      menuX, menuY, Math.max(btnW, layout.minTouchTarget), Math.max(btnH, layout.minTouchTarget), 0, 0
     ).setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
 
     this.mainMenuHitArea.on('pointerover', () => {
@@ -130,15 +135,16 @@ export class PausePanel {
       this.showConfirm();
     });
 
-    // ── 確認面板（所有物件都要 setScrollFactor(0)）────────────────────────
-    this.buildConfirmPanel(W, H);
+    // ── 確認面板 ──────────────────────────────────────────────────────────
+    this.buildConfirmPanel(W, H, layout);
   }
 
-  private buildConfirmPanel(W: number, H: number): void {
-    const panelW = Math.min(340, W * 0.40);
-    const panelH = 170;
-    const cx = Math.round(W * 0.5);
-    const cy = Math.round(H * 0.5);
+  private buildConfirmPanel(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+    const s = layout.uiScale;
+    const panelW = Math.min(340, W * 0.42);
+    const panelH = Math.round(170 * s);
+    const cx = layout.centerX;
+    const cy = layout.centerY;
     const px = Math.round(cx - panelW / 2);
     const py = Math.round(cy - panelH / 2);
     const r = 10;

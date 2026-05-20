@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GameResult } from '../types/index';
+import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 
 /**
  * GameOverPanel（死亡結算面板）— Polish 6c 美化版
@@ -21,6 +22,10 @@ export class GameOverPanel {
   private createElements(result: GameResult, onReturnToMenu: () => void): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
+    const layout = ResponsiveLayout.compute(W, H);
+    const s = layout.uiScale;
+    const cx = layout.centerX;
+    const cy = layout.centerY;
 
     // ── 全螢幕遮罩 ──────────────────────────────────────────────────────────
     const overlay = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
@@ -29,10 +34,9 @@ export class GameOverPanel {
     this.elements.push(overlay);
 
     // ── 中央面板背景 ────────────────────────────────────────────────────────
-    const panelW = W * 0.62;
-    const panelH = H * 0.78;
-    const panelX = W * 0.5 - panelW / 2;
-    const panelY = H * 0.5 - panelH / 2;
+    const { panelW, panelH } = ResponsiveLayout.panelSize(W, H, 0.65, 0.82, 280, 200);
+    const panelX = cx - panelW / 2;
+    const panelY = cy - panelH / 2;
 
     const panelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
     panelBg.fillStyle(0x0a0a1a, 0.95);
@@ -44,20 +48,20 @@ export class GameOverPanel {
     this.elements.push(panelBg);
 
     // ── 「遊戲結束」標題 ────────────────────────────────────────────────────
-    const titleShadow = this.scene.add.text(W * 0.5 + 2, H * 0.14 + 2, '遊戲結束', {
-      fontSize: '42px', color: '#660000', fontStyle: 'bold',
+    const titleShadow = this.scene.add.text(cx + 2, panelY + panelH * 0.14 + 2, '遊戲結束', {
+      fontSize: `${Math.round(42 * s)}px`, color: '#660000', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.elements.push(titleShadow);
 
-    const title = this.scene.add.text(W * 0.5, H * 0.14, '遊戲結束', {
-      fontSize: '42px', color: '#ff3333', fontStyle: 'bold',
+    const title = this.scene.add.text(cx, panelY + panelH * 0.14, '遊戲結束', {
+      fontSize: `${Math.round(42 * s)}px`, color: '#ff3333', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.elements.push(title);
 
     // 標題裝飾線
     const titleLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     titleLine.lineStyle(1.5, 0xd4af37, 0.6);
-    titleLine.lineBetween(W * 0.32, H * 0.20, W * 0.68, H * 0.20);
+    titleLine.lineBetween(cx - panelW * 0.28, panelY + panelH * 0.22, cx + panelW * 0.28, panelY + panelH * 0.22);
     this.elements.push(titleLine);
 
     // ── 結算數據（兩欄排版）────────────────────────────────────────────────
@@ -66,24 +70,22 @@ export class GameOverPanel {
     const ss = (totalSec % 60).toString().padStart(2, '0');
 
     const dataRows: Array<{ icon: string; label: string; value: string; color: string; x: number; y: number }> = [
-      { icon: '⏱', label: '存活時間', value: `${mm}:${ss}`,          color: '#dddddd', x: W * 0.30, y: H * 0.30 },
-      { icon: '⚔', label: '擊殺數',   value: `${result.killCount}`,   color: '#ffccaa', x: W * 0.70, y: H * 0.30 },
-      { icon: '⭐', label: '最高等級', value: `Lv ${result.maxLevel}`, color: '#aaddff', x: W * 0.30, y: H * 0.42 },
-      { icon: '🏆', label: '結算分數', value: `${result.score}`,       color: '#ffffff', x: W * 0.70, y: H * 0.42 },
-      { icon: '✦',  label: '本局天命點', value: `+${result.destinyPoints}`, color: '#88ffcc', x: W * 0.35, y: H * 0.54 },
-      { icon: '✦',  label: '總天命點',   value: `${result.totalDestinyPoints}`, color: '#ffd700', x: W * 0.65, y: H * 0.54 },
+      { icon: '⏱', label: '存活時間', value: `${mm}:${ss}`,          color: '#dddddd', x: cx - panelW * 0.22, y: panelY + panelH * 0.32 },
+      { icon: '⚔', label: '擊殺數',   value: `${result.killCount}`,   color: '#ffccaa', x: cx + panelW * 0.22, y: panelY + panelH * 0.32 },
+      { icon: '⭐', label: '最高等級', value: `Lv ${result.maxLevel}`, color: '#aaddff', x: cx - panelW * 0.22, y: panelY + panelH * 0.46 },
+      { icon: '🏆', label: '結算分數', value: `${result.score}`,       color: '#ffffff', x: cx + panelW * 0.22, y: panelY + panelH * 0.46 },
+      { icon: '✦',  label: '本局天命點', value: `+${result.destinyPoints}`, color: '#88ffcc', x: cx - panelW * 0.15, y: panelY + panelH * 0.60 },
+      { icon: '✦',  label: '總天命點',   value: `${result.totalDestinyPoints}`, color: '#ffd700', x: cx + panelW * 0.15, y: panelY + panelH * 0.60 },
     ];
 
     for (const row of dataRows) {
-      // 小標籤
       const label = this.scene.add.text(row.x, row.y - 10, `${row.icon} ${row.label}`, {
-        fontSize: '12px', color: '#888888',
+        fontSize: `${Math.round(12 * s)}px`, color: '#888888',
       }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(101);
       this.elements.push(label);
 
-      // 數值
       const value = this.scene.add.text(row.x, row.y + 8, row.value, {
-        fontSize: '22px', color: row.color, fontStyle: 'bold',
+        fontSize: `${Math.round(22 * s)}px`, color: row.color, fontStyle: 'bold',
       }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
       this.elements.push(value);
     }
@@ -91,14 +93,14 @@ export class GameOverPanel {
     // 分隔線
     const midLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     midLine.lineStyle(1, 0x333355, 0.8);
-    midLine.lineBetween(W * 0.32, H * 0.62, W * 0.68, H * 0.62);
+    midLine.lineBetween(cx - panelW * 0.28, panelY + panelH * 0.70, cx + panelW * 0.28, panelY + panelH * 0.70);
     this.elements.push(midLine);
 
     // ── 「返回主選單」圓角按鈕 ──────────────────────────────────────────────
-    const btnX = W * 0.5;
-    const btnY = H * 0.76;
-    const btnW = 230;
-    const btnH = 56;
+    const btnX = cx;
+    const btnY = panelY + panelH * 0.84;
+    const btnW = Math.round(Math.min(230, panelW * 0.55));
+    const btnH = layout.btnH;
     const r = 8;
 
     const btnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
@@ -106,11 +108,11 @@ export class GameOverPanel {
     this.elements.push(btnGraphics);
 
     const btnText = this.scene.add.text(btnX, btnY, '返回主選單', {
-      fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
+      fontSize: `${Math.round(20 * s)}px`, color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.elements.push(btnText);
 
-    const hitH = Math.max(btnH, 48);
+    const hitH = Math.max(btnH, layout.minTouchTarget);
     const hitArea = this.scene.add.rectangle(btnX, btnY, Math.max(btnW, 88), hitH, 0x000000, 0)
       .setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
     this.elements.push(hitArea);

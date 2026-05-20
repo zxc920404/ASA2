@@ -4,6 +4,7 @@ import { getWeaponById } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
 import { uiText } from './UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
+import { ResponsiveLayout, LayoutMetrics } from '../utils/ResponsiveLayout';
 
 /**
  * HUD — 遊戲內抬頭顯示器
@@ -86,10 +87,11 @@ export class HUD {
   private buildLayout(): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
+    const layout = ResponsiveLayout.compute(W, H);
 
-    // ── Safe area padding（避免瀏海 / 手勢區遮擋）──────────────────────
-    const safeX = Math.max(8, Math.round(W * 0.012));
-    const safeY = Math.max(6, Math.round(H * 0.012));
+    // ── Safe area padding（使用 ResponsiveLayout 計算，支援各種手機比例）
+    const safeX = layout.safeLeft;
+    const safeY = layout.safeTop;
 
     // ── 1. 左上主 HUD（緊湊，高 52px）──────────────────────────────────
     const panelX = safeX;

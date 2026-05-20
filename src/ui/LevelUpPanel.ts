@@ -4,6 +4,7 @@ import { getWeaponById, WEAPONS } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
 import { uiText, uiTitle } from './UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
+import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper：武器升級差異描述
@@ -245,6 +246,9 @@ export class LevelUpPanel {
   private build(options: UpgradeOption[]): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
+    const layout = ResponsiveLayout.compute(W, H);
+    const s = layout.uiScale;
+    const cx = layout.centerX;
 
     // ── 全螢幕遮罩 ──────────────────────────────────────────────────────────
     const overlay = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
@@ -253,13 +257,13 @@ export class LevelUpPanel {
     this.container.add(overlay);
 
     // ── 標題 ────────────────────────────────────────────────────────────────
-    const titleShadow = this.scene.add.text(Math.round(W * 0.5) + 2, Math.round(H * 0.17) + 2, '升級！選擇強化',
-      uiTitle(28, '#7a4a00')
+    const titleShadow = this.scene.add.text(Math.round(cx) + 2, Math.round(H * 0.17) + 2, '升級！選擇強化',
+      uiTitle(Math.round(28 * s), '#7a4a00')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(titleShadow);
 
-    const title = this.scene.add.text(Math.round(W * 0.5), Math.round(H * 0.17), '升級！選擇強化',
-      uiTitle(28, '#ffd700')
+    const title = this.scene.add.text(Math.round(cx), Math.round(H * 0.17), '升級！選擇強化',
+      uiTitle(Math.round(28 * s), '#ffd700')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(title);
 
@@ -269,13 +273,22 @@ export class LevelUpPanel {
     this.container.add(titleLine);
 
     // ── 選項卡片 ─────────────────────────────────────────────────────────────
-    const cardXPositions = [W * 0.22, W * 0.50, W * 0.78];
-    const cardW = Math.min(W * 0.22, 190);
-    const cardH = H * 0.55;
-    const cardY = H * 0.54;
+    // 超寬手機：卡片略偏左，避免貼右邊
+    const usableW = layout.usableW;
+    const cardSpacing = usableW / 3;
+    const cardXPositions = [
+      layout.usableX + cardSpacing * 0.5,
+      layout.usableX + cardSpacing * 1.5,
+      layout.usableX + cardSpacing * 2.5,
+    ];
+    // 卡片寬度：可用寬度的 28%，最大 200px
+    const cardW = Math.min(usableW * 0.28, 200);
+    // 卡片高度：可用高度的 62%，最大 320px
+    const cardH = Math.min(layout.usableH * 0.62, 320);
+    const cardY = layout.usableY + layout.usableH * 0.56;
 
     for (let i = 0; i < options.length; i++) {
-      this.buildCard(options[i], cardXPositions[i], cardY, cardW, cardH, W, H);
+      this.buildCard(options[i], cardXPositions[i], cardY, cardW, cardH, W, H, s);
     }
   }
 
@@ -286,7 +299,8 @@ export class LevelUpPanel {
     cardW: number,
     cardH: number,
     W: number,
-    H: number
+    H: number,
+    s: number = 1.0
   ): void {
     const cardTop = cy - cardH * 0.5;
     const r = 8;
@@ -322,12 +336,12 @@ export class LevelUpPanel {
     }
 
     const nameText = this.scene.add.text(cx, cardTop + cardH * 0.18, getOptionName(option),
-      uiText(15, '#ffffff', { fontStyle: 'bold', wordWrap: { width: cardW - 16 }, align: 'center' })
+      uiText(Math.round(15 * s), '#ffffff', { fontStyle: 'bold', wordWrap: { width: cardW - 16 }, align: 'center' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(nameText);
 
     const levelText = this.scene.add.text(cx, cardTop + cardH * 0.28, getLevelLabel(option),
-      uiText(12, '#ffd700', { fontStyle: 'bold' })
+      uiText(Math.round(12 * s), '#ffd700', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(102);
     this.container.add(levelText);
 
