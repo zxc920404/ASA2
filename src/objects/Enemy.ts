@@ -3,6 +3,14 @@ import { EnemyData } from '../types/index';
 import { EliteProjectile, getActiveEliteProjectileCount, evictOldestIfNeeded } from './EliteProjectile';
 import { AssetLoader } from '../utils/AssetLoader';
 
+/** 每種普通小怪的視覺顯示尺寸設定（與碰撞半徑無關，純視覺） */
+const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
+  basic:  { w: 36, h: 36 },
+  fast:   { w: 28, h: 28 },
+  tank:   { w: 48, h: 48 },
+  ranged: { w: 36, h: 36 },
+};
+
 /** 傷害數字同時上限 */
 const MAX_DAMAGE_NUMBERS = 25;
 /** 全域傷害數字計數（跨所有敵人） */
@@ -129,19 +137,24 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     //    generateTexture 在 Android WebGL 初始化時可能靜默產生空白 texture，
     //    因此不再使用 enemy_<id> 的 pre-generated texture key。
     const imgKey = `enemy_img_${enemyData.id}`;
+    // 取得此 enemy type 的視覺尺寸（fallback 為碰撞直徑）
+    const vSize = ENEMY_VISUAL_SIZE[enemyData.id] ?? { w: enemyData.collisionRadius * 2, h: enemyData.collisionRadius * 2 };
 
     if (AssetLoader.hasTexture(scene, imgKey)) {
       // 真實 PNG（AssetLoader 載入成功）
       const img = scene.add.image(x, y, imgKey);
       img.setDepth(5);
       img.setAlpha(1);
+      // 強制設定顯示尺寸，確保 Android WebView 上 texture 尺寸異常時也正確顯示
+      img.setDisplaySize(vSize.w, vSize.h);
       this.visual = img;
     } else {
       // 即時 Graphics fallback（最保險，一定可見，不依賴任何外部資源）
       const g = scene.add.graphics();
       g.setAlpha(1);
       this.visual = g;
-      this.drawVisual(enemyData.id);
+      // 傳入視覺半徑，確保 Graphics 繪製尺寸與 vSize 一致
+      this.drawVisual(enemyData.id, Math.floor(vSize.w / 2));
     }
 
     // 遠程小怪初始化
@@ -293,7 +306,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const g = this.scene.add.graphics();
     g.setAlpha(1);
     this.visual = g;
-    this.drawVisual(type);
+    // 精英怪使用固定半徑 30（不受 ENEMY_VISUAL_SIZE 影響）
+    this.drawVisual(type, 30);
   }
 
   /**
@@ -593,119 +607,125 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // 視覺私有方法
   // ─────────────────────────────────────────────────────────────────────────
 
-  private drawVisual(enemyId: string): void {
+  private drawVisual(enemyId: string, visualRadius?: number): void {
     // 只有 Graphics 才能繪製；Image 已有 texture，不需要重繪
     if (!(this.visual instanceof Phaser.GameObjects.Graphics)) return;
     const g = this.visual;
     g.clear();
 
+    // 精英怪和普通小怪使用傳入的 visualRadius；若未傳入則用 collisionRadius
+    const r = visualRadius ?? this.collisionRadius;
+
     if (enemyId === 'charger') {
-      // 紅金色衝鋒武將
-      g.fillStyle(0xff4400, 0.35); g.fillCircle(0, 0, 30);
+      // 紅金色衝鋒武將（r ≈ 30）
+      g.fillStyle(0xff4400, 0.35); g.fillCircle(0, 0, r);
       g.fillStyle(0xcc2200, 1);
-      g.fillRect(-12, -5, 24, 18);   // 身體
+      g.fillRect(-r * 0.4, -r * 0.17, r * 0.8, r * 0.6);   // 身體
       g.fillStyle(0xffaa00, 1);
-      g.fillCircle(0, -15, 11);      // 頭
+      g.fillCircle(0, -r * 0.5, r * 0.37);                  // 頭
       g.fillStyle(0xffd700, 1);
-      g.fillRect(-11, -22, 22, 9);   // 頭盔
-      g.fillRect(-3, -28, 6, 7);
-      g.fillRect(13, -26, 4, 34);    // 長矛
-      g.fillRect(9, -26, 12, 5);
+      g.fillRect(-r * 0.37, -r * 0.73, r * 0.73, r * 0.3); // 頭盔
+      g.fillRect(-r * 0.1, -r * 0.93, r * 0.2, r * 0.23);
+      g.fillRect(r * 0.43, -r * 0.87, r * 0.13, r * 1.13); // 長矛
+      g.fillRect(r * 0.3, -r * 0.87, r * 0.4, r * 0.17);
       g.fillStyle(0xffd700, 0.9);
-      g.fillRect(-12, 5, 24, 4);     // 腰帶
-      g.lineStyle(2, 0xff6600, 0.8); g.strokeCircle(0, 0, 26);
+      g.fillRect(-r * 0.4, r * 0.17, r * 0.8, r * 0.13);   // 腰帶
+      g.lineStyle(2, 0xff6600, 0.8); g.strokeCircle(0, 0, r * 0.87);
 
     } else if (enemyId === 'shooter') {
-      // 紫藍色遠程法師
-      g.fillStyle(0x6600ff, 0.35); g.fillCircle(0, 0, 26);
+      // 紫藍色遠程法師（r ≈ 30）
+      g.fillStyle(0x6600ff, 0.35); g.fillCircle(0, 0, r);
       g.fillStyle(0x330088, 1);
-      g.fillRect(-10, -4, 20, 16);   // 身體
+      g.fillRect(-r * 0.33, -r * 0.13, r * 0.67, r * 0.53); // 身體
       g.fillStyle(0x9933ff, 1);
-      g.fillCircle(0, -13, 10);      // 頭
+      g.fillCircle(0, -r * 0.43, r * 0.33);                  // 頭
       g.fillStyle(0x6600cc, 1);
-      g.fillTriangle(0, -28, -10, -13, 10, -13); // 法師帽
+      g.fillTriangle(0, -r * 0.93, -r * 0.33, -r * 0.43, r * 0.33, -r * 0.43); // 法師帽
       g.fillStyle(0xaaaaff, 1);
-      g.fillCircle(-14, 2, 5);       // 左手法球
-      g.fillCircle(14, 2, 5);        // 右手法球
+      g.fillCircle(-r * 0.47, r * 0.07, r * 0.17);           // 左手法球
+      g.fillCircle( r * 0.47, r * 0.07, r * 0.17);           // 右手法球
       g.fillStyle(0xffffff, 0.7);
-      g.fillCircle(-14, 2, 2);
-      g.fillCircle(14, 2, 2);
-      g.lineStyle(2, 0xaa44ff, 0.8); g.strokeCircle(0, 0, 22);
+      g.fillCircle(-r * 0.47, r * 0.07, r * 0.07);
+      g.fillCircle( r * 0.47, r * 0.07, r * 0.07);
+      g.lineStyle(2, 0xaa44ff, 0.8); g.strokeCircle(0, 0, r * 0.73);
 
     } else if (enemyId === 'shield') {
-      // 金青色重甲護盾怪
-      g.fillStyle(0x00ccaa, 0.35); g.fillCircle(0, 0, 32);
+      // 金青色重甲護盾怪（r ≈ 30）
+      g.fillStyle(0x00ccaa, 0.35); g.fillCircle(0, 0, r);
       g.fillStyle(0x005544, 1);
-      g.fillRect(-14, -6, 28, 22);   // 身體
+      g.fillRect(-r * 0.47, -r * 0.2, r * 0.93, r * 0.73);  // 身體
       g.fillStyle(0xddccaa, 1);
-      g.fillCircle(0, -16, 11);      // 頭
+      g.fillCircle(0, -r * 0.53, r * 0.37);                  // 頭
       g.fillStyle(0x00aa88, 1);
-      g.fillRect(-13, -24, 26, 10);  // 頭盔
-      g.fillRect(-4, -30, 8, 7);
-      // 盾牌（左側大矩形）
+      g.fillRect(-r * 0.43, -r * 0.8, r * 0.87, r * 0.33);  // 頭盔
+      g.fillRect(-r * 0.13, -r * 1.0, r * 0.27, r * 0.23);
       g.fillStyle(0x008866, 1);
-      g.fillRect(-26, -10, 14, 24);
+      g.fillRect(-r * 0.87, -r * 0.33, r * 0.47, r * 0.8);  // 盾牌
       g.fillStyle(0xffd700, 1);
-      g.fillRect(-26, -10, 14, 3);
-      g.fillRect(-26, 11, 14, 3);
-      g.fillRect(-26, 0, 3, 14);
+      g.fillRect(-r * 0.87, -r * 0.33, r * 0.47, r * 0.1);
+      g.fillRect(-r * 0.87, r * 0.37, r * 0.47, r * 0.1);
+      g.fillRect(-r * 0.87, 0, r * 0.1, r * 0.47);
       g.fillStyle(0xffd700, 0.9);
-      g.fillRect(-14, 6, 28, 4);     // 腰帶
-      g.lineStyle(2.5, 0x00ffcc, 0.8); g.strokeCircle(0, 0, 28);
+      g.fillRect(-r * 0.47, r * 0.2, r * 0.93, r * 0.13);   // 腰帶
+      g.lineStyle(2.5, 0x00ffcc, 0.8); g.strokeCircle(0, 0, r * 0.93);
 
     } else if (enemyId === 'elite') {
-      // 舊版通用精英（向下相容）
-      g.fillStyle(0xffd700, 0.25); g.fillCircle(0, 0, 32);
-      g.fillStyle(0xff8800, 0.30); g.fillCircle(0, 0, 24);
+      // 舊版通用精英（向下相容，r ≈ 30）
+      g.fillStyle(0xffd700, 0.25); g.fillCircle(0, 0, r);
+      g.fillStyle(0xff8800, 0.30); g.fillCircle(0, 0, r * 0.8);
       g.fillStyle(0x660000, 1);
-      g.fillRect(-10, 12, 7, 14); g.fillRect(3, 12, 7, 14);
-      g.fillStyle(0x990000, 1); g.fillRect(-13, -6, 26, 20);
-      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -16, 12);
+      g.fillRect(-r * 0.33, r * 0.4, r * 0.23, r * 0.47); g.fillRect(r * 0.1, r * 0.4, r * 0.23, r * 0.47);
+      g.fillStyle(0x990000, 1); g.fillRect(-r * 0.43, -r * 0.2, r * 0.87, r * 0.67);
+      g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.53, r * 0.4);
       g.fillStyle(0xffd700, 1);
-      g.fillRect(-12, -24, 24, 10); g.fillRect(-4, -30, 8, 8);
-      g.fillRect(14, -28, 5, 38); g.fillRect(10, -28, 14, 6);
-      g.fillStyle(0xffd700, 0.9); g.fillRect(-13, 6, 26, 4);
-      g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, 26);
+      g.fillRect(-r * 0.4, -r * 0.8, r * 0.8, r * 0.33); g.fillRect(-r * 0.13, -r * 1.0, r * 0.27, r * 0.27);
+      g.fillRect(r * 0.47, -r * 0.93, r * 0.17, r * 1.27); g.fillRect(r * 0.33, -r * 0.93, r * 0.47, r * 0.2);
+      g.fillStyle(0xffd700, 0.9); g.fillRect(-r * 0.43, r * 0.2, r * 0.87, r * 0.13);
+      g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, r * 0.87);
 
     } else if (enemyId === 'basic') {
       // 標準紅色近戰小怪：大圓 + 明顯輪廓，確保可見
-      g.fillStyle(0xff2222, 1);    g.fillCircle(0, 0, 16);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-5, -4, 3);  // 左眼
-      g.fillStyle(0xffff00, 1);    g.fillCircle(5, -4, 3);   // 右眼
-      g.fillStyle(0xffffff, 1);    g.fillRect(-6, 4, 12, 3); // 嘴
-      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, 16);
+      // r = visualRadius（預設 18，來自 ENEMY_VISUAL_SIZE.basic.w/2 = 18）
+      g.fillStyle(0xff2222, 1);    g.fillCircle(0, 0, r);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.28, -r * 0.22, r * 0.17);  // 左眼
+      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.28, -r * 0.22, r * 0.17);  // 右眼
+      g.fillStyle(0xffffff, 1);    g.fillRect(-r * 0.33, r * 0.22, r * 0.67, r * 0.17); // 嘴
+      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, r);
 
     } else if (enemyId === 'fast') {
       // 亮橙色快速小怪：菱形 + 明顯輪廓
+      // r = visualRadius（預設 14，來自 ENEMY_VISUAL_SIZE.fast.w/2 = 14）
       g.fillStyle(0xff8800, 1);
-      g.fillTriangle(0, -14, -12, 0, 12, 0);
-      g.fillTriangle(0, 14, -12, 0, 12, 0);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-3, -3, 2);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(3, -3, 2);
+      g.fillTriangle(0, -r, -r, 0, r, 0);
+      g.fillTriangle(0,  r, -r, 0, r, 0);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.22, -r * 0.22, r * 0.15);
+      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.22, -r * 0.22, r * 0.15);
       g.lineStyle(3, 0xffffff, 1);
-      g.lineBetween(0, -14, -12, 0); g.lineBetween(-12, 0, 0, 14);
-      g.lineBetween(0, -14, 12, 0);  g.lineBetween(12, 0, 0, 14);
+      g.lineBetween(0, -r, -r, 0); g.lineBetween(-r, 0, 0, r);
+      g.lineBetween(0, -r,  r, 0); g.lineBetween( r, 0, 0, r);
 
     } else if (enemyId === 'tank') {
       // 深紅色厚重小怪：大圓 + 粗白框，強調厚重
-      g.fillStyle(0xcc0000, 1);    g.fillCircle(0, 0, 20);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-6, -4, 4);  // 左眼
-      g.fillStyle(0xffff00, 1);    g.fillCircle(6, -4, 4);   // 右眼
-      g.fillStyle(0xffffff, 1);    g.fillRect(-8, 5, 16, 4); // 嘴
-      g.lineStyle(4, 0xffffff, 1); g.strokeCircle(0, 0, 20);
+      // r = visualRadius（預設 24，來自 ENEMY_VISUAL_SIZE.tank.w/2 = 24）
+      g.fillStyle(0xcc0000, 1);    g.fillCircle(0, 0, r);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.25, -r * 0.17, r * 0.17);  // 左眼
+      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.25, -r * 0.17, r * 0.17);  // 右眼
+      g.fillStyle(0xffffff, 1);    g.fillRect(-r * 0.33, r * 0.21, r * 0.67, r * 0.17); // 嘴
+      g.lineStyle(4, 0xffffff, 1); g.strokeCircle(0, 0, r);
 
     } else if (enemyId === 'ranged') {
       // 紫色遠程射手：圓 + 弓形標記
-      g.fillStyle(0xaa00cc, 1);    g.fillCircle(0, 0, 14);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(-4, -3, 2);
-      g.fillStyle(0xffff00, 1);    g.fillCircle(4, -3, 2);
+      // r = visualRadius（預設 18，來自 ENEMY_VISUAL_SIZE.ranged.w/2 = 18）
+      g.fillStyle(0xaa00cc, 1);    g.fillCircle(0, 0, r);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-r * 0.22, -r * 0.17, r * 0.13);
+      g.fillStyle(0xffff00, 1);    g.fillCircle( r * 0.22, -r * 0.17, r * 0.13);
       // 弓（右側）
       g.lineStyle(3, 0xffffff, 1);
-      g.lineBetween(10, -10, 16, 0);
-      g.lineBetween(16, 0, 10, 10);
+      g.lineBetween(r * 0.56, -r * 0.56, r * 0.89, 0);
+      g.lineBetween(r * 0.89, 0, r * 0.56, r * 0.56);
       g.lineStyle(2, 0xffff00, 1);
-      g.lineBetween(10, -10, 10, 10);
-      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, 14);
+      g.lineBetween(r * 0.56, -r * 0.56, r * 0.56, r * 0.56);
+      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, r);
     }
 
     g.setPosition(this.x, this.y);
