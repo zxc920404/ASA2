@@ -8,18 +8,15 @@ import { MetaUpgradeScene } from './scenes/MetaUpgradeScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.WEBGL,
-  backgroundColor: '#1a1a2e',
+  backgroundColor: '#000000',
   scene: [BootScene, MainMenuScene, CharacterSelectScene, MapSelectScene, GameScene, MetaUpgradeScene],
   scale: {
-    // RESIZE：canvas 跟隨視口大小，消除黑邊
-    // 各 Scene 在 create() 中用 this.scale.width / height 取得實際尺寸
+    // RESIZE：canvas 跟隨視口大小，消除黑邊與白邊
+    // RESIZE 模式下不需要 autoCenter，canvas 由 CSS 填滿
     mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
     parent: document.body,
-    // 最小尺寸保護：避免極端比例破版
-    min: { width: 480, height: 270 },
-    // 最大尺寸保護：超大螢幕不過度放大
-    max: { width: 1920, height: 1080 },
+    width: window.innerWidth,
+    height: window.innerHeight,
   },
   render: {
     antialias: true,
