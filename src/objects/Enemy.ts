@@ -125,7 +125,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const texKey = `enemy_${enemyData.id}`;
     if (scene.textures.exists(texKey)) {
       const img = scene.add.image(x, y, texKey);
-      img.setDepth(4);
+      img.setDepth(5);
+      img.setAlpha(1);
       this.visual = img;
     } else {
       this.visual = scene.add.graphics();
@@ -160,9 +161,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     this.currentHP -= actualDamage;
 
+    // 受傷閃爍：只用 hitFlashTimer 控制，不直接設 alpha=0
+    // 改為短暫設 alpha=0.3（仍可見），避免多次連擊導致永久透明
     this.hitFlashTimer = 120;
     if (this.visual && this.visual.active) {
-      this.visual.setAlpha(0.0);
+      this.visual.setAlpha(0.3);
     }
     this.showFlashOverlay();
 
@@ -195,7 +198,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       if (this.hitFlashTimer <= 0) {
         this.hitFlashTimer = 0;
         if (this.visual && this.visual.active) {
+          // 強制恢復完全不透明與正常縮放
           this.visual.setAlpha(1);
+          this.visual.setScale(1);
         }
       }
     }
@@ -275,6 +280,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.visual.destroy();
     }
     const g = this.scene.add.graphics();
+    g.setAlpha(1);
     this.visual = g;
     this.drawVisual(type);
   }
@@ -584,7 +590,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     if (enemyId === 'charger') {
       // 紅金色衝鋒武將
-      g.fillStyle(0xff4400, 0.20); g.fillCircle(0, 0, 30);
+      g.fillStyle(0xff4400, 0.35); g.fillCircle(0, 0, 30);
       g.fillStyle(0xcc2200, 1);
       g.fillRect(-12, -5, 24, 18);   // 身體
       g.fillStyle(0xffaa00, 1);
@@ -596,11 +602,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillRect(9, -26, 12, 5);
       g.fillStyle(0xffd700, 0.9);
       g.fillRect(-12, 5, 24, 4);     // 腰帶
-      g.lineStyle(2, 0xff6600, 0.7); g.strokeCircle(0, 0, 26);
+      g.lineStyle(2, 0xff6600, 0.8); g.strokeCircle(0, 0, 26);
 
     } else if (enemyId === 'shooter') {
       // 紫藍色遠程法師
-      g.fillStyle(0x6600ff, 0.20); g.fillCircle(0, 0, 26);
+      g.fillStyle(0x6600ff, 0.35); g.fillCircle(0, 0, 26);
       g.fillStyle(0x330088, 1);
       g.fillRect(-10, -4, 20, 16);   // 身體
       g.fillStyle(0x9933ff, 1);
@@ -613,11 +619,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillStyle(0xffffff, 0.7);
       g.fillCircle(-14, 2, 2);
       g.fillCircle(14, 2, 2);
-      g.lineStyle(2, 0xaa44ff, 0.7); g.strokeCircle(0, 0, 22);
+      g.lineStyle(2, 0xaa44ff, 0.8); g.strokeCircle(0, 0, 22);
 
     } else if (enemyId === 'shield') {
       // 金青色重甲護盾怪
-      g.fillStyle(0x00ccaa, 0.20); g.fillCircle(0, 0, 32);
+      g.fillStyle(0x00ccaa, 0.35); g.fillCircle(0, 0, 32);
       g.fillStyle(0x005544, 1);
       g.fillRect(-14, -6, 28, 22);   // 身體
       g.fillStyle(0xddccaa, 1);
@@ -634,12 +640,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillRect(-26, 0, 3, 14);
       g.fillStyle(0xffd700, 0.9);
       g.fillRect(-14, 6, 28, 4);     // 腰帶
-      g.lineStyle(2.5, 0x00ffcc, 0.7); g.strokeCircle(0, 0, 28);
+      g.lineStyle(2.5, 0x00ffcc, 0.8); g.strokeCircle(0, 0, 28);
 
     } else if (enemyId === 'elite') {
       // 舊版通用精英（向下相容）
-      g.fillStyle(0xffd700, 0.18); g.fillCircle(0, 0, 32);
-      g.fillStyle(0xff8800, 0.22); g.fillCircle(0, 0, 24);
+      g.fillStyle(0xffd700, 0.25); g.fillCircle(0, 0, 32);
+      g.fillStyle(0xff8800, 0.30); g.fillCircle(0, 0, 24);
       g.fillStyle(0x660000, 1);
       g.fillRect(-10, 12, 7, 14); g.fillRect(3, 12, 7, 14);
       g.fillStyle(0x990000, 1); g.fillRect(-13, -6, 26, 20);
@@ -648,10 +654,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillRect(-12, -24, 24, 10); g.fillRect(-4, -30, 8, 8);
       g.fillRect(14, -28, 5, 38); g.fillRect(10, -28, 14, 6);
       g.fillStyle(0xffd700, 0.9); g.fillRect(-13, 6, 26, 4);
-      g.lineStyle(2, 0xffd700, 0.7); g.strokeCircle(0, 0, 26);
+      g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, 26);
 
     } else if (enemyId === 'basic') {
-      g.fillStyle(0xcc2222, 0.2); g.fillCircle(0, 0, 18);
+      // 紅色基礎小怪：加深顏色，提高光暈可見度
+      g.fillStyle(0xcc2222, 0.35); g.fillCircle(0, 0, 18);
       g.fillStyle(0x881111, 1); g.fillRect(-8, -2, 16, 14);
       g.fillStyle(0xff4444, 1); g.fillCircle(0, -10, 9);
       g.lineStyle(2, 0xff6666, 1);
@@ -660,16 +667,18 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineBetween(12, 6, 20, 6); g.lineBetween(12, 10, 18, 16);
 
     } else if (enemyId === 'fast') {
-      g.fillStyle(0xff6600, 0.2); g.fillCircle(0, 0, 14);
+      // 橙色快速小怪：提高光暈可見度
+      g.fillStyle(0xff6600, 0.35); g.fillCircle(0, 0, 14);
       g.fillStyle(0xcc4400, 1);
       g.fillTriangle(0, -14, -10, 2, 10, 2);
       g.fillTriangle(0, 14, -10, 2, 10, 2);
-      g.lineStyle(1.5, 0xffaa44, 0.8);
+      g.lineStyle(1.5, 0xffaa44, 0.9);
       g.lineBetween(-16, -6, -8, -6); g.lineBetween(-18, 0, -10, 0);
       g.lineBetween(-16, 6, -8, 6);
 
     } else if (enemyId === 'tank') {
-      g.fillStyle(0x6600aa, 0.2); g.fillCircle(0, 0, 22);
+      // 紫色厚血小怪：提高光暈可見度
+      g.fillStyle(0x6600aa, 0.35); g.fillCircle(0, 0, 22);
       g.fillStyle(0x440077, 1); g.fillCircle(0, 0, 16);
       g.fillStyle(0x8833cc, 1);
       g.fillRect(-14, -6, 10, 12); g.fillRect(4, -6, 10, 12);
@@ -678,8 +687,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillCircle(-5, -2, 3); g.fillCircle(5, -2, 3);
 
     } else if (enemyId === 'ranged') {
-      // 橙黃色遠程射手：瘦小身形 + 弓箭
-      g.fillStyle(0xffaa00, 0.20); g.fillCircle(0, 0, 16);
+      // 橙黃色遠程射手：提高光暈可見度
+      g.fillStyle(0xffaa00, 0.35); g.fillCircle(0, 0, 16);
       g.fillStyle(0xcc6600, 1);
       g.fillRect(-7, -3, 14, 14);   // 身體
       g.fillStyle(0xffcc88, 1);
@@ -689,17 +698,19 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineBetween(-12, -8, -14, 0);
       g.lineBetween(-14, 0, -12, 8);
       // 弓弦
-      g.lineStyle(1, 0xffdd88, 0.8);
+      g.lineStyle(1, 0xffdd88, 0.9);
       g.lineBetween(-12, -8, -12, 8);
       // 箭
       g.fillStyle(0xffdd00, 1);
       g.fillRect(-11, -1, 14, 2);
       g.fillTriangle(3, -3, 3, 3, 8, 0);
-      g.lineStyle(1.5, 0xff8800, 0.7); g.strokeCircle(0, 0, 14);
+      g.lineStyle(1.5, 0xff8800, 0.8); g.strokeCircle(0, 0, 14);
     }
 
     g.setPosition(this.x, this.y);
-    g.setDepth(4);
+    g.setDepth(5);
+    // 確保 alpha 為 1（防止殘留狀態）
+    g.setAlpha(1);
   }
 
   private syncVisual(): void {
@@ -720,17 +731,26 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       targets: flash, alpha: 0, duration: 100,
       onComplete: () => {
         if (flash && flash.active) flash.destroy();
-        if (this.visual && this.visual.active && !this.isDying) this.visual.setAlpha(1);
+        // 確保 alpha 恢復為 1（無論 hitFlashTimer 狀態）
+        if (this.visual && this.visual.active && !this.isDying) {
+          this.visual.setAlpha(1);
+        }
       },
     });
 
-    // 輕量縮放回饋（scale 1.0 → 1.08 → 1.0，不建立額外物件）
+    // 輕量縮放回饋（scale 1.0 → 1.08 → 1.0）
+    // yoyo 結束後強制 scale 回 1，防止 Android 上縮放殘留
     if (this.visual && this.visual.active && !this.isDying) {
       this.scene.tweens.add({
         targets: this.visual,
         scaleX: 1.08, scaleY: 1.08,
         duration: 55, ease: 'Power1',
         yoyo: true,
+        onComplete: () => {
+          if (this.visual && this.visual.active && !this.isDying) {
+            this.visual.setScale(1);
+          }
+        },
       });
     }
   }
