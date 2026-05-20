@@ -129,6 +129,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.lastDamageTime = -Infinity;
 
     scene.add.existing(this);
+    // Rectangle 本身只作碰撞邊界用，不顯示
+    this.setVisible(false);
+    this.setDepth(-10);
 
     // 建立視覺：
     // 1. 優先使用 AssetLoader 載入的真實 PNG（enemy_img_<id>）
