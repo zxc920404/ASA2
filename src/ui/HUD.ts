@@ -7,14 +7,18 @@ import { AssetLoader } from '../utils/AssetLoader';
 
 /**
  * HUD — 遊戲內抬頭顯示器
- * 設計解析度 960×540
+ * 使用 this.scene.scale.width / height 取得實際尺寸，支援任意解析度。
  *
- * 佈局（所有數值基於 960×540）：
- *   左上主 HUD：x=8, y=6，寬 220px，高 52px（緊湊）
- *   左側武器欄：x=8, y=68（主 HUD 正下方 10px），每格 16px 高
- *   右上按鈕：暫停 x=W-32, 屬性 x=W-88，y=28
- *   右側被動欄：x=W-76, y=68（按鈕正下方），每格 16px 高
- *   右下資訊：y=H-20
+ * Safe area padding：
+ *   SAFE_X = max(8, 螢幕寬 × 0.012)  — 左右不貼邊，避免瀏海
+ *   SAFE_Y = max(6, 螢幕高 × 0.012)  — 上下不貼邊，避免狀態列
+ *
+ * 佈局（相對 safe area 起點）：
+ *   左上主 HUD：safeX, safeY，寬 220px，高 52px
+ *   左側武器欄：safeX + 64，主 HUD 正下方
+ *   右上按鈕：暫停 W-safeX-20, 屬性 W-safeX-76，y=safeY+22
+ *   右側被動欄：W-safeX-64-slotW，按鈕正下方
+ *   右下資訊：W-safeX, H-safeY
  */
 export class HUD {
   private scene: Phaser.Scene;
@@ -75,12 +79,16 @@ export class HUD {
   }
 
   private buildLayout(): void {
-    const W = this.scene.scale.width;   // 960
-    const H = this.scene.scale.height;  // 540
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+
+    // ── Safe area padding（避免瀏海 / 手勢區遮擋）──────────────────────
+    const safeX = Math.max(8, Math.round(W * 0.012));
+    const safeY = Math.max(6, Math.round(H * 0.012));
 
     // ── 1. 左上主 HUD（緊湊，高 52px）──────────────────────────────────
-    const panelX = 8;
-    const panelY = 6;
+    const panelX = safeX;
+    const panelY = safeY;
     const panelW = 210;
     const panelH = 52;
 
@@ -144,11 +152,11 @@ export class HUD {
       uiText(10, '#ffd700', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
 
-    // ── 2. 右上按鈕（暫停最右，屬性左 60px，y=28）──────────────────────
-    this.pauseX = W - 32;
-    this.pauseY = 28;
-    this.statsX = W - 88;
-    this.statsY = 28;
+    // ── 2. 右上按鈕（暫停最右，屬性左 60px，y=safeY+22）────────────────
+    this.pauseX = W - safeX - 20;
+    this.pauseY = safeY + 22;
+    this.statsX = W - safeX - 76;
+    this.statsY = safeY + 22;
 
     this.statsBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
     this.drawStatsBtn(false);
@@ -173,13 +181,13 @@ export class HUD {
     this.pauseHitArea.on('pointerover', () => this.drawPauseBtn(true));
     this.pauseHitArea.on('pointerout', () => this.drawPauseBtn(false));
 
-    // ── 3. 右下資訊（y = H-20）──────────────────────────────────────────
+    // ── 3. 右下資訊（y = H - safeY - 14）────────────────────────────────
     this.timerText = this.scene.add.text(
-      W - 8, H - 20,
+      W - safeX, H - safeY - 14,
       '⏱ 00:00', uiText(12, '#dddddd')
     ).setOrigin(1, 0.5).setScrollFactor(0).setDepth(11);
     this.killText = this.scene.add.text(
-      W - 8 - 90, H - 20,
+      W - safeX - 90, H - safeY - 14,
       '⚔ 0', uiText(12, '#ffccaa')
     ).setOrigin(1, 0.5).setScrollFactor(0).setDepth(11);
 
@@ -435,6 +443,23 @@ export class HUD {
 
   public onStatsClick(callback: () => void): void {
     this.statsClickCallback = callback;
+  }
+
+  /**
+   * 螢幕尺寸變更時重建 HUD（RESIZE 模式下旋轉螢幕時呼叫）
+   * 銷毀所有現有元素後重新 buildLayout
+   */
+  public rebuild(): void {
+    this.destroy();
+    // 重置陣列
+    this.weaponSlotBgs = [];
+    this.weaponSlotTexts = [];
+    this.weaponSlotIcons = [];
+    this.passiveSlotBgs = [];
+    this.passiveSlotTexts = [];
+    this.passiveSlotIcons = [];
+    this.buildLayout();
+    this.startUpdateTimer();
   }
 
   public update(player: Player, elapsedSeconds: number, killCount: number): void {

@@ -28,10 +28,11 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'sect_portrait_taoist',    'assets/sects/portraits/taoist.png');
 
     // ── 敵人 Sprite（建議 48×48）─────────────────────────────────────────
-    AssetLoader.loadImage(scene, 'enemy_img_basic',  'assets/enemies/basic.png');
-    AssetLoader.loadImage(scene, 'enemy_img_fast',   'assets/enemies/fast.png');
-    AssetLoader.loadImage(scene, 'enemy_img_tank',   'assets/enemies/tank.png');
-    AssetLoader.loadImage(scene, 'enemy_img_ranged', 'assets/enemies/ranged.png');
+    // 實際檔案位於 assets/sprites/enemies/，檔名帶 enemy_ 前綴
+    AssetLoader.loadImage(scene, 'enemy_img_basic',  'assets/sprites/enemies/enemy_basic.png');
+    AssetLoader.loadImage(scene, 'enemy_img_fast',   'assets/sprites/enemies/enemy_fast.png');
+    AssetLoader.loadImage(scene, 'enemy_img_tank',   'assets/sprites/enemies/enemy_tank.png');
+    AssetLoader.loadImage(scene, 'enemy_img_ranged', 'assets/sprites/enemies/enemy_ranged.png');
 
     // ── 武器圖示（建議 32×32）────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'weapon_icon_guardian_ring', 'assets/icons/weapons/guardian_ring.png');

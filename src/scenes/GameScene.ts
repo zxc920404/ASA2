@@ -392,6 +392,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         window.removeEventListener('orientationchange', this.orientationHandler);
         window.removeEventListener('resize', this.orientationHandler);
       }
+      // 移除 Phaser resize 監聽
+      this.scale.off('resize', this.onScaleResize, this);
       if (this.virtualJoystick) {
         this.virtualJoystick.destroy();
       }
@@ -401,6 +403,37 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       // 清理所有動態物件陣列，防止 scene restart 後殘留
       this.cleanupDynamicObjects();
     });
+
+    // ── Phaser RESIZE 模式：螢幕旋轉時重建 HUD 與搖桿 ──────────────────
+    this.scale.on('resize', this.onScaleResize, this);
+  }
+
+  /**
+   * Phaser Scale RESIZE 事件回呼
+   * 螢幕旋轉或視口尺寸變更時，重建 HUD 與虛擬搖桿
+   */
+  private onScaleResize(): void {
+    // 重建 HUD（重新計算 safe area 與座標）
+    if (this.hud) {
+      this.hud.rebuild();
+      // 重新綁定按鈕事件
+      this.hud.onPauseClick(() => { this.pauseGame(); });
+      this.hud.onStatsClick(() => {
+        if (this.pauseReason !== 'none') return;
+        if (this.isGameOver) return;
+        const charData = getCharacterById(this.characterId);
+        const charName = charData?.name ?? '未知';
+        this.pauseForStatus();
+        this.playerStatusPanel.show(this.player, charName, () => {
+          this.resumeFromStatus();
+        });
+      });
+    }
+    // 重建虛擬搖桿
+    if (this.virtualJoystick) {
+      this.virtualJoystick.destroy();
+      this.virtualJoystick = new VirtualJoystick(this);
+    }
   }
 
   update(time: number, delta: number): void {

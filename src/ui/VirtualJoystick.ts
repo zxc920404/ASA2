@@ -56,10 +56,11 @@ export class VirtualJoystick {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
 
-    // 搖桿位置：左下角，基於 960×540 設計解析度
-    // x=120（距左邊 120px），y=H-90（距底部 90px）
-    this.baseX = 120;
-    this.baseY = H - 90;
+    // 搖桿位置：左下角，基於實際螢幕尺寸動態計算
+    // x = W × 0.125（距左邊 12.5%），y = H - H×0.165（距底部 16.5%）
+    // safe area：至少距邊緣 BASE_RADIUS + 10px
+    this.baseX = Math.max(this.BASE_RADIUS + 10, Math.round(W * 0.125));
+    this.baseY = Math.min(H - this.BASE_RADIUS - 10, Math.round(H * 0.835));
 
     // 底座：半透明圓形，alpha 0.4
     this.baseGraphic = this.scene.add.graphics();
