@@ -72,6 +72,11 @@ export class HUD {
 
   private statsClickCallback: (() => void) | null = null;
 
+  /** 低血量警告狀態 */
+  private lowHpWarning: boolean = false;
+  private lowHpFlashTimer: number = 0;
+  private readonly LOW_HP_FLASH_INTERVAL = 400; // ms，閃爍週期
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.buildLayout();
@@ -336,6 +341,17 @@ export class HUD {
     this.hpText.setText(`${Math.ceil(player.currentHP)}/${player.stats.maxHP}`);
     this.levelText.setText(`Lv.${player.level}`);
 
+    // 低血量閃爍：HP < 30% 時血條邊框閃爍紅色
+    if (this.lowHpWarning) {
+      this.lowHpFlashTimer += 250; // 每次 tick 約 250ms
+      const flashOn = Math.floor(this.lowHpFlashTimer / this.LOW_HP_FLASH_INTERVAL) % 2 === 0;
+      this.hpBarBg.clear();
+      this.hpBarBg.fillStyle(flashOn ? 0x550000 : 0x330000, 1);
+      this.hpBarBg.fillRoundedRect(this.hpBarX, this.hpBarY, this.hpBarWidth, 10, 3);
+      this.hpBarBg.lineStyle(flashOn ? 2 : 1, flashOn ? 0xff2222 : 0xd4af37, flashOn ? 1 : 0.4);
+      this.hpBarBg.strokeRoundedRect(this.hpBarX, this.hpBarY, this.hpBarWidth, 10, 3);
+    }
+
     const requiredExp = 10 + player.level * 5;
     this.drawExpBar(Math.max(0, Math.min(1, player.currentExp / requiredExp)));
 
@@ -443,6 +459,25 @@ export class HUD {
 
   public onStatsClick(callback: () => void): void {
     this.statsClickCallback = callback;
+  }
+
+  /**
+   * 設定低血量警告狀態（HP < 30% 時傳入 true）
+   * 由 GameScene 每幀呼叫
+   */
+  public setLowHpWarning(active: boolean): void {
+    if (this.lowHpWarning !== active) {
+      this.lowHpWarning = active;
+      if (!active) {
+        // 恢復正常血條背景
+        this.lowHpFlashTimer = 0;
+        this.hpBarBg.clear();
+        this.hpBarBg.fillStyle(0x330000, 1);
+        this.hpBarBg.fillRoundedRect(this.hpBarX, this.hpBarY, this.hpBarWidth, 10, 3);
+        this.hpBarBg.lineStyle(1, 0xd4af37, 0.4);
+        this.hpBarBg.strokeRoundedRect(this.hpBarX, this.hpBarY, this.hpBarWidth, 10, 3);
+      }
+    }
   }
 
   /**

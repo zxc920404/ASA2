@@ -2,6 +2,10 @@ import Phaser from 'phaser';
 import { CharacterData, EquipmentSlot, PlayerStats } from '../types/index';
 import { calculateStats } from '../systems/StatCalculator';
 
+/** 傷害浮字同時上限 */
+const MAX_PLAYER_DAMAGE_NUMBERS = 20;
+let activePlayerDamageNumbers = 0;
+
 /**
  * Player 遊戲物件
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，32×32）
@@ -19,6 +23,14 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
   /** 視覺圖形（Image，使用 generateTexture 生成的 key） */
   private visual!: Phaser.GameObjects.Image;
+
+  // ── 受傷回饋狀態 ──────────────────────────────────────────────────────
+  /** 無敵幀計時（ms）：> 0 時不受傷 */
+  public invincibleTimer: number = 0;
+  /** 無敵幀持續時間（ms） */
+  private readonly INVINCIBLE_DURATION = 600;
+  /** 閃白計時（ms） */
+  private hitFlashTimer: number = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -83,6 +95,119 @@ export class Player extends Phaser.GameObjects.Rectangle {
     if (this.visual && this.visual.active) {
       this.visual.setPosition(this.x, this.y);
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 受傷回饋
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 玩家受傷：扣血 + 觸發所有受傷回饋
+   * 回傳 true 表示實際扣血（未在無敵幀中）
+   * @param damage 傷害量
+   * @param scene  GameScene（用於 camera shake）
+   */
+  public takeDamage(damage: number, scene: Phaser.Scene): boolean {
+    // 無敵幀中：不扣血、不觸發回饋
+    if (this.invincibleTimer > 0) return false;
+
+    // 扣血
+    this.currentHP = Math.max(0, this.currentHP - damage);
+
+    // 啟動無敵幀
+    this.invincibleTimer = this.INVINCIBLE_DURATION;
+
+    // 【1】閃白：visual 短暫設為高亮
+    if (this.visual && this.visual.active) {
+      this.visual.setTint(0xff8888);
+      this.hitFlashTimer = 110;
+    }
+
+    // 【2】縮放抖動（scale 1.0 → 0.88 → 1.0）
+    if (this.visual && this.visual.active && scene.tweens) {
+      scene.tweens.add({
+        targets: this.visual,
+        scaleX: 0.88, scaleY: 0.88,
+        duration: 55, ease: 'Power2',
+        yoyo: true,
+        onComplete: () => {
+          if (this.visual && this.visual.active) {
+            this.visual.setScale(1);
+          }
+        },
+      });
+    }
+
+    // 【3】傷害浮字
+    this.showDamageNumber(damage, scene);
+
+    // 【2】Camera shake（由 GameScene 呼叫，這裡觸發事件）
+    // 直接在此 shake，避免 GameScene 需要額外監聽
+    if (!scene.cameras?.main) return true;
+    const cam = scene.cameras.main;
+    // 只在非 GameOver 狀態 shake（GameScene 會在 GameOver 後停止更新）
+    cam.shake(100, 0.003);
+
+    return true;
+  }
+
+  /**
+   * 每幀更新受傷回饋計時（由 GameScene.update 呼叫）
+   */
+  public updateHitFeedback(delta: number): void {
+    // 無敵幀倒計時
+    if (this.invincibleTimer > 0) {
+      this.invincibleTimer -= delta;
+      if (this.invincibleTimer < 0) this.invincibleTimer = 0;
+    }
+
+    // 閃白恢復
+    if (this.hitFlashTimer > 0) {
+      this.hitFlashTimer -= delta;
+      if (this.hitFlashTimer <= 0) {
+        this.hitFlashTimer = 0;
+        if (this.visual && this.visual.active) {
+          this.visual.clearTint();
+          this.visual.setScale(1);
+        }
+      }
+    }
+  }
+
+  /**
+   * 顯示玩家受傷浮字（紅色，往上漂浮後消失）
+   */
+  private showDamageNumber(damage: number, scene: Phaser.Scene): void {
+    if (activePlayerDamageNumbers >= MAX_PLAYER_DAMAGE_NUMBERS) return;
+    if (!scene || !scene.sys?.isActive()) return;
+
+    activePlayerDamageNumbers++;
+
+    const offsetX = (Math.random() - 0.5) * 20;
+    const text = scene.add.text(
+      this.x + offsetX,
+      this.y - 28,
+      `-${damage}`,
+      {
+        fontSize: '14px',
+        color: '#ff4444',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }
+    ).setOrigin(0.5, 1).setDepth(25);
+
+    scene.tweens.add({
+      targets: text,
+      y: text.y - 36,
+      alpha: 0,
+      duration: 700,
+      ease: 'Power1',
+      onComplete: () => {
+        if (text && text.active) text.destroy();
+        activePlayerDamageNumbers = Math.max(0, activePlayerDamageNumbers - 1);
+      },
+    });
   }
 
   /**

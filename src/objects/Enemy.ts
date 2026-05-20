@@ -75,9 +75,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private chargerDirY: number = 0;
   private readonly CHARGER_COOLDOWN   = 6000;  // 每輪間隔
   private readonly CHARGER_WINDUP     = 400;   // 蓄力時間
-  private readonly CHARGER_DASH_DUR   = 620;   // 每次衝刺持續
+  private readonly CHARGER_DASH_DUR   = 650;   // 每次衝刺持續
   private readonly CHARGER_DASH_SPEED = 450;   // 衝刺速度
-  private readonly CHARGER_PAUSE_DUR  = 250;   // 每次衝刺後停頓
+  private readonly CHARGER_PAUSE_DUR  = 300;   // 每次衝刺後停頓
   private readonly CHARGER_COMBO      = 3;     // 每輪衝撞次數
   private chargerComboLeft: number = 0;        // 本輪剩餘次數
   private chargerPauseTimer: number = 0;       // 停頓計時

@@ -468,6 +468,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 更新 HUD 快取資料（實際渲染由 HUD 內部計時器負責）
     this.hud.update(this.player, this.elapsedSeconds, this.killCount);
 
+    // 更新玩家受傷回饋（無敵幀倒計時、閃白恢復）
+    this.player.updateHitFeedback(delta);
+
+    // 低血量 HUD 警告（HP < 30% 時通知 HUD 閃爍）
+    const hpRatio = this.player.currentHP / this.player.stats.maxHP;
+    this.hud.setLowHpWarning(hpRatio < 0.30);
+
     // ── Debug 顯示更新（每 500ms，僅 SHOW_DEBUG_HUD=true 時執行）──────────
     if (this.SHOW_DEBUG_HUD && this.debugText) {
       this.debugUpdateTimer += delta;
@@ -544,13 +551,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (dist <= overlapDist) {
         const now = time;
         if (now - enemy.lastDamageTime >= CONTACT_DAMAGE_COOLDOWN_MS) {
-          this.player.currentHP -= enemy.contactDamage;
+          // 使用 takeDamage 集中處理受傷回饋（無敵幀、閃白、浮字、shake）
+          this.player.takeDamage(enemy.contactDamage, this);
           enemy.lastDamageTime = now;
-
-          // 確保 HP 不低於 0
-          if (this.player.currentHP < 0) {
-            this.player.currentHP = 0;
-          }
         }
       }
 
@@ -647,7 +650,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const pdy = this.player.y - proj.y;
       const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
       if (pdist <= PLAYER_COLLISION_RADIUS + 6) {
-        this.player.currentHP = Math.max(0, this.player.currentHP - proj.damage);
+        this.player.takeDamage(proj.damage, this);
         deadProjectiles.push(proj);
       }
     }
@@ -695,7 +698,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const result = la.update(delta, this.player, lineAttackHitThisFrame);
       if (result.hit) {
         lineAttackHitThisFrame = true;
-        this.player.currentHP = Math.max(0, this.player.currentHP - la.getDamage());
+        this.player.takeDamage(la.getDamage(), this);
       }
       if (result.shouldDestroy) {
         deadLineAttacks.push(la);
@@ -716,7 +719,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const pdx = this.player.x - proj.x;
       const pdy = this.player.y - proj.y;
       if (Math.sqrt(pdx * pdx + pdy * pdy) <= PLAYER_COLLISION_RADIUS + 6) {
-        this.player.currentHP = Math.max(0, this.player.currentHP - proj.damage);
+        this.player.takeDamage(proj.damage, this);
         deadRangedProj.push(proj);
       }
     }
