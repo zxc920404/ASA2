@@ -125,20 +125,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // 建立視覺：
     // 1. 優先使用 AssetLoader 載入的真實 PNG（enemy_img_<id>）
     //    使用 AssetLoader.hasTexture() 確保排除 __MISSING / __DEFAULT
-    // 2. 次選 generateSpriteTextures 生成的程式繪製 texture（enemy_<id>）
-    // 3. 最後 fallback 為即時 Graphics 繪製（一定可見，不依賴任何外部資源）
+    // 2. 直接用 Graphics 即時繪製（最保險，不依賴 generateTexture / RenderTexture）
+    //    generateTexture 在 Android WebGL 初始化時可能靜默產生空白 texture，
+    //    因此不再使用 enemy_<id> 的 pre-generated texture key。
     const imgKey = `enemy_img_${enemyData.id}`;
-    const texKey = `enemy_${enemyData.id}`;
 
     if (AssetLoader.hasTexture(scene, imgKey)) {
       // 真實 PNG（AssetLoader 載入成功）
       const img = scene.add.image(x, y, imgKey);
-      img.setDepth(5);
-      img.setAlpha(1);
-      this.visual = img;
-    } else if (AssetLoader.hasTexture(scene, texKey)) {
-      // 程式繪製 texture（generateSpriteTextures 生成）
-      const img = scene.add.image(x, y, texKey);
       img.setDepth(5);
       img.setAlpha(1);
       this.visual = img;
@@ -674,85 +668,44 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, 26);
 
     } else if (enemyId === 'basic') {
-      // 標準紅色近戰小怪：圓頭 + 身體，清楚可辨
-      const r = 16; // collisionRadius
-      // 光暈
-      g.fillStyle(0xff2222, 0.25); g.fillCircle(0, 0, r + 4);
-      // 身體（深紅矩形）
-      g.fillStyle(0xaa1111, 1); g.fillRect(-9, -2, 18, 14);
-      // 頭（亮紅圓）
-      g.fillStyle(0xff4444, 1); g.fillCircle(0, -11, 10);
-      // 眼睛
-      g.fillStyle(0xffff00, 1); g.fillCircle(-3, -12, 2); g.fillCircle(3, -12, 2);
-      // 外框
-      g.lineStyle(2, 0xff6666, 1); g.strokeCircle(0, -11, 10);
-      g.lineStyle(1.5, 0xff6666, 0.8); g.strokeRect(-9, -2, 18, 14);
+      // 標準紅色近戰小怪：大圓 + 明顯輪廓，確保可見
+      g.fillStyle(0xff2222, 1);    g.fillCircle(0, 0, 16);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-5, -4, 3);  // 左眼
+      g.fillStyle(0xffff00, 1);    g.fillCircle(5, -4, 3);   // 右眼
+      g.fillStyle(0xffffff, 1);    g.fillRect(-6, 4, 12, 3); // 嘴
+      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, 16);
 
     } else if (enemyId === 'fast') {
-      // 亮橙色快速小怪：較小菱形身體 + 速度線，強調速度感
-      const r = 12; // collisionRadius
-      // 光暈
-      g.fillStyle(0xff6600, 0.25); g.fillCircle(0, 0, r + 3);
-      // 菱形身體（亮橙）
-      g.fillStyle(0xff5500, 1);
-      g.fillTriangle(0, -13, -9, 0, 9, 0);
-      g.fillTriangle(0, 13, -9, 0, 9, 0);
-      // 頭（小圓）
-      g.fillStyle(0xff8833, 1); g.fillCircle(0, -8, 6);
-      // 速度線（左側三條）
-      g.lineStyle(2, 0xffcc44, 1);
-      g.lineBetween(-14, -5, -9, -5);
-      g.lineBetween(-16, 0, -9, 0);
-      g.lineBetween(-14, 5, -9, 5);
-      // 外框
-      g.lineStyle(1.5, 0xffaa44, 0.9); g.strokeCircle(0, 0, r);
+      // 亮橙色快速小怪：菱形 + 明顯輪廓
+      g.fillStyle(0xff8800, 1);
+      g.fillTriangle(0, -14, -12, 0, 12, 0);
+      g.fillTriangle(0, 14, -12, 0, 12, 0);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-3, -3, 2);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(3, -3, 2);
+      g.lineStyle(3, 0xffffff, 1);
+      g.lineBetween(0, -14, -12, 0); g.lineBetween(-12, 0, 0, 14);
+      g.lineBetween(0, -14, 12, 0);  g.lineBetween(12, 0, 0, 14);
 
     } else if (enemyId === 'tank') {
-      // 深紅色厚重小怪：大圓 + 粗外框，強調厚重感
-      const r = 20; // collisionRadius
-      // 光暈
-      g.fillStyle(0x880000, 0.30); g.fillCircle(0, 0, r + 5);
-      // 主體（深紅大圓）
-      g.fillStyle(0x660000, 1); g.fillCircle(0, 0, r - 2);
-      // 裝甲紋路（深色矩形）
-      g.fillStyle(0x440000, 1);
-      g.fillRect(-14, -6, 10, 12);
-      g.fillRect(4, -6, 10, 12);
-      g.fillRect(-8, -16, 16, 10);
-      // 眼睛（紅色發光）
-      g.fillStyle(0xff0000, 1); g.fillCircle(-5, -2, 4); g.fillCircle(5, -2, 4);
-      g.fillStyle(0xff8888, 1); g.fillCircle(-5, -2, 2); g.fillCircle(5, -2, 2);
-      // 粗外框（強調厚重）
-      g.lineStyle(3.5, 0xcc2222, 1); g.strokeCircle(0, 0, r - 2);
-      g.lineStyle(1.5, 0xff4444, 0.6); g.strokeCircle(0, 0, r + 2);
+      // 深紅色厚重小怪：大圓 + 粗白框，強調厚重
+      g.fillStyle(0xcc0000, 1);    g.fillCircle(0, 0, 20);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-6, -4, 4);  // 左眼
+      g.fillStyle(0xffff00, 1);    g.fillCircle(6, -4, 4);   // 右眼
+      g.fillStyle(0xffffff, 1);    g.fillRect(-8, 5, 16, 4); // 嘴
+      g.lineStyle(4, 0xffffff, 1); g.strokeCircle(0, 0, 20);
 
     } else if (enemyId === 'ranged') {
-      // 紫紅色遠程射手：帶弓 + 法器標記
-      const r = 14; // collisionRadius
-      // 光暈（紫紅）
-      g.fillStyle(0xaa0066, 0.30); g.fillCircle(0, 0, r + 4);
-      // 身體（暗紫紅）
-      g.fillStyle(0x880044, 1); g.fillRect(-7, -3, 14, 14);
-      // 頭（紫紅圓）
-      g.fillStyle(0xcc2266, 1); g.fillCircle(0, -11, 8);
-      // 眼睛
-      g.fillStyle(0xffaaff, 1); g.fillCircle(-2, -12, 2); g.fillCircle(2, -12, 2);
-      // 弓（左側）
-      g.lineStyle(2.5, 0x660033, 1);
-      g.lineBetween(-13, -9, -15, 0);
-      g.lineBetween(-15, 0, -13, 9);
-      // 弓弦
-      g.lineStyle(1.5, 0xffaacc, 0.9);
-      g.lineBetween(-13, -9, -13, 9);
-      // 箭（橫向）
-      g.fillStyle(0xffdd00, 1);
-      g.fillRect(-12, -1, 15, 2);
-      g.fillTriangle(3, -4, 3, 4, 9, 0);
-      // 法器光點（右側）
-      g.fillStyle(0xff44aa, 0.9); g.fillCircle(12, 0, 4);
-      g.fillStyle(0xffffff, 0.7); g.fillCircle(12, 0, 2);
-      // 外框
-      g.lineStyle(2, 0xff44aa, 0.9); g.strokeCircle(0, 0, r);
+      // 紫色遠程射手：圓 + 弓形標記
+      g.fillStyle(0xaa00cc, 1);    g.fillCircle(0, 0, 14);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(-4, -3, 2);
+      g.fillStyle(0xffff00, 1);    g.fillCircle(4, -3, 2);
+      // 弓（右側）
+      g.lineStyle(3, 0xffffff, 1);
+      g.lineBetween(10, -10, 16, 0);
+      g.lineBetween(16, 0, 10, 10);
+      g.lineStyle(2, 0xffff00, 1);
+      g.lineBetween(10, -10, 10, 10);
+      g.lineStyle(3, 0xffffff, 1); g.strokeCircle(0, 0, 14);
     }
 
     g.setPosition(this.x, this.y);

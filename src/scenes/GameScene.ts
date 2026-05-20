@@ -1906,57 +1906,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(0xffaa00, 0.8); g.fillRect(cx - 9, cy + 2, 18, 3);
     });
 
-    // ── 普通小怪（紅色武士，48×48）───────────────────────────────────────
-    ensureTexture('enemy_basic', 'enemy_img_basic', 48, 48, (g) => {
-      const cx = 24, cy = 24;
-      g.fillStyle(0xcc2222, 0.2); g.fillCircle(cx, cy, 18);
-      g.fillStyle(0x881111, 1); g.fillRect(cx - 8, cy - 2, 16, 14);
-      g.fillStyle(0xff4444, 1); g.fillCircle(cx, cy - 10, 9);
-      g.lineStyle(2, 0xff6666, 1);
-      g.lineBetween(cx - 12, cy + 2, cx - 18, cy - 4);
-      g.lineBetween(cx + 12, cy + 2, cx + 18, cy - 4);
-    });
-
-    // ── 快速小怪（橙色菱形，40×40）───────────────────────────────────────
-    ensureTexture('enemy_fast', 'enemy_img_fast', 40, 40, (g) => {
-      const cx = 20, cy = 20;
-      g.fillStyle(0xff6600, 0.2); g.fillCircle(cx, cy, 14);
-      g.fillStyle(0xcc4400, 1);
-      g.fillTriangle(cx, cy - 14, cx - 10, cy + 2, cx + 10, cy + 2);
-      g.fillTriangle(cx, cy + 14, cx - 10, cy + 2, cx + 10, cy + 2);
-      g.lineStyle(1.5, 0xffaa44, 0.8);
-      g.lineBetween(cx - 16, cy - 6, cx - 8, cy - 6);
-      g.lineBetween(cx - 18, cy, cx - 10, cy);
-      g.lineBetween(cx - 16, cy + 6, cx - 8, cy + 6);
-    });
-
-    // ── 坦克小怪（紫色重甲，52×52）───────────────────────────────────────
-    ensureTexture('enemy_tank', 'enemy_img_tank', 52, 52, (g) => {
-      const cx = 26, cy = 26;
-      g.fillStyle(0x6600aa, 0.2); g.fillCircle(cx, cy, 22);
-      g.fillStyle(0x440077, 1); g.fillCircle(cx, cy, 16);
-      g.fillStyle(0x8833cc, 1);
-      g.fillRect(cx - 14, cy - 6, 10, 12);
-      g.fillRect(cx + 4, cy - 6, 10, 12);
-      g.fillRect(cx - 8, cy - 16, 16, 10);
-      g.fillStyle(0xff0000, 1);
-      g.fillCircle(cx - 5, cy - 2, 3); g.fillCircle(cx + 5, cy - 2, 3);
-    });
-
-    // ── 遠程小怪（橙黃弓箭手，44×44）────────────────────────────────────
-    ensureTexture('enemy_ranged', 'enemy_img_ranged', 44, 44, (g) => {
-      const cx = 22, cy = 22;
-      g.fillStyle(0xffaa00, 0.20); g.fillCircle(cx, cy, 16);
-      g.fillStyle(0xcc6600, 1); g.fillRect(cx - 7, cy - 3, 14, 14);
-      g.fillStyle(0xffcc88, 1); g.fillCircle(cx, cy - 11, 8);
-      g.lineStyle(2, 0x884400, 1);
-      g.lineBetween(cx - 12, cy - 8, cx - 14, cy);
-      g.lineBetween(cx - 14, cy, cx - 12, cy + 8);
-      g.lineStyle(1, 0xffdd88, 0.8);
-      g.lineBetween(cx - 12, cy - 8, cx - 12, cy + 8);
-      g.fillStyle(0xffdd00, 1); g.fillRect(cx - 11, cy - 1, 14, 2);
-      g.fillTriangle(cx + 3, cy - 3, cx + 3, cy + 3, cx + 8, cy);
-    });
+    // ── 普通小怪 texture 已移除：Enemy 建構子直接使用 Graphics 即時繪製，
+    // 不再依賴 generateTexture（Android WebGL 初始化時可能靜默產生空白 texture）
 
     // ── XP 經驗球（亮綠發光圓，20×20）───────────────────────────────────
     ensureTexture('xp_gem', undefined, 20, 20, (g) => {
