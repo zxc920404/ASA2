@@ -567,16 +567,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── 精英怪事件觸發（測試：15 / 30 / 45 秒；正式：150 / 300 / 450 秒）──
-    if (!this.eliteSpawned150 && this.elapsedSeconds >= 15) {
+    // ── 精英怪事件觸發（正式版：150 / 300 / 450 秒，即 2:30 / 5:00 / 7:30）──
+    if (!this.eliteSpawned150 && this.elapsedSeconds >= 150) {
       this.eliteSpawned150 = true;
       this.spawnEliteEnemy(1);
     }
-    if (!this.eliteSpawned300 && this.elapsedSeconds >= 30) {
+    if (!this.eliteSpawned300 && this.elapsedSeconds >= 300) {
       this.eliteSpawned300 = true;
       this.spawnEliteEnemy(2);
     }
-    if (!this.eliteSpawned450 && this.elapsedSeconds >= 45) {
+    if (!this.eliteSpawned450 && this.elapsedSeconds >= 450) {
       this.eliteSpawned450 = true;
       this.spawnEliteEnemy(3);
     }
@@ -1416,7 +1416,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成精英怪（測試：15/30/45 秒；正式：150/300/450 秒，各一隻）
+   * 生成精英怪（正式版：150/300/450 秒，即 2:30 / 5:00 / 7:30，各一隻）
    * wave 1 → charger（衝撞型）
    * wave 2 → shooter（遠程型）
    * wave 3 → shield（護盾型）
