@@ -68,14 +68,23 @@ export class AssetLoader {
   }
 
   /**
-   * 判斷某個 texture key 是否已成功載入（可用於 fallback 判斷）。
+   * 判斷某個 texture key 是否已成功載入且尺寸有效（可用於 fallback 判斷）。
    * Phaser 載入失敗時會建立 '__MISSING' texture，此處排除它。
+   * 同時排除尺寸過小的佔位符圖片（如 1×1 或空白 PNG），
+   * 這類檔案在 Phaser 中 key 存在但實際上是無效素材。
+   *
+   * @param minSize 最小有效尺寸（寬和高都必須 >= 此值），預設 8
    */
-  static hasTexture(scene: Phaser.Scene, key: string | undefined): boolean {
+  static hasTexture(scene: Phaser.Scene, key: string | undefined, minSize: number = 8): boolean {
     if (!key) return false;
     if (!scene.textures.exists(key)) return false;
     // Phaser 載入失敗時 texture 仍存在但 source 為空或為 missing
     const tex = scene.textures.get(key);
-    return tex.key !== '__MISSING' && tex.key !== '__DEFAULT';
+    if (tex.key === '__MISSING' || tex.key === '__DEFAULT') return false;
+    // 排除尺寸過小的佔位符圖片（1×1 空白 PNG 等）
+    const src = tex.source[0];
+    if (!src) return false;
+    if (src.width < minSize || src.height < minSize) return false;
+    return true;
   }
 }
