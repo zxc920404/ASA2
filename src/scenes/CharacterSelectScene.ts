@@ -31,7 +31,7 @@ const SECT_INFO: Record<string, {
     borderColor: 0xaaddff,
   },
   taoist: {
-    sectName: '烈炎宗',
+    sectName: '歸元宗',
     motto: '烈陽焚天，萬物俱滅。',
     role: '範圍殺傷・爆發最強',
     primary: 0x4a1a0a,

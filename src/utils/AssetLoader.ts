@@ -17,10 +17,10 @@ export class AssetLoader {
    */
   static preloadAll(scene: Phaser.Scene): void {
     // ── 宗門圖示（64×64）────────────────────────────────────────────────
-    // 墨守閣 → Shield.png，驚鴻派 → SWORD.png，烈炎宗 → FIRE.png
+    // 墨守閣 → Shield.png，驚鴻派 → SWORD.png，歸元宗 → GUA.png
     AssetLoader.loadImage(scene, 'sect_icon_swordsman',   'assets/sects/icons/Shield.png');
     AssetLoader.loadImage(scene, 'sect_icon_assassin',    'assets/sects/icons/SWORD.png');
-    AssetLoader.loadImage(scene, 'sect_icon_taoist',      'assets/sects/icons/FIRE.png');
+    AssetLoader.loadImage(scene, 'sect_icon_taoist',      'assets/sects/icons/GUA.png');
 
     // ── 宗門立繪（建議 160×220）──────────────────────────────────────────
     AssetLoader.loadImage(scene, 'sect_portrait_swordsman', 'assets/sects/portraits/swordsman.png');
