@@ -139,10 +139,32 @@ export class CharacterSelectScene extends Phaser.Scene {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 背景：柔和修仙山水，不壓迫
+  // 背景：優先使用 classback.png，fallback 為程式繪製
   // ─────────────────────────────────────────────────────────────────────────
   private drawBackground(W: number, H: number): void {
-    // 主背景漸層：深藍青 → 深靛藍（比原版更柔和，不那麼黑暗）
+    if (AssetLoader.hasTexture(this, 'ui_bg_char_select')) {
+      // ── 使用圖片背景 ──────────────────────────────────────────────────
+      const bg = this.add.image(W / 2, H / 2, 'ui_bg_char_select').setDepth(0);
+      // 等比縮放至覆蓋整個畫面（cover 模式）
+      const scaleX = W / bg.width;
+      const scaleY = H / bg.height;
+      bg.setScale(Math.max(scaleX, scaleY));
+
+      // 左側半透明深色遮罩：讓資訊面板區域更易讀
+      const overlay = this.add.graphics().setDepth(1);
+      overlay.fillStyle(0x020810, 0.45);
+      overlay.fillRect(0, 0, W, H);
+
+      // 底部霧氣（柔和過渡）
+      const fog = this.add.graphics().setDepth(2);
+      fog.fillStyle(0x020810, 0.30);
+      fog.fillRect(0, Math.round(H * 0.78), W, Math.round(H * 0.22));
+      fog.fillStyle(0x020810, 0.15);
+      fog.fillRect(0, Math.round(H * 0.65), W, Math.round(H * 0.15));
+      return;
+    }
+
+    // ── Fallback：程式繪製背景 ────────────────────────────────────────
     const bg = this.add.graphics().setDepth(0);
     const steps = 24;
     for (let i = 0; i < steps; i++) {
@@ -154,14 +176,12 @@ export class CharacterSelectScene extends Phaser.Scene {
       bg.fillRect(0, Math.round((H / steps) * i), W, Math.round(H / steps) + 1);
     }
 
-    // 右側大面積留白氛圍：柔和青藍光暈（背景氣氛，不搶 UI）
     const rightGlow = this.add.graphics().setDepth(1);
     rightGlow.fillStyle(0x1a4466, 0.12);
     rightGlow.fillCircle(Math.round(W * 0.82), Math.round(H * 0.42), Math.round(H * 0.55));
     rightGlow.fillStyle(0x0d2233, 0.18);
     rightGlow.fillCircle(Math.round(W * 0.82), Math.round(H * 0.42), Math.round(H * 0.35));
 
-    // 月亮（右上，柔和不刺眼）
     const moon = this.add.graphics().setDepth(1);
     const moonX = Math.round(W * 0.84);
     const moonY = Math.round(H * 0.18);
@@ -170,50 +190,21 @@ export class CharacterSelectScene extends Phaser.Scene {
     moon.fillStyle(0xfff8e0, 0.16); moon.fillCircle(moonX, moonY, 28);
     moon.fillStyle(0xfff8e0, 0.50); moon.fillCircle(moonX, moonY, 13);
 
-    // 遠山剪影（右側，柔和輪廓）
     const mt = this.add.graphics().setDepth(2);
     mt.fillStyle(0x040c18, 0.70);
-    mt.fillTriangle(
-      Math.round(W * 0.60), H,
-      Math.round(W * 0.72), Math.round(H * 0.38),
-      Math.round(W * 0.84), H
-    );
-    mt.fillTriangle(
-      Math.round(W * 0.72), H,
-      Math.round(W * 0.82), Math.round(H * 0.48),
-      Math.round(W * 0.96), H
-    );
+    mt.fillTriangle(Math.round(W*0.60),H, Math.round(W*0.72),Math.round(H*0.38), Math.round(W*0.84),H);
+    mt.fillTriangle(Math.round(W*0.72),H, Math.round(W*0.82),Math.round(H*0.48), Math.round(W*0.96),H);
     mt.fillStyle(0x060e1e, 0.60);
-    mt.fillTriangle(
-      Math.round(W * 0.68), H,
-      Math.round(W * 0.78), Math.round(H * 0.55),
-      Math.round(W * 0.90), H
-    );
+    mt.fillTriangle(Math.round(W*0.68),H, Math.round(W*0.78),Math.round(H*0.55), Math.round(W*0.90),H);
 
-    // 古建築剪影（右側遠景，小而精緻）
-    const arch = this.add.graphics().setDepth(2);
-    arch.fillStyle(0x030810, 0.80);
-    const bx = Math.round(W * 0.88);
-    const by = Math.round(H * 0.68);
-    arch.fillRect(bx - 4, by - 44, 8, 44);
-    arch.fillTriangle(bx - 10, by - 44, bx, by - 60, bx + 10, by - 44);
-    arch.fillRect(bx - 34, by - 20, 6, 20);
-    arch.fillTriangle(bx - 38, by - 20, bx - 31, by - 30, bx - 24, by - 20);
-    arch.fillRect(bx + 28, by - 20, 6, 20);
-    arch.fillTriangle(bx + 24, by - 20, bx + 31, by - 30, bx + 38, by - 20);
-    arch.fillRect(bx - 50, by - 6, 100, 6);
-
-    // 底部霧氣（柔和，增加空間感）
     const fog = this.add.graphics().setDepth(3);
     fog.fillStyle(0x0a1a3a, 0.18); fog.fillRect(0, Math.round(H * 0.80), W, Math.round(H * 0.20));
     fog.fillStyle(0x0a1a3a, 0.10); fog.fillRect(0, Math.round(H * 0.70), W, Math.round(H * 0.12));
 
-    // 星點（稀疏，右側為主）
     const stars = this.add.graphics().setDepth(2);
     const starPos = [
       [0.62,0.06],[0.70,0.03],[0.76,0.09],[0.82,0.04],[0.90,0.07],
       [0.66,0.14],[0.78,0.11],[0.86,0.15],[0.94,0.10],[0.72,0.20],
-      [0.58,0.08],[0.96,0.05],[0.88,0.22],
     ];
     for (const [sx, sy] of starPos) {
       stars.fillStyle(0xffffff, 0.25 + Math.random() * 0.35);

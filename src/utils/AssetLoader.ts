@@ -52,7 +52,7 @@ export class AssetLoader {
 
     // ── UI 背景與面板（預留）─────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'ui_bg_main_menu',    'assets/ui/menuback.png');
-    AssetLoader.loadImage(scene, 'ui_bg_char_select',  'assets/ui/bg_char_select.png');
+    AssetLoader.loadImage(scene, 'ui_bg_char_select',  'assets/ui/classback.png');
     AssetLoader.loadImage(scene, 'ui_panel_levelup',   'assets/ui/panel_levelup.png');
     AssetLoader.loadImage(scene, 'ui_panel_hud',       'assets/ui/panel_hud.png');
   }
