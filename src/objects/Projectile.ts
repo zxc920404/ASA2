@@ -162,4 +162,39 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
 
     return true; // 仍然存活
   }
+
+  /**
+   * 從來源投射物繼承所有機制 flag（驚鴻派分裂子彈用）
+   *
+   * 繼承項目：
+   * - returning：canReturn / returnDamageMultiplier（流光返刃）
+   * - pierce：pierceRemaining（寒冰錐 / 流光梭）
+   * - frostCrack：hasFrostCrack / crackDamage / crackRadius / crackDelay（霜裂冰錐）
+   *
+   * 不繼承項目（分裂子彈專屬限制）：
+   * - isSplitProjectile / splitDepth / hasSplit（防止無限分裂，由呼叫端設定）
+   * - damage / velocityX / velocityY / lifeTime（由呼叫端依分裂比例設定）
+   * - hitEnemies / outboundHitEnemies / returnHitEnemies（各自獨立的命中記錄）
+   *
+   * 新增武器機制時，若該機制需要被分裂子彈繼承，請在此方法加入對應欄位。
+   *
+   * @param source 原始投射物
+   */
+  public inheritMechanicsFrom(source: Projectile): void {
+    // ── returning（流光返刃）────────────────────────────────────────────
+    this.canReturn = source.canReturn;
+    this.returnDamageMultiplier = source.returnDamageMultiplier;
+    // isReturning / hasReturned 保持預設 false（分裂子彈從去程開始）
+
+    // ── pierce（寒冰錐 / 流光梭）────────────────────────────────────────
+    // 分裂子彈繼承來源的穿透次數（已在 spawnSplitProjectiles 中設為 0，
+    // 此處覆蓋為來源值，讓分裂子彈也能穿透）
+    this.pierceRemaining = source.pierceRemaining;
+
+    // ── frostCrack（霜裂冰錐）───────────────────────────────────────────
+    this.hasFrostCrack = source.hasFrostCrack;
+    this.crackDamage = source.crackDamage;
+    this.crackRadius = source.crackRadius;
+    this.crackDelay = source.crackDelay;
+  }
 }

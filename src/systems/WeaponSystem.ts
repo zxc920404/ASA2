@@ -1345,26 +1345,28 @@ export class WeaponSystem {
   }
 
   /**
-   * 驚鴻派大?��??�命中�??��??��??��???
-   * @param sourceProj ?��??��???
-   * @param hitX ?�中�?X
-   * @param hitY ?�中�?Y
+   * 驚鴻派大道：命中後生成分裂子投射物
+   * 分裂子彈透過 inheritMechanicsFrom() 繼承來源投射物的所有機制 flag，
+   * 包含 returning（流光返刃）、pierce（穿透）、frostCrack（霜裂冰痕）等。
+   * @param sourceProj 原始投射物
+   * @param hitX 命中位置 X
+   * @param hitY 命中位置 Y
    */
   private spawnSplitProjectiles(sourceProj: Projectile, hitX: number, hitY: number): void {
-    // 計�??��?飛�??��?角度
+    // 計算飛行方向角度
     const speed = Math.sqrt(sourceProj.velocityX * sourceProj.velocityX + sourceProj.velocityY * sourceProj.velocityY);
     if (speed < 1) return;
 
     const baseAngle = Math.atan2(sourceProj.velocityY, sourceProj.velocityX);
 
-    // ?��?子�??�度：�??�度??105%（略快�?點�?覺�?�?
+    // 分裂子彈速度：來源速度 ×105%（略快一點，視覺感更好）
     const splitSpeed = speed * 1.05;
 
-    // ?��?子�??�害
+    // 分裂子彈傷害
     const splitDamage = Math.max(1, Math.floor(sourceProj.damage * SPLIT_DAMAGE_MULTIPLIER));
 
-    // ?��?子�?存活?��?：以?��??��??�剩�?lifeTime ? 射�??��?
-    // ?��? 200ms，避?�瞬?��?�?
+    // 分裂子彈存活時間：以來源剩餘 lifeTime × 射程比例
+    // 最少 200ms，避免瞬間消失
     const splitLifeTime = Math.max(200, sourceProj.lifeTime * SPLIT_RANGE_MULTIPLIER);
 
     const angles = [baseAngle - SPLIT_ANGLE_OFFSET, baseAngle + SPLIT_ANGLE_OFFSET];
@@ -1382,20 +1384,25 @@ export class WeaponSystem {
         ny * splitSpeed,
         splitLifeTime,
         sourceProj.sourceWeaponId,
-        0xaaffee, // ?�帶?�白?��?視覺?�??
-        false,    // ?��??��?
+        0xaaffee, // 帶青白色，視覺區別於原始投射物
+        false,    // 非爆炸型
         0,
         0,
         0,
-        0         // pierceRemaining = 0（�?裂�?彈�?穿透�?
+        0         // pierceRemaining 先設 0，由 inheritMechanicsFrom 覆蓋
       );
 
-      // 標�??��?裂�?射物，防止�?次�?�?
+      // ── 繼承來源投射物的所有機制 flag ──────────────────────────────────
+      // 包含 returning / pierce / frostCrack 等，確保分裂子彈行為與來源一致
+      splitProj.inheritMechanicsFrom(sourceProj);
+
+      // ── 分裂子彈專屬標記（防止無限分裂）──────────────────────────────
       splitProj.isSplitProjectile = true;
       splitProj.splitDepth = 1;
+      splitProj.hasSplit = true;           // 分裂子彈不可再次觸發分裂
       splitProj.sourceWeaponId = sourceProj.sourceWeaponId;
 
-      // ?��??�略?��?，�?覺�??�?��?始�?射物
+      // 視覺略小，區別於原始投射物
       splitProj.setSize(7, 7);
       splitProj.setAlpha(0.85);
 
