@@ -153,17 +153,15 @@ export class MainMenuScene extends Phaser.Scene {
     const W = this.W;
     const H = this.H;
     const cx = Math.round(W * 0.5);
-    const cy = Math.round(H * 0.30);
+    const cy = Math.round(H * 0.28);
+    const ellipseW = Math.round(W * 0.85);
     this.logoGlow.clear();
-    // 外層大光暈
     this.logoGlow.fillStyle(0xffd700, 0.04 * intensity);
-    this.logoGlow.fillEllipse(cx, cy, 420, 120);
-    // 中層
+    this.logoGlow.fillEllipse(cx, cy, ellipseW, 120);
     this.logoGlow.fillStyle(0xffaa00, 0.07 * intensity);
-    this.logoGlow.fillEllipse(cx, cy, 280, 70);
-    // 內層
+    this.logoGlow.fillEllipse(cx, cy, Math.round(ellipseW * 0.65), 70);
     this.logoGlow.fillStyle(0xffd700, 0.10 * intensity);
-    this.logoGlow.fillEllipse(cx, cy, 160, 40);
+    this.logoGlow.fillEllipse(cx, cy, Math.round(ellipseW * 0.38), 40);
   }
 
   private buildLogo(W: number, H: number): void {
@@ -210,10 +208,11 @@ export class MainMenuScene extends Phaser.Scene {
 
   private buildButtonColumn(W: number, H: number): void {
     const cx = Math.round(W * 0.5);
-    const btnW = Math.min(240, Math.round(W * 0.28));
-    const btnH = 46;
-    const gap = 10;
-    const startY = Math.round(H * 0.535);
+    const btnW = Math.min(Math.round(W * 0.72), 300);
+    const btnH = 52;
+    const gap = 12;
+    // 直屏：按鈕從 48% 開始，垂直居中偏下
+    const startY = Math.round(H * 0.48);
 
     const buttons: Array<{
       label: string;

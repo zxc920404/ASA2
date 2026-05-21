@@ -54,51 +54,42 @@ const SECT_INFO: Record<string, {
 };
 
 export class CharacterSelectScene extends Phaser.Scene {
-  private selectedIndex: number = 0; // 預設選中中央（index 0 = swordsman）
-
-  // 宗門選擇輪播狀態（中央顯示哪個）
   private centerIndex: number = 0;
 
-  // 卡片 Graphics / Container
+  // 卡片物件
   private cardGraphics: Phaser.GameObjects.Graphics[] = [];
   private cardContainers: Phaser.GameObjects.Container[] = [];
   private cardGlowGraphics: Phaser.GameObjects.Graphics[] = [];
   private floatTweens: Phaser.Tweens.Tween[] = [];
+  private cardLayout!: { cx: number; cy: number; cardW: number; cardH: number }[];
 
   // 靈氣粒子
   private particles: Phaser.GameObjects.Graphics[] = [];
   private particleTimer: number = 0;
 
-  // 左側資訊面板元素
-  private infoPanelGraphics!: Phaser.GameObjects.Graphics;
+  // 下方資訊面板
   private infoSectName!: Phaser.GameObjects.Text;
   private infoRole!: Phaser.GameObjects.Text;
   private infoDesc!: Phaser.GameObjects.Text;
   private infoHpBar!: Phaser.GameObjects.Graphics;
   private infoAtkBar!: Phaser.GameObjects.Graphics;
   private infoSpdBar!: Phaser.GameObjects.Graphics;
-  private infoWeapon!: Phaser.GameObjects.Text;
-  private infoTrait!: Phaser.GameObjects.Text;
   private infoHpVal!: Phaser.GameObjects.Text;
   private infoAtkVal!: Phaser.GameObjects.Text;
   private infoSpdVal!: Phaser.GameObjects.Text;
-  // 左側資訊面板 icon 容器（切換時重建）
-  private infoIconContainer!: Phaser.GameObjects.Container;
+  private infoWeapon!: Phaser.GameObjects.Text;
+  private infoTrait!: Phaser.GameObjects.Text;
 
   // 確認按鈕
   private confirmGraphics!: Phaser.GameObjects.Graphics;
   private confirmText!: Phaser.GameObjects.Text;
-  private confirmHitArea!: Phaser.GameObjects.Rectangle;
-
-  // 卡片佈局快取
-  private cardLayout!: { cx: number; cy: number; cardW: number; cardH: number; scale: number }[];
-
-  // 左右切換箭頭
-  private arrowLeft!: Phaser.GameObjects.Text;
-  private arrowRight!: Phaser.GameObjects.Text;
 
   // 分頁點
   private dotGraphics!: Phaser.GameObjects.Graphics;
+
+  // 箭頭
+  private arrowLeft!: Phaser.GameObjects.Text;
+  private arrowRight!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'CharacterSelectScene' });
@@ -109,7 +100,6 @@ export class CharacterSelectScene extends Phaser.Scene {
     const H = this.scale.height;
     const layout = ResponsiveLayout.compute(W, H);
 
-    this.selectedIndex = 0;
     this.centerIndex = 0;
     this.cardGraphics = [];
     this.cardContainers = [];
@@ -120,55 +110,47 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.drawBackground(W, H);
     this.drawTitle(W, H, layout);
-    this.buildInfoPanel(W, H, layout);
     this.buildCardArea(W, H, layout);
+    this.buildInfoPanel(W, H, layout);
     this.buildConfirmButton(W, H, layout);
     this.buildBackButton(W, H, layout);
     this.buildNavArrows(W, H, layout);
-    this.buildDots(W, H);
+    this.buildDots(W, H, layout);
 
-    // 初始化資訊面板顯示
     this.refreshInfoPanel();
     this.refreshCards();
   }
 
   update(_time: number, delta: number): void {
     this.particleTimer += delta;
-    if (this.particleTimer >= 600 && this.particles.length < 18) {
+    if (this.particleTimer >= 700 && this.particles.length < 14) {
       this.particleTimer = 0;
       this.spawnAuraParticle();
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 背景：優先使用 classback.png，fallback 為程式繪製
+  // 背景
   // ─────────────────────────────────────────────────────────────────────────
   private drawBackground(W: number, H: number): void {
     if (AssetLoader.hasTexture(this, 'ui_bg_char_select')) {
-      // ── 使用圖片背景 ──────────────────────────────────────────────────
       const bg = this.add.image(W / 2, H / 2, 'ui_bg_char_select').setDepth(0);
-      // 等比縮放至覆蓋整個畫面（cover 模式）
       const scaleX = W / bg.width;
       const scaleY = H / bg.height;
       bg.setScale(Math.max(scaleX, scaleY));
-
-      // 左側半透明深色遮罩：讓資訊面板區域更易讀
+      // 半透明遮罩讓 UI 可讀
       const overlay = this.add.graphics().setDepth(1);
-      overlay.fillStyle(0x020810, 0.45);
+      overlay.fillStyle(0x020810, 0.50);
       overlay.fillRect(0, 0, W, H);
-
-      // 底部霧氣（柔和過渡）
+      // 底部加深（資訊面板區域）
       const fog = this.add.graphics().setDepth(2);
-      fog.fillStyle(0x020810, 0.30);
-      fog.fillRect(0, Math.round(H * 0.78), W, Math.round(H * 0.22));
-      fog.fillStyle(0x020810, 0.15);
-      fog.fillRect(0, Math.round(H * 0.65), W, Math.round(H * 0.15));
+      fog.fillStyle(0x020810, 0.35);
+      fog.fillRect(0, Math.round(H * 0.60), W, Math.round(H * 0.40));
       return;
     }
-
-    // ── Fallback：程式繪製背景 ────────────────────────────────────────
+    // Fallback 程式繪製
     const bg = this.add.graphics().setDepth(0);
-    const steps = 24;
+    const steps = 20;
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
       const r = Math.round(0x06 + (0x03 - 0x06) * t);
@@ -177,393 +159,117 @@ export class CharacterSelectScene extends Phaser.Scene {
       bg.fillStyle((r << 16) | (g << 8) | b, 1);
       bg.fillRect(0, Math.round((H / steps) * i), W, Math.round(H / steps) + 1);
     }
-
-    const rightGlow = this.add.graphics().setDepth(1);
-    rightGlow.fillStyle(0x1a4466, 0.12);
-    rightGlow.fillCircle(Math.round(W * 0.82), Math.round(H * 0.42), Math.round(H * 0.55));
-    rightGlow.fillStyle(0x0d2233, 0.18);
-    rightGlow.fillCircle(Math.round(W * 0.82), Math.round(H * 0.42), Math.round(H * 0.35));
-
+    // 月亮（右上）
     const moon = this.add.graphics().setDepth(1);
-    const moonX = Math.round(W * 0.84);
-    const moonY = Math.round(H * 0.18);
-    moon.fillStyle(0xfff8e0, 0.04); moon.fillCircle(moonX, moonY, 80);
-    moon.fillStyle(0xfff8e0, 0.08); moon.fillCircle(moonX, moonY, 50);
-    moon.fillStyle(0xfff8e0, 0.16); moon.fillCircle(moonX, moonY, 28);
-    moon.fillStyle(0xfff8e0, 0.50); moon.fillCircle(moonX, moonY, 13);
-
-    const mt = this.add.graphics().setDepth(2);
-    mt.fillStyle(0x040c18, 0.70);
-    mt.fillTriangle(Math.round(W*0.60),H, Math.round(W*0.72),Math.round(H*0.38), Math.round(W*0.84),H);
-    mt.fillTriangle(Math.round(W*0.72),H, Math.round(W*0.82),Math.round(H*0.48), Math.round(W*0.96),H);
-    mt.fillStyle(0x060e1e, 0.60);
-    mt.fillTriangle(Math.round(W*0.68),H, Math.round(W*0.78),Math.round(H*0.55), Math.round(W*0.90),H);
-
-    const fog = this.add.graphics().setDepth(3);
-    fog.fillStyle(0x0a1a3a, 0.18); fog.fillRect(0, Math.round(H * 0.80), W, Math.round(H * 0.20));
-    fog.fillStyle(0x0a1a3a, 0.10); fog.fillRect(0, Math.round(H * 0.70), W, Math.round(H * 0.12));
-
-    const stars = this.add.graphics().setDepth(2);
-    const starPos = [
-      [0.62,0.06],[0.70,0.03],[0.76,0.09],[0.82,0.04],[0.90,0.07],
-      [0.66,0.14],[0.78,0.11],[0.86,0.15],[0.94,0.10],[0.72,0.20],
-    ];
-    for (const [sx, sy] of starPos) {
-      stars.fillStyle(0xffffff, 0.25 + Math.random() * 0.35);
-      stars.fillCircle(Math.round(W * sx), Math.round(H * sy), 0.7 + Math.random() * 0.9);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 標題區：主標題 + 副標題 + 裝飾線
-  // ─────────────────────────────────────────────────────────────────────────
-  private drawTitle(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
-    const s = layout.uiScale;
-    // 標題置中偏右（避開左側資訊面板）
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-    const contentX = layout.usableX + panelW + Math.round((W - layout.usableX - panelW) * 0.5);
-    const ty = Math.round(H * 0.10);
-
-    // 副標題（上方小字）
-    this.add.text(contentX, ty - Math.round(18 * s), '選擇你的修行之路',
-      uiText(Math.round(13 * s), '#99bbcc')
-    ).setOrigin(0.5, 0.5).setDepth(10);
-
-    // 裝飾線（副標題兩側）
-    const lineY = ty - Math.round(18 * s);
-    const lineLen = Math.round(60 * s);
-    const lineG = this.add.graphics().setDepth(10);
-    lineG.lineStyle(1, 0x5588aa, 0.55);
-    lineG.lineBetween(contentX - lineLen - 8, lineY, contentX - 8, lineY);
-    lineG.lineBetween(contentX + 8, lineY, contentX + lineLen + 8, lineY);
-    lineG.fillStyle(0x5588aa, 0.65);
-    lineG.fillCircle(contentX - lineLen - 8, lineY, 2);
-    lineG.fillCircle(contentX + lineLen + 8, lineY, 2);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 左側資訊面板
-  // ─────────────────────────────────────────────────────────────────────────
-  private buildInfoPanel(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
-    const s = layout.uiScale;
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-    const panelH = Math.round(H * 0.82);
-    const panelX = layout.usableX + Math.round(panelW * 0.5);
-    const panelY = Math.round(H * 0.50);
-    const px = panelX - Math.round(panelW / 2); // 左上角 x
-    const py = panelY - Math.round(panelH / 2); // 左上角 y
-
-    // 面板背景
-    this.infoPanelGraphics = this.add.graphics().setDepth(8);
-    this.infoPanelGraphics.fillStyle(0x060e1e, 0.82);
-    this.infoPanelGraphics.fillRoundedRect(px, py, panelW, panelH, 10);
-    this.infoPanelGraphics.lineStyle(1, 0x2a4466, 0.70);
-    this.infoPanelGraphics.strokeRoundedRect(px, py, panelW, panelH, 10);
-    // 頂部高光線
-    this.infoPanelGraphics.lineStyle(1, 0x4488aa, 0.25);
-    this.infoPanelGraphics.lineBetween(px + 12, py + 1, px + panelW - 12, py + 1);
-
-    // 「宗門資訊」小標籤
-    this.add.text(panelX, py + Math.round(18 * s), '宗門資訊',
-      uiText(Math.round(12 * s), '#66aacc')
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 分隔線
-    const sepG = this.add.graphics().setDepth(9);
-    sepG.lineStyle(1, 0x2a4466, 0.50);
-    sepG.lineBetween(px + 12, py + Math.round(30 * s), px + panelW - 12, py + Math.round(30 * s));
-
-    // icon 區（佔頂部空間）—— 建立可重建的 Container
-    const iconY = py + Math.round(panelH * 0.16);
-    this.infoIconContainer = this.add.container(0, 0).setDepth(9);
-    this.buildInfoIconContent(panelX, iconY, panelW, s);
-
-    // 宗門名稱
-    this.infoSectName = this.add.text(panelX, py + Math.round(panelH * 0.30),
-      '', uiTitle(Math.round(22 * s), '#f0dfa8', { fontStyle: 'bold' })
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 定位
-    this.infoRole = this.add.text(panelX, py + Math.round(panelH * 0.38),
-      '', uiText(Math.round(12 * s), '#99ccdd')
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 描述
-    this.infoDesc = this.add.text(panelX, py + Math.round(panelH * 0.46),
-      '', uiText(Math.round(11 * s), '#8899aa', {
-        wordWrap: { width: panelW - 20 }, align: 'center'
-      })
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 分隔線 2
-    const sep2G = this.add.graphics().setDepth(9);
-    sep2G.lineStyle(1, 0x1e3044, 0.60);
-    sep2G.lineBetween(px + 12, py + Math.round(panelH * 0.52), px + panelW - 12, py + Math.round(panelH * 0.52));
-
-    // 「基礎屬性」小標
-    this.add.text(px + 14, py + Math.round(panelH * 0.55),
-      '基礎屬性', uiText(Math.round(11 * s), '#66aacc')
-    ).setOrigin(0, 0.5).setDepth(9);
-
-    // 屬性列（HP / ATK / SPD）
-    const barX = px + 14;
-    const barW = panelW - 28;
-    const barH = Math.round(6 * s);
-    const row1Y = py + Math.round(panelH * 0.61);
-    const row2Y = py + Math.round(panelH * 0.68);
-    const row3Y = py + Math.round(panelH * 0.75);
-
-    // HP 標籤
-    this.add.text(barX, row1Y, '♥ HP', uiText(Math.round(11 * s), '#ff9999')).setOrigin(0, 0.5).setDepth(9);
-    this.infoHpVal = this.add.text(px + panelW - 14, row1Y, '', uiText(Math.round(11 * s), '#ff9999')).setOrigin(1, 0.5).setDepth(9);
-    this.infoHpBar = this.add.graphics().setDepth(9);
-
-    // ATK 標籤
-    this.add.text(barX, row2Y, '⚔ ATK', uiText(Math.round(11 * s), '#ffcc66')).setOrigin(0, 0.5).setDepth(9);
-    this.infoAtkVal = this.add.text(px + panelW - 14, row2Y, '', uiText(Math.round(11 * s), '#ffcc66')).setOrigin(1, 0.5).setDepth(9);
-    this.infoAtkBar = this.add.graphics().setDepth(9);
-
-    // SPD 標籤
-    this.add.text(barX, row3Y, '✦ SPD', uiText(Math.round(11 * s), '#88ddff')).setOrigin(0, 0.5).setDepth(9);
-    this.infoSpdVal = this.add.text(px + panelW - 14, row3Y, '', uiText(Math.round(11 * s), '#88ddff')).setOrigin(1, 0.5).setDepth(9);
-    this.infoSpdBar = this.add.graphics().setDepth(9);
-
-    // 分隔線 3
-    const sep3G = this.add.graphics().setDepth(9);
-    sep3G.lineStyle(1, 0x1e3044, 0.60);
-    sep3G.lineBetween(px + 12, py + Math.round(panelH * 0.80), px + panelW - 12, py + Math.round(panelH * 0.80));
-
-    // 起始武器
-    this.add.text(px + 14, py + Math.round(panelH * 0.83),
-      '起始武器', uiText(Math.round(11 * s), '#66aacc')
-    ).setOrigin(0, 0.5).setDepth(9);
-    this.infoWeapon = this.add.text(panelX, py + Math.round(panelH * 0.88),
-      '', uiText(Math.round(13 * s), '#e8c060')
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 宗門特性
-    this.add.text(px + 14, py + Math.round(panelH * 0.93),
-      '宗門特性', uiText(Math.round(11 * s), '#66aacc')
-    ).setOrigin(0, 0.5).setDepth(9);
-    this.infoTrait = this.add.text(panelX, py + Math.round(panelH * 0.97),
-      '', uiText(Math.round(11 * s), '#bbccdd')
-    ).setOrigin(0.5, 0.5).setDepth(9);
-
-    // 儲存 bar 位置供 refresh 使用
-    (this as any)._barX = barX;
-    (this as any)._barW = barW;
-    (this as any)._barH = barH;
-    (this as any)._row1Y = row1Y;
-    (this as any)._row2Y = row2Y;
-    (this as any)._row3Y = row3Y;
-    (this as any)._labelOffX = Math.round(30 * s);
-  }
-
-  private buildInfoIconContent(cx: number, cy: number, panelW: number, s: number): void {
-    // 儲存位置供 refreshInfoPanel 使用
-    (this as any)._iconCX = cx;
-    (this as any)._iconCY = cy;
-    (this as any)._iconPanelW = panelW;
-    (this as any)._iconS = s;
-    this.refreshInfoIcon();
-  }
-
-  private refreshInfoIcon(): void {
-    // 清空舊 icon 內容
-    this.infoIconContainer.removeAll(true);
-
-    const cx: number = (this as any)._iconCX;
-    const cy: number = (this as any)._iconCY;
-    const panelW: number = (this as any)._iconPanelW;
-    const s: number = (this as any)._iconS;
-    const char = CHARACTERS[this.centerIndex];
-    const sect = SECT_INFO[char.id] ?? { glowColor: 0x2266cc, accent: 0x6688aa, primary: 0x0d1e3a };
-
-    // icon 光暈底圓
-    const iconGlow = this.add.graphics().setDepth(9);
-    iconGlow.fillStyle(sect.glowColor, 0.20);
-    iconGlow.fillCircle(cx, cy, Math.round(34 * s));
-    iconGlow.fillStyle(sect.glowColor, 0.10);
-    iconGlow.fillCircle(cx, cy, Math.round(46 * s));
-    this.infoIconContainer.add(iconGlow);
-
-    if (char.iconKey && AssetLoader.hasTexture(this, char.iconKey)) {
-      const img = this.add.image(cx, cy, char.iconKey).setDepth(9);
-      const maxSize = Math.round(Math.min(panelW * 0.46, 72));
-      img.setDisplaySize(maxSize, maxSize);
-      this.infoIconContainer.add(img);
-      return;
-    }
-
-    if (char.portraitKey && AssetLoader.hasTexture(this, char.portraitKey)) {
-      const img = this.add.image(cx, cy, char.portraitKey).setDepth(9);
-      const maxW = Math.round(panelW * 0.52);
-      img.setDisplaySize(maxW, Math.round(maxW * 1.2));
-      this.infoIconContainer.add(img);
-      return;
-    }
-
-    // Fallback 程式繪製
-    const g = this.add.graphics().setDepth(9);
-    g.fillStyle(sect.accent, 0.15); g.fillCircle(cx, cy, Math.round(24 * s));
-    g.fillStyle(sect.accent, 1);    g.fillCircle(cx, cy - Math.round(14 * s), Math.round(10 * s));
-    g.fillStyle(sect.primary, 1);   g.fillRect(cx - Math.round(9 * s), cy - Math.round(4 * s), Math.round(18 * s), Math.round(20 * s));
-    if (char.id === 'swordsman') {
-      g.fillStyle(0xffd700, 1);
-      g.fillRect(cx + Math.round(8 * s), cy - Math.round(18 * s), Math.round(3 * s), Math.round(28 * s));
-      g.fillRect(cx + Math.round(5 * s), cy - Math.round(6 * s), Math.round(10 * s), Math.round(3 * s));
-    } else if (char.id === 'assassin') {
-      g.fillStyle(0xcc88ff, 1);
-      g.fillRect(cx - Math.round(14 * s), cy - Math.round(10 * s), Math.round(3 * s), Math.round(18 * s));
-      g.fillRect(cx + Math.round(11 * s), cy - Math.round(10 * s), Math.round(3 * s), Math.round(18 * s));
-    } else if (char.id === 'taoist') {
-      g.fillStyle(0xff8844, 1);
-      g.fillRect(cx + Math.round(9 * s), cy - Math.round(22 * s), Math.round(3 * s), Math.round(30 * s));
-      g.fillCircle(cx + Math.round(10 * s), cy - Math.round(24 * s), Math.round(5 * s));
-    }
-    this.infoIconContainer.add(g);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 刷新左側資訊面板內容
-  // ─────────────────────────────────────────────────────────────────────────
-  private refreshInfoPanel(): void {
-    const char = CHARACTERS[this.centerIndex];
-    const sect = SECT_INFO[char.id] ?? {
-      sectName: char.id, motto: '', role: '', description: '',
-      accent: 0x6688aa, glowColor: 0x334466,
-    };
-    const weaponData = getWeaponById(char.startingWeaponId);
-
-    // 同步更新 icon
-    this.refreshInfoIcon();
-
-    this.infoSectName.setText(sect.sectName);
-    this.infoRole.setText(sect.role);
-    this.infoDesc.setText(sect.description);
-    this.infoWeapon.setText(`⚔ ${weaponData?.name ?? '—'}`);
-    this.infoTrait.setText(char.trait ?? '');
-
-    // 屬性數值
-    this.infoHpVal.setText(`${char.baseHP}`);
-    this.infoAtkVal.setText(`×${char.baseAttackPower.toFixed(1)}`);
-    this.infoSpdVal.setText(`${char.baseMoveSpeed}`);
-
-    // 屬性條（相對最大值）
-    const maxHP = 200; const maxATK = 1.5; const maxSPD = 190;
-    const barX: number = (this as any)._barX;
-    const barW: number = (this as any)._barW;
-    const barH: number = (this as any)._barH;
-    const row1Y: number = (this as any)._row1Y;
-    const row2Y: number = (this as any)._row2Y;
-    const row3Y: number = (this as any)._row3Y;
-    const labelOffX: number = (this as any)._labelOffX;
-    const fillBarY = Math.round(barH / 2);
-
-    const drawBar = (g: Phaser.GameObjects.Graphics, y: number, ratio: number, color: number) => {
-      g.clear();
-      const bx = barX + labelOffX;
-      const bw = barW - labelOffX - 28;
-      // 底色
-      g.fillStyle(0x1a2a3a, 0.80);
-      g.fillRoundedRect(bx, y - fillBarY, bw, barH, 2);
-      // 填充
-      g.fillStyle(color, 0.85);
-      g.fillRoundedRect(bx, y - fillBarY, Math.round(bw * Math.min(ratio, 1)), barH, 2);
-    };
-
-    drawBar(this.infoHpBar,  row1Y, char.baseHP / maxHP,                  0xff6666);
-    drawBar(this.infoAtkBar, row2Y, char.baseAttackPower / maxATK,         0xffaa33);
-    drawBar(this.infoSpdBar, row3Y, char.baseMoveSpeed / maxSPD,           0x44bbff);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 中央宗門選擇區：中央放大 + 左右縮小
-  // ─────────────────────────────────────────────────────────────────────────
-  private buildCardArea(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
-    const s = layout.uiScale;
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-
-    // 卡片區域：左側面板右邊到畫面右側 60% 處
-    const cardAreaX = layout.usableX + panelW + Math.round(layout.usableW * 0.04);
-    const cardAreaW = Math.round(layout.usableW * 0.56);
-    const cardCenterX = cardAreaX + Math.round(cardAreaW * 0.50);
-    const cardCenterY = Math.round(H * 0.48);
-
-    // 中央卡尺寸（較大）
-    const mainCardW = Math.round(Math.min(cardAreaW * 0.38, 160));
-    const mainCardH = Math.round(Math.min(H * 0.62, 360));
-    // 側邊卡尺寸（縮小）
-    const sideCardW = Math.round(mainCardW * 0.72);
-    const sideCardH = Math.round(mainCardH * 0.78);
-    const sideOffset = Math.round(mainCardW * 0.88 + sideCardW * 0.50 + 12);
-
-    this.cardLayout = [
-      { cx: cardCenterX - sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH, scale: 0.72 }, // 左側
-      { cx: cardCenterX,              cy: cardCenterY, cardW: mainCardW, cardH: mainCardH, scale: 1.00 }, // 中央
-      { cx: cardCenterX + sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH, scale: 0.72 }, // 右側
-    ];
-
-    CHARACTERS.forEach((char, i) => {
-      this.buildCharacterCard(char, i, s);
+    const moonX = Math.round(W * 0.82); const moonY = Math.round(H * 0.10);
+    moon.fillStyle(0xfff8e0, 0.05); moon.fillCircle(moonX, moonY, 60);
+    moon.fillStyle(0xfff8e0, 0.12); moon.fillCircle(moonX, moonY, 36);
+    moon.fillStyle(0xfff8e0, 0.50); moon.fillCircle(moonX, moonY, 14);
+    // 星點
+    const stars = this.add.graphics().setDepth(1);
+    [[0.15,0.05],[0.30,0.03],[0.55,0.06],[0.70,0.04],[0.88,0.18],
+     [0.10,0.12],[0.45,0.08],[0.65,0.11],[0.92,0.07]].forEach(([sx,sy]) => {
+      stars.fillStyle(0xffffff, 0.3 + Math.random() * 0.4);
+      stars.fillCircle(Math.round(W*sx), Math.round(H*sy), 0.8 + Math.random());
     });
   }
 
-  private buildCharacterCard(char: CharacterData, index: number, s: number): void {
-    const { cx, cy, cardW, cardH } = this.cardLayout[index];
-    const sect = SECT_INFO[char.id] ?? {
-      sectName: char.id, motto: '', role: '',
-      primary: 0x0d1e3a, accent: 0x6688aa, borderColor: 0x6688aa, glowColor: 0x334466, dimColor: 0x0a1428,
-    };
+  // ─────────────────────────────────────────────────────────────────────────
+  // 標題區（直屏：頂部）
+  // ─────────────────────────────────────────────────────────────────────────
+  private drawTitle(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+    const s = layout.uiScale;
+    const cx = W / 2;
+    const titleY = layout.safeTop + Math.round(H * 0.055);
 
-    // 光暈（選中時顯示）
+    // 副標題
+    this.add.text(cx, titleY, '選擇你的修行之路',
+      uiText(Math.round(12 * s), '#99bbcc')
+    ).setOrigin(0.5, 0.5).setDepth(10);
+
+    // 裝飾線
+    const lineLen = Math.round(55 * s);
+    const lineG = this.add.graphics().setDepth(10);
+    lineG.lineStyle(1, 0x5588aa, 0.50);
+    lineG.lineBetween(cx - lineLen - 8, titleY, cx - 8, titleY);
+    lineG.lineBetween(cx + 8, titleY, cx + lineLen + 8, titleY);
+    lineG.fillStyle(0x5588aa, 0.60);
+    lineG.fillCircle(cx - lineLen - 8, titleY, 2);
+    lineG.fillCircle(cx + lineLen + 8, titleY, 2);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 中央輪播卡片區（直屏：中央偏上）
+  // ─────────────────────────────────────────────────────────────────────────
+  private buildCardArea(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+    const s = layout.uiScale;
+    // 卡片區垂直中心：畫面上方 38%
+    const cardCenterY = Math.round(H * 0.36);
+    const cardCenterX = W / 2;
+
+    // 主卡尺寸（直屏：寬度佔畫面 52%，高度適中）
+    const mainCardW = Math.round(Math.min(W * 0.52, 220));
+    const mainCardH = Math.round(Math.min(H * 0.34, 280));
+    // 側邊卡縮小
+    const sideCardW = Math.round(mainCardW * 0.68);
+    const sideCardH = Math.round(mainCardH * 0.76);
+    const sideOffset = Math.round(mainCardW * 0.60 + sideCardW * 0.50 + 8);
+
+    this.cardLayout = [
+      { cx: cardCenterX - sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH },
+      { cx: cardCenterX,              cy: cardCenterY, cardW: mainCardW, cardH: mainCardH },
+      { cx: cardCenterX + sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH },
+    ];
+
+    CHARACTERS.forEach((_char, i) => {
+      this.buildCharacterCard(i, s);
+    });
+  }
+
+  private buildCharacterCard(slotIndex: number, s: number): void {
+    const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
+
     const glowG = this.add.graphics().setDepth(6);
     this.cardGlowGraphics.push(glowG);
 
-    // 卡片背景
     const g = this.add.graphics().setDepth(8);
     this.cardGraphics.push(g);
 
-    // 卡片內容 Container（存 slotIndex 供 refresh 使用）
     const container = this.add.container(0, 0).setDepth(9);
-    container.setData('slotIndex', index);
+    container.setData('slotIndex', slotIndex);
     container.setData('s', s);
     this.cardContainers.push(container);
 
-    // 填充卡片內容（icon + 文字）
-    this.fillCardContainer(container, index, s);
+    this.fillCardContainer(container, slotIndex, s);
 
-    // 漂浮動畫
     const floatTween = this.tweens.add({
       targets: container,
       y: { from: -4, to: 4 },
-      duration: 2400 + index * 350,
+      duration: 2400 + slotIndex * 350,
       ease: 'Sine.easeInOut',
       yoyo: true,
       repeat: -1,
     });
     this.floatTweens.push(floatTween);
 
-    // 互動熱區
-    const hitArea = this.add.rectangle(cx, cy, Math.max(cardW, 80), Math.max(cardH, 80), 0, 0)
+    const hitArea = this.add.rectangle(cx, cy, Math.max(cardW, 60), Math.max(cardH, 60), 0, 0)
       .setDepth(12).setInteractive({ useHandCursor: true });
 
-    hitArea.on('pointerdown', () => this.navigateTo(index));
+    hitArea.on('pointerdown', () => this.navigateTo(slotIndex));
     hitArea.on('pointerover', () => {
-      if (index !== 1) {
-        this.drawCardFrame(this.cardGraphics[index], index, true);
+      if (slotIndex !== 1) {
+        this.drawCardFrame(this.cardGraphics[slotIndex], slotIndex, true);
         container.setAlpha(0.75);
       }
     });
     hitArea.on('pointerout', () => {
-      if (index !== 1) {
-        this.drawCardFrame(this.cardGraphics[index], index, false);
-        container.setAlpha(0.38);
+      if (slotIndex !== 1) {
+        this.drawCardFrame(this.cardGraphics[slotIndex], slotIndex, false);
+        container.setAlpha(0.35);
       }
     });
   }
 
-  // 填充卡片 container 內容（icon + 名稱 + 定位）
   private fillCardContainer(container: Phaser.GameObjects.Container, slotIndex: number, s: number): void {
     container.removeAll(true);
     const charIndex = this.getDisplayIndex(slotIndex);
@@ -576,111 +282,85 @@ export class CharacterSelectScene extends Phaser.Scene {
     const isCenter = slotIndex === 1;
 
     // icon
-    const iconY = cy - Math.round(cardH * 0.22);
-    this.buildCardIcon(container, cx, iconY, sect, char.id, cardW, s);
+    const iconY = cy - Math.round(cardH * 0.20);
+    const iconGlow = this.add.graphics().setDepth(9);
+    iconGlow.fillStyle(sect.glowColor, 0.18);
+    iconGlow.fillCircle(cx, iconY, Math.round((isCenter ? 36 : 26) * s));
+    iconGlow.fillStyle(sect.glowColor, 0.08);
+    iconGlow.fillCircle(cx, iconY, Math.round((isCenter ? 50 : 36) * s));
+    container.add(iconGlow);
+
+    if (char.iconKey && AssetLoader.hasTexture(this, char.iconKey)) {
+      const img = this.add.image(cx, iconY, char.iconKey).setDepth(9);
+      const maxSize = Math.round(Math.min(cardW * 0.46, isCenter ? 72 : 52));
+      img.setDisplaySize(maxSize, maxSize);
+      container.add(img);
+    } else {
+      // Fallback 程式繪製
+      const g = this.add.graphics().setDepth(9);
+      const r = isCenter ? s : s * 0.75;
+      g.fillStyle(sect.accent, 0.15); g.fillCircle(cx, iconY, Math.round(22 * r));
+      g.fillStyle(sect.accent, 1);    g.fillCircle(cx, iconY - Math.round(13 * r), Math.round(9 * r));
+      g.fillStyle(sect.primary, 1);   g.fillRect(cx - Math.round(8 * r), iconY - Math.round(3 * r), Math.round(16 * r), Math.round(18 * r));
+      if (char.id === 'swordsman') {
+        g.fillStyle(0xffd700, 1);
+        g.fillRect(cx + Math.round(7 * r), iconY - Math.round(16 * r), Math.round(3 * r), Math.round(26 * r));
+        g.fillRect(cx + Math.round(4 * r), iconY - Math.round(5 * r), Math.round(9 * r), Math.round(3 * r));
+      } else if (char.id === 'assassin') {
+        g.fillStyle(0xcc88ff, 1);
+        g.fillRect(cx - Math.round(13 * r), iconY - Math.round(9 * r), Math.round(3 * r), Math.round(16 * r));
+        g.fillRect(cx + Math.round(10 * r), iconY - Math.round(9 * r), Math.round(3 * r), Math.round(16 * r));
+      } else if (char.id === 'taoist') {
+        g.fillStyle(0xff8844, 1);
+        g.fillRect(cx + Math.round(8 * r), iconY - Math.round(20 * r), Math.round(3 * r), Math.round(28 * r));
+        g.fillCircle(cx + Math.round(9 * r), iconY - Math.round(22 * r), Math.round(5 * r));
+      }
+      container.add(g);
+    }
 
     // 宗門名稱
-    const nameSize = isCenter ? Math.round(18 * s) : Math.round(13 * s);
-    const nameColor = isCenter ? '#f0dfa8' : '#c8b888';
-    const nameText = this.add.text(cx, cy + Math.round(cardH * 0.08),
+    const nameSize = isCenter ? Math.round(20 * s) : Math.round(13 * s);
+    const nameText = this.add.text(cx, cy + Math.round(cardH * 0.10),
       sect.sectName,
-      uiTitle(nameSize, nameColor, { fontStyle: 'bold' })
+      uiTitle(nameSize, isCenter ? '#f0dfa8' : '#b8a878', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setDepth(9);
     container.add(nameText);
 
-    // 定位（中央卡才顯示）
+    // 定位（只有中央卡顯示）
     if (isCenter) {
-      const roleText = this.add.text(cx, cy + Math.round(cardH * 0.22),
+      const roleText = this.add.text(cx, cy + Math.round(cardH * 0.26),
         sect.role,
-        uiText(Math.round(11 * s), '#99bbcc', { wordWrap: { width: cardW - 12 }, align: 'center' })
+        uiText(Math.round(11 * s), '#99bbcc', { wordWrap: { width: cardW - 16 }, align: 'center' })
       ).setOrigin(0.5, 0.5).setDepth(9);
       container.add(roleText);
     }
   }
 
-  private buildCardIcon(
-    container: Phaser.GameObjects.Container,
-    cx: number, cy: number,
-    sect: { primary: number; accent: number; glowColor: number },
-    charId: string,
-    cardW: number,
-    s: number
-  ): void {
-    const charData = CHARACTERS.find(c => c.id === charId);
-
-    const iconGlow = this.add.graphics().setDepth(9);
-    iconGlow.fillStyle(sect.glowColor, 0.14);
-    iconGlow.fillCircle(cx, cy, Math.round(32 * s));
-    iconGlow.fillStyle(sect.glowColor, 0.07);
-    iconGlow.fillCircle(cx, cy, Math.round(44 * s));
-    container.add(iconGlow);
-
-    if (charData?.iconKey && AssetLoader.hasTexture(this, charData.iconKey)) {
-      const img = this.add.image(cx, cy, charData.iconKey).setDepth(9);
-      const maxSize = Math.round(Math.min(cardW * 0.44, 64));
-      img.setDisplaySize(maxSize, maxSize);
-      container.add(img);
-      return;
-    }
-
-    if (charData?.portraitKey && AssetLoader.hasTexture(this, charData.portraitKey)) {
-      const img = this.add.image(cx, cy, charData.portraitKey).setDepth(9);
-      const maxW = Math.round(cardW * 0.48);
-      img.setDisplaySize(maxW, Math.round(maxW * 1.2));
-      container.add(img);
-      return;
-    }
-
-    // Fallback 程式繪製
-    const g = this.add.graphics().setDepth(9);
-    g.fillStyle(sect.accent, 0.12); g.fillCircle(cx, cy, Math.round(22 * s));
-    g.fillStyle(sect.accent, 1);    g.fillCircle(cx, cy - Math.round(13 * s), Math.round(9 * s));
-    g.fillStyle(sect.primary, 1);   g.fillRect(cx - Math.round(8 * s), cy - Math.round(3 * s), Math.round(16 * s), Math.round(18 * s));
-    if (charId === 'swordsman') {
-      g.fillStyle(0xffd700, 1);
-      g.fillRect(cx + Math.round(7 * s), cy - Math.round(16 * s), Math.round(3 * s), Math.round(26 * s));
-      g.fillRect(cx + Math.round(4 * s), cy - Math.round(5 * s), Math.round(9 * s), Math.round(3 * s));
-    } else if (charId === 'assassin') {
-      g.fillStyle(0xcc88ff, 1);
-      g.fillRect(cx - Math.round(13 * s), cy - Math.round(9 * s), Math.round(3 * s), Math.round(16 * s));
-      g.fillRect(cx + Math.round(10 * s), cy - Math.round(9 * s), Math.round(3 * s), Math.round(16 * s));
-    } else if (charId === 'taoist') {
-      g.fillStyle(0xff8844, 1);
-      g.fillRect(cx + Math.round(8 * s), cy - Math.round(20 * s), Math.round(3 * s), Math.round(28 * s));
-      g.fillCircle(cx + Math.round(9 * s), cy - Math.round(22 * s), Math.round(5 * s));
-    }
-    container.add(g);
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
-  // 卡片邊框繪製（依 index 決定中央/側邊樣式）
+  // 卡片邊框
   // ─────────────────────────────────────────────────────────────────────────
-  private drawCardFrame(g: Phaser.GameObjects.Graphics, index: number, hovered: boolean = false): void {
+  private drawCardFrame(g: Phaser.GameObjects.Graphics, slotIndex: number, hovered: boolean = false): void {
     g.clear();
-    const { cx, cy, cardW, cardH } = this.cardLayout[index];
-    const char = CHARACTERS[this.getDisplayIndex(index)];
+    const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
+    const char = CHARACTERS[this.getDisplayIndex(slotIndex)];
     const sect = SECT_INFO[char.id] ?? { borderColor: 0x6688aa, glowColor: 0x334466, dimColor: 0x0a1428 };
-    const isCenter = index === 1;
+    const isCenter = slotIndex === 1;
     const x = Math.round(cx - cardW / 2);
     const y = Math.round(cy - cardH / 2);
     const r = 10;
 
     if (isCenter) {
-      // 中央卡：深色玉石感，金邊發光
       g.fillStyle(0x081422, 0.94);
       g.fillRoundedRect(x, y, cardW, cardH, r);
-      // 頂部高光
       g.fillStyle(0xffffff, 0.04);
-      g.fillRoundedRect(x + 2, y + 2, cardW - 4, Math.round(cardH * 0.28), { tl: r - 1, tr: r - 1, bl: 0, br: 0 });
-      // 外發光
-      g.lineStyle(12, sect.glowColor, 0.14);
-      g.strokeRoundedRect(x - 5, y - 5, cardW + 10, cardH + 10, r + 5);
+      g.fillRoundedRect(x + 2, y + 2, cardW - 4, Math.round(cardH * 0.28), { tl: r-1, tr: r-1, bl: 0, br: 0 });
+      g.lineStyle(14, sect.glowColor, 0.12);
+      g.strokeRoundedRect(x - 6, y - 6, cardW + 12, cardH + 12, r + 6);
       g.lineStyle(3, sect.borderColor, 0.55);
       g.strokeRoundedRect(x - 1, y - 1, cardW + 2, cardH + 2, r + 1);
       g.lineStyle(1.5, sect.borderColor, 0.90);
       g.strokeRoundedRect(x, y, cardW, cardH, r);
-      // 底部裝飾線
-      g.lineStyle(1, sect.borderColor, 0.30);
+      g.lineStyle(1, sect.borderColor, 0.28);
       g.lineBetween(x + 12, y + cardH - 8, x + cardW - 12, y + cardH - 8);
     } else if (hovered) {
       g.fillStyle(0x0a1628, 0.85);
@@ -688,26 +368,18 @@ export class CharacterSelectScene extends Phaser.Scene {
       g.lineStyle(2, sect.borderColor, 0.45);
       g.strokeRoundedRect(x, y, cardW, cardH, r);
     } else {
-      // 側邊卡：暗淡，低對比
-      g.fillStyle(sect.dimColor ?? 0x060c18, 0.72);
+      g.fillStyle(sect.dimColor ?? 0x060c18, 0.68);
       g.fillRoundedRect(x, y, cardW, cardH, r);
-      g.lineStyle(1, sect.borderColor, 0.18);
+      g.lineStyle(1, sect.borderColor, 0.16);
       g.strokeRoundedRect(x, y, cardW, cardH, r);
     }
   }
 
-  // 取得 display index 對應的 CHARACTERS index（輪播邏輯）
   private getDisplayIndex(slotIndex: number): number {
     const n = CHARACTERS.length;
-    // slotIndex: 0=左, 1=中, 2=右
-    // centerIndex 是中央顯示的 CHARACTERS index
-    const offset = slotIndex - 1; // -1, 0, +1
-    return (this.centerIndex + offset + n) % n;
+    return (this.centerIndex + (slotIndex - 1) + n) % n;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 刷新所有卡片視覺（切換宗門後呼叫）
-  // ─────────────────────────────────────────────────────────────────────────
   private refreshCards(): void {
     CHARACTERS.forEach((_char, slotIndex) => {
       const charIndex = this.getDisplayIndex(slotIndex);
@@ -717,165 +389,181 @@ export class CharacterSelectScene extends Phaser.Scene {
       const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
       const s: number = this.cardContainers[slotIndex].getData('s') ?? 1;
 
-      // 重繪邊框
       this.drawCardFrame(this.cardGraphics[slotIndex], slotIndex, false);
 
-      // 光暈
       const glowG = this.cardGlowGraphics[slotIndex];
       glowG.clear();
       if (isCenter) {
         const x = Math.round(cx - cardW / 2);
         const y = Math.round(cy - cardH / 2);
-        glowG.lineStyle(20, sect.glowColor, 0.10);
-        glowG.strokeRoundedRect(x - 8, y - 8, cardW + 16, cardH + 16, 14);
-        glowG.lineStyle(8, sect.glowColor, 0.20);
+        glowG.lineStyle(22, sect.glowColor, 0.09);
+        glowG.strokeRoundedRect(x - 9, y - 9, cardW + 18, cardH + 18, 14);
+        glowG.lineStyle(8, sect.glowColor, 0.18);
         glowG.strokeRoundedRect(x - 3, y - 3, cardW + 6, cardH + 6, 12);
       }
 
-      // 重建 container 內容（icon + 文字同步更新）
       this.fillCardContainer(this.cardContainers[slotIndex], slotIndex, s);
-
-      // Container alpha
-      const container = this.cardContainers[slotIndex];
-      container.setAlpha(isCenter ? 1.0 : 0.35);
+      this.cardContainers[slotIndex].setAlpha(isCenter ? 1.0 : 0.35);
       this.floatTweens[slotIndex]?.resume();
     });
-
-    // 更新分頁點
     this.refreshDots();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 導航：切換中央宗門
+  // 導航
   // ─────────────────────────────────────────────────────────────────────────
   private navigateTo(slotIndex: number): void {
-    if (slotIndex === 1) {
-      // 點中央 = 確認選擇
-      this.selectedIndex = this.centerIndex;
-      this.updateConfirmButton();
-      return;
-    }
-    // 點左右 = 切換
-    const offset = slotIndex - 1; // -1 or +1
+    if (slotIndex === 1) return; // 點中央不切換
+    const offset = slotIndex - 1;
     const n = CHARACTERS.length;
     this.centerIndex = (this.centerIndex + offset + n) % n;
-    this.selectedIndex = this.centerIndex;
     this.refreshCards();
     this.refreshInfoPanel();
-    this.updateConfirmButton();
   }
 
   private navigateLeft(): void {
-    const n = CHARACTERS.length;
-    this.centerIndex = (this.centerIndex - 1 + n) % n;
-    this.selectedIndex = this.centerIndex;
+    this.centerIndex = (this.centerIndex - 1 + CHARACTERS.length) % CHARACTERS.length;
     this.refreshCards();
     this.refreshInfoPanel();
-    this.updateConfirmButton();
   }
 
   private navigateRight(): void {
-    const n = CHARACTERS.length;
-    this.centerIndex = (this.centerIndex + 1) % n;
-    this.selectedIndex = this.centerIndex;
+    this.centerIndex = (this.centerIndex + 1) % CHARACTERS.length;
     this.refreshCards();
     this.refreshInfoPanel();
-    this.updateConfirmButton();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 左右切換箭頭
+  // 下方資訊面板（直屏：卡片下方）
   // ─────────────────────────────────────────────────────────────────────────
-  private buildNavArrows(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+  private buildInfoPanel(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-    const cardAreaX = layout.usableX + panelW + Math.round(layout.usableW * 0.04);
-    const cardAreaW = Math.round(layout.usableW * 0.56);
-    const cardCenterX = cardAreaX + Math.round(cardAreaW * 0.50);
-    const arrowY = Math.round(H * 0.48);
+    const panelTop = Math.round(H * 0.58);
+    const panelH = Math.round(H * 0.26);
+    const panelX = layout.usableX + 8;
+    const panelW = layout.usableW - 16;
+    const cx = W / 2;
 
-    // 左箭頭
-    const leftG = this.add.graphics().setDepth(13);
-    const leftX = cardAreaX + Math.round(cardAreaW * 0.04);
-    leftG.fillStyle(0x060e1e, 0.70);
-    leftG.fillCircle(leftX, arrowY, Math.round(18 * s));
-    leftG.lineStyle(1, 0x4488aa, 0.50);
-    leftG.strokeCircle(leftX, arrowY, Math.round(18 * s));
+    // 面板背景
+    const panelG = this.add.graphics().setDepth(8);
+    panelG.fillStyle(0x060e1e, 0.80);
+    panelG.fillRoundedRect(panelX, panelTop, panelW, panelH, 10);
+    panelG.lineStyle(1, 0x2a4466, 0.65);
+    panelG.strokeRoundedRect(panelX, panelTop, panelW, panelH, 10);
+    panelG.lineStyle(1, 0x4488aa, 0.20);
+    panelG.lineBetween(panelX + 14, panelTop + 1, panelX + panelW - 14, panelTop + 1);
 
-    this.arrowLeft = this.add.text(leftX, arrowY, '‹',
-      uiText(Math.round(28 * s), '#99bbcc')
-    ).setOrigin(0.5, 0.5).setDepth(14);
+    // 宗門名稱（面板頂部）
+    this.infoSectName = this.add.text(cx, panelTop + Math.round(panelH * 0.12),
+      '', uiTitle(Math.round(20 * s), '#f0dfa8', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setDepth(9);
 
-    const leftHit = this.add.rectangle(leftX, arrowY, Math.round(44 * s), Math.round(44 * s), 0, 0)
-      .setDepth(15).setInteractive({ useHandCursor: true });
-    leftHit.on('pointerdown', () => this.navigateLeft());
-    leftHit.on('pointerover', () => { this.arrowLeft.setColor('#ffd700'); });
-    leftHit.on('pointerout',  () => { this.arrowLeft.setColor('#88aabb'); });
+    // 定位
+    this.infoRole = this.add.text(cx, panelTop + Math.round(panelH * 0.24),
+      '', uiText(Math.round(12 * s), '#99ccdd')
+    ).setOrigin(0.5, 0.5).setDepth(9);
 
-    // 右箭頭
-    const rightG = this.add.graphics().setDepth(13);
-    const rightX = cardAreaX + Math.round(cardAreaW * 0.96);
-    rightG.fillStyle(0x060e1e, 0.70);
-    rightG.fillCircle(rightX, arrowY, Math.round(18 * s));
-    rightG.lineStyle(1, 0x4488aa, 0.50);
-    rightG.strokeCircle(rightX, arrowY, Math.round(18 * s));
+    // 描述
+    this.infoDesc = this.add.text(cx, panelTop + Math.round(panelH * 0.38),
+      '', uiText(Math.round(10 * s), '#8899aa', {
+        wordWrap: { width: panelW - 24 }, align: 'center'
+      })
+    ).setOrigin(0.5, 0.5).setDepth(9);
 
-    this.arrowRight = this.add.text(rightX, arrowY, '›',
-      uiText(Math.round(28 * s), '#99bbcc')
-    ).setOrigin(0.5, 0.5).setDepth(14);
+    // 分隔線
+    const sepG = this.add.graphics().setDepth(9);
+    sepG.lineStyle(1, 0x1e3044, 0.55);
+    sepG.lineBetween(panelX + 14, panelTop + Math.round(panelH * 0.50), panelX + panelW - 14, panelTop + Math.round(panelH * 0.50));
 
-    const rightHit = this.add.rectangle(rightX, arrowY, Math.round(44 * s), Math.round(44 * s), 0, 0)
-      .setDepth(15).setInteractive({ useHandCursor: true });
-    rightHit.on('pointerdown', () => this.navigateRight());
-    rightHit.on('pointerover', () => { this.arrowRight.setColor('#ffd700'); });
-    rightHit.on('pointerout',  () => { this.arrowRight.setColor('#88aabb'); });
+    // 屬性列（水平排列，直屏空間有限）
+    const attrY = panelTop + Math.round(panelH * 0.62);
+    const col1X = panelX + Math.round(panelW * 0.16);
+    const col2X = panelX + Math.round(panelW * 0.50);
+    const col3X = panelX + Math.round(panelW * 0.84);
+
+    this.add.text(col1X, attrY, '♥ HP', uiText(Math.round(10 * s), '#ff9999')).setOrigin(0.5, 0.5).setDepth(9);
+    this.add.text(col2X, attrY, '⚔ ATK', uiText(Math.round(10 * s), '#ffcc66')).setOrigin(0.5, 0.5).setDepth(9);
+    this.add.text(col3X, attrY, '✦ SPD', uiText(Math.round(10 * s), '#88ddff')).setOrigin(0.5, 0.5).setDepth(9);
+
+    const valY = panelTop + Math.round(panelH * 0.74);
+    this.infoHpVal  = this.add.text(col1X, valY, '', uiText(Math.round(13 * s), '#ff9999', { fontStyle: 'bold' })).setOrigin(0.5, 0.5).setDepth(9);
+    this.infoAtkVal = this.add.text(col2X, valY, '', uiText(Math.round(13 * s), '#ffcc66', { fontStyle: 'bold' })).setOrigin(0.5, 0.5).setDepth(9);
+    this.infoSpdVal = this.add.text(col3X, valY, '', uiText(Math.round(13 * s), '#88ddff', { fontStyle: 'bold' })).setOrigin(0.5, 0.5).setDepth(9);
+
+    // 屬性條（細條，水平）
+    const barY = panelTop + Math.round(panelH * 0.84);
+    const barW = Math.round(panelW * 0.22);
+    const barH = Math.round(5 * s);
+    this.infoHpBar  = this.add.graphics().setDepth(9);
+    this.infoAtkBar = this.add.graphics().setDepth(9);
+    this.infoSpdBar = this.add.graphics().setDepth(9);
+
+    // 武器 + 特性（底部一行）
+    const bottomY = panelTop + Math.round(panelH * 0.93);
+    this.infoWeapon = this.add.text(panelX + Math.round(panelW * 0.25), bottomY,
+      '', uiText(Math.round(11 * s), '#e8c060')
+    ).setOrigin(0.5, 0.5).setDepth(9);
+    this.infoTrait = this.add.text(panelX + Math.round(panelW * 0.75), bottomY,
+      '', uiText(Math.round(11 * s), '#bbccdd')
+    ).setOrigin(0.5, 0.5).setDepth(9);
+
+    // 儲存 bar 位置
+    (this as any)._barY = barY;
+    (this as any)._barH = barH;
+    (this as any)._barW = barW;
+    (this as any)._col1X = col1X;
+    (this as any)._col2X = col2X;
+    (this as any)._col3X = col3X;
+  }
+
+  private refreshInfoPanel(): void {
+    const char = CHARACTERS[this.centerIndex];
+    const sect = SECT_INFO[char.id] ?? { sectName: char.id, role: '', description: '' };
+    const weaponData = getWeaponById(char.startingWeaponId);
+
+    this.infoSectName.setText(sect.sectName);
+    this.infoRole.setText(sect.role);
+    this.infoDesc.setText(sect.description);
+    this.infoHpVal.setText(`${char.baseHP}`);
+    this.infoAtkVal.setText(`×${char.baseAttackPower.toFixed(1)}`);
+    this.infoSpdVal.setText(`${char.baseMoveSpeed}`);
+    this.infoWeapon.setText(`⚔ ${weaponData?.name ?? '—'}`);
+    this.infoTrait.setText(char.trait ?? '');
+
+    const maxHP = 200; const maxATK = 1.5; const maxSPD = 190;
+    const barY: number = (this as any)._barY;
+    const barH: number = (this as any)._barH;
+    const barW: number = (this as any)._barW;
+    const col1X: number = (this as any)._col1X;
+    const col2X: number = (this as any)._col2X;
+    const col3X: number = (this as any)._col3X;
+    const fh = Math.round(barH / 2);
+
+    const drawBar = (g: Phaser.GameObjects.Graphics, cx: number, ratio: number, color: number) => {
+      g.clear();
+      const bx = cx - Math.round(barW / 2);
+      g.fillStyle(0x1a2a3a, 0.80);
+      g.fillRoundedRect(bx, barY - fh, barW, barH, 2);
+      g.fillStyle(color, 0.88);
+      g.fillRoundedRect(bx, barY - fh, Math.round(barW * Math.min(ratio, 1)), barH, 2);
+    };
+    drawBar(this.infoHpBar,  col1X, char.baseHP / maxHP,              0xff6666);
+    drawBar(this.infoAtkBar, col2X, char.baseAttackPower / maxATK,    0xffaa33);
+    drawBar(this.infoSpdBar, col3X, char.baseMoveSpeed / maxSPD,      0x44bbff);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 分頁點
-  // ─────────────────────────────────────────────────────────────────────────
-  private buildDots(W: number, H: number): void {
-    this.dotGraphics = this.add.graphics().setDepth(13);
-    this.refreshDots();
-  }
-
-  private refreshDots(): void {
-    this.dotGraphics.clear();
-    const W = this.scale.width;
-    const H = this.scale.height;
-    const layout = ResponsiveLayout.compute(W, H);
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-    const cardAreaX = layout.usableX + panelW + Math.round(layout.usableW * 0.04);
-    const cardAreaW = Math.round(layout.usableW * 0.56);
-    const dotY = Math.round(H * 0.82);
-    const dotSpacing = 14;
-    const n = CHARACTERS.length;
-    const startX = cardAreaX + Math.round(cardAreaW * 0.50) - Math.round((n - 1) * dotSpacing * 0.5);
-
-    for (let i = 0; i < n; i++) {
-      const dx = startX + i * dotSpacing;
-      if (i === this.centerIndex) {
-        this.dotGraphics.fillStyle(0xd4af37, 0.90);
-        this.dotGraphics.fillCircle(dx, dotY, 4);
-      } else {
-        this.dotGraphics.fillStyle(0x4477aa, 0.45);
-        this.dotGraphics.fillCircle(dx, dotY, 3);
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 確認按鈕（踏入修行）
+  // 確認按鈕（直屏：底部居中，寬按鈕）
   // ─────────────────────────────────────────────────────────────────────────
   private buildConfirmButton(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-    const cardAreaX = layout.usableX + panelW + Math.round(layout.usableW * 0.04);
-    const cardAreaW = Math.round(layout.usableW * 0.56);
-    const btnX = cardAreaX + Math.round(cardAreaW * 0.50);
-    const btnY = Math.round(H * 0.90);
-    const btnW = Math.round(Math.min(220, cardAreaW * 0.55));
+    const btnW = Math.round(Math.min(W * 0.72, 320));
     const btnH = layout.btnH;
+    const btnX = W / 2;
+    const btnY = H - layout.safeBottom - Math.round(btnH * 0.80);
+    const r = 10;
+    const x = Math.round(btnX - btnW / 2);
+    const y = Math.round(btnY - btnH / 2);
 
     this.confirmGraphics = this.add.graphics().setDepth(11);
     this.drawConfirmBtn(false, btnX, btnY, btnW, btnH);
@@ -884,129 +572,164 @@ export class CharacterSelectScene extends Phaser.Scene {
       uiText(Math.round(18 * s), '#e8c060', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setDepth(12);
 
-    // 副文字
-    this.add.text(btnX, btnY + Math.round(btnH * 0.75), '可隨時在遊戲內更換宗門',
-      uiText(Math.round(9 * s), '#556677')
-    ).setOrigin(0.5, 0.5).setDepth(12);
+    const hitArea = this.add.rectangle(btnX, btnY, Math.max(btnW, layout.minTouchTarget), Math.max(btnH, layout.minTouchTarget), 0, 0)
+      .setDepth(13).setInteractive({ useHandCursor: true });
 
-    this.confirmHitArea = this.add.rectangle(
-      btnX, btnY, Math.max(btnW, layout.minTouchTarget), Math.max(btnH, layout.minTouchTarget), 0, 0
-    ).setDepth(13).setInteractive({ useHandCursor: true });
-
-    this.confirmHitArea.on('pointerdown', () => {
+    hitArea.on('pointerdown', () => {
       const characterId = CHARACTERS[this.centerIndex].id;
       this.scene.start('MapSelectScene', { characterId });
     });
-    this.confirmHitArea.on('pointerover', () => this.drawConfirmBtn(true, btnX, btnY, btnW, btnH));
-    this.confirmHitArea.on('pointerout',  () => this.drawConfirmBtn(false, btnX, btnY, btnW, btnH));
-
-    // 儲存按鈕位置供 updateConfirmButton 使用
-    (this as any)._btnX = btnX;
-    (this as any)._btnY = btnY;
-    (this as any)._btnW = btnW;
-    (this as any)._btnH = btnH;
+    hitArea.on('pointerover', () => this.drawConfirmBtn(true, btnX, btnY, btnW, btnH));
+    hitArea.on('pointerout',  () => this.drawConfirmBtn(false, btnX, btnY, btnW, btnH));
   }
 
   private drawConfirmBtn(hovered: boolean, btnX: number, btnY: number, btnW: number, btnH: number): void {
-    const r = 8;
+    const r = 10;
     const x = Math.round(btnX - btnW / 2);
     const y = Math.round(btnY - btnH / 2);
     this.confirmGraphics.clear();
-
     if (hovered) {
-      this.confirmGraphics.lineStyle(10, 0xd4af37, 0.15);
-      this.confirmGraphics.strokeRoundedRect(x - 4, y - 4, btnW + 8, btnH + 8, r + 4);
+      this.confirmGraphics.lineStyle(12, 0xd4af37, 0.14);
+      this.confirmGraphics.strokeRoundedRect(x - 5, y - 5, btnW + 10, btnH + 10, r + 5);
     }
-    this.confirmGraphics.fillStyle(hovered ? 0x1a1428 : 0x0c0a1a, 0.92);
+    this.confirmGraphics.fillStyle(hovered ? 0x1a1428 : 0x0c0a1a, 0.94);
     this.confirmGraphics.fillRoundedRect(x, y, btnW, btnH, r);
-    // 頂部高光
     this.confirmGraphics.fillStyle(0xffffff, 0.04);
-    this.confirmGraphics.fillRoundedRect(x + 2, y + 2, btnW - 4, Math.round(btnH * 0.38), { tl: r - 1, tr: r - 1, bl: 0, br: 0 });
-    this.confirmGraphics.lineStyle(hovered ? 2 : 1.5, hovered ? 0xffd700 : 0xd4af37, hovered ? 1 : 0.80);
+    this.confirmGraphics.fillRoundedRect(x + 2, y + 2, btnW - 4, Math.round(btnH * 0.38), { tl: r-1, tr: r-1, bl: 0, br: 0 });
+    this.confirmGraphics.lineStyle(hovered ? 2 : 1.5, hovered ? 0xffd700 : 0xd4af37, hovered ? 1 : 0.82);
     this.confirmGraphics.strokeRoundedRect(x, y, btnW, btnH, r);
   }
 
-  private updateConfirmButton(): void {
-    const btnX: number = (this as any)._btnX;
-    const btnY: number = (this as any)._btnY;
-    const btnW: number = (this as any)._btnW;
-    const btnH: number = (this as any)._btnH;
-    if (!btnX) return;
-    this.drawConfirmBtn(false, btnX, btnY, btnW, btnH);
-    const sect = SECT_INFO[CHARACTERS[this.centerIndex].id];
-    this.confirmText.setText('踏入修行');
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
-  // 返回按鈕
+  // 返回按鈕（左上角）
   // ─────────────────────────────────────────────────────────────────────────
   private buildBackButton(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
-    const btnX = Math.round(layout.safeLeft + 16);
-    const btnY = Math.round(layout.safeTop + 20);
+    const btnX = layout.safeLeft + 16;
+    const btnY = layout.safeTop + 22;
 
     const g = this.add.graphics().setDepth(11);
     g.fillStyle(0x060e1e, 0.72);
-    g.fillRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
+    g.fillRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
     g.lineStyle(1, 0x2a4466, 0.55);
-    g.strokeRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
+    g.strokeRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
 
-    const backText = this.add.text(btnX + 28, btnY, '← 返回',
+    const backText = this.add.text(btnX + 30, btnY, '← 返回',
       uiText(Math.round(13 * s), '#88aacc')
     ).setOrigin(0.5, 0.5).setDepth(12);
 
-    const hitArea = this.add.rectangle(btnX + 28, btnY, 76, 36, 0, 0)
+    const hitArea = this.add.rectangle(btnX + 30, btnY, 80, 40, 0, 0)
       .setDepth(13).setInteractive({ useHandCursor: true });
-
     hitArea.on('pointerover', () => {
       g.clear();
       g.fillStyle(0x0d1a2e, 0.88);
-      g.fillRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
+      g.fillRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
       g.lineStyle(1.5, 0xd4af37, 0.70);
-      g.strokeRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
+      g.strokeRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
       backText.setColor('#ffd700');
     });
     hitArea.on('pointerout', () => {
       g.clear();
       g.fillStyle(0x060e1e, 0.72);
-      g.fillRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
+      g.fillRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
       g.lineStyle(1, 0x2a4466, 0.55);
-      g.strokeRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
-      backText.setColor('#6688aa');
+      g.strokeRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
+      backText.setColor('#88aacc');
     });
     hitArea.on('pointerdown', () => this.scene.start('MainMenuScene'));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 靈氣粒子（柔和，不搶 UI）
+  // 左右箭頭（卡片兩側）
+  // ─────────────────────────────────────────────────────────────────────────
+  private buildNavArrows(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+    const s = layout.uiScale;
+    const arrowY = Math.round(H * 0.36);
+    const leftX  = Math.round(W * 0.06);
+    const rightX = Math.round(W * 0.94);
+
+    const drawCircle = (g: Phaser.GameObjects.Graphics, x: number) => {
+      g.fillStyle(0x060e1e, 0.68);
+      g.fillCircle(x, arrowY, Math.round(18 * s));
+      g.lineStyle(1, 0x4488aa, 0.45);
+      g.strokeCircle(x, arrowY, Math.round(18 * s));
+    };
+
+    const leftG = this.add.graphics().setDepth(13);
+    drawCircle(leftG, leftX);
+    this.arrowLeft = this.add.text(leftX, arrowY, '‹',
+      uiText(Math.round(28 * s), '#99bbcc')
+    ).setOrigin(0.5, 0.5).setDepth(14);
+
+    const leftHit = this.add.rectangle(leftX, arrowY, Math.round(48 * s), Math.round(48 * s), 0, 0)
+      .setDepth(15).setInteractive({ useHandCursor: true });
+    leftHit.on('pointerdown', () => this.navigateLeft());
+    leftHit.on('pointerover', () => this.arrowLeft.setColor('#ffd700'));
+    leftHit.on('pointerout',  () => this.arrowLeft.setColor('#99bbcc'));
+
+    const rightG = this.add.graphics().setDepth(13);
+    drawCircle(rightG, rightX);
+    this.arrowRight = this.add.text(rightX, arrowY, '›',
+      uiText(Math.round(28 * s), '#99bbcc')
+    ).setOrigin(0.5, 0.5).setDepth(14);
+
+    const rightHit = this.add.rectangle(rightX, arrowY, Math.round(48 * s), Math.round(48 * s), 0, 0)
+      .setDepth(15).setInteractive({ useHandCursor: true });
+    rightHit.on('pointerdown', () => this.navigateRight());
+    rightHit.on('pointerover', () => this.arrowRight.setColor('#ffd700'));
+    rightHit.on('pointerout',  () => this.arrowRight.setColor('#99bbcc'));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 分頁點
+  // ─────────────────────────────────────────────────────────────────────────
+  private buildDots(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
+    this.dotGraphics = this.add.graphics().setDepth(13);
+    this.refreshDots();
+  }
+
+  private refreshDots(): void {
+    this.dotGraphics.clear();
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const dotY = Math.round(H * 0.55);
+    const dotSpacing = 16;
+    const n = CHARACTERS.length;
+    const startX = W / 2 - Math.round((n - 1) * dotSpacing * 0.5);
+    for (let i = 0; i < n; i++) {
+      const dx = startX + i * dotSpacing;
+      if (i === this.centerIndex) {
+        this.dotGraphics.fillStyle(0xd4af37, 0.90);
+        this.dotGraphics.fillCircle(dx, dotY, 4.5);
+      } else {
+        this.dotGraphics.fillStyle(0x4477aa, 0.45);
+        this.dotGraphics.fillCircle(dx, dotY, 3);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 靈氣粒子
   // ─────────────────────────────────────────────────────────────────────────
   private spawnAuraParticle(): void {
     const W = this.scale.width;
     const H = this.scale.height;
-    const layout = ResponsiveLayout.compute(W, H);
-    const panelW = Math.round(Math.min(layout.usableW * 0.28, 210));
-
-    // 粒子只在右側氛圍區生成（不干擾左側資訊面板）
-    const spawnX = layout.usableX + panelW + Math.random() * (W - layout.usableX - panelW);
-    const spawnY = H * 0.6 + Math.random() * H * 0.4;
-
-    const colors = [0x4488cc, 0x66aadd, 0xaaccee, 0xd4af37, 0x88bbcc];
+    const spawnX = Math.random() * W;
+    const spawnY = H * 0.55 + Math.random() * H * 0.45;
+    const colors = [0x4488cc, 0x66aadd, 0xaaccee, 0xd4af37];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const size = 0.6 + Math.random() * 1.4;
-    const duration = 4000 + Math.random() * 3000;
-
     const p = this.add.graphics().setDepth(4);
-    p.fillStyle(color, 0.35 + Math.random() * 0.30);
+    p.fillStyle(color, 0.30 + Math.random() * 0.25);
     p.fillCircle(0, 0, size);
     p.setPosition(spawnX, spawnY);
     this.particles.push(p);
-
     this.tweens.add({
       targets: p,
-      x: spawnX + (Math.random() - 0.5) * 60,
-      y: spawnY - (50 + Math.random() * 70),
+      x: spawnX + (Math.random() - 0.5) * 50,
+      y: spawnY - (40 + Math.random() * 60),
       alpha: 0,
-      duration,
+      duration: 4000 + Math.random() * 3000,
       ease: 'Sine.easeIn',
       onComplete: () => {
         if (p?.active) p.destroy();

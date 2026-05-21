@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="screen-orientation" content="portrait" />
     <title>武俠幸存者</title>
     <style>
       * {
@@ -28,12 +29,10 @@
         left: 0;
         right: 0;
         bottom: 0;
-        /* 不使用 flex 置中，讓 canvas 直接填滿 */
       }
       canvas {
         display: block;
         background: #000;
-        /* 強制填滿整個 body，不留白邊 */
         width: 100% !important;
         height: 100% !important;
         position: absolute;

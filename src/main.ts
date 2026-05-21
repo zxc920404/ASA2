@@ -11,8 +11,7 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#000000',
   scene: [BootScene, MainMenuScene, CharacterSelectScene, MapSelectScene, GameScene, MetaUpgradeScene],
   scale: {
-    // RESIZE：canvas 跟隨視口大小，消除黑邊與白邊
-    // RESIZE 模式下不需要 autoCenter，canvas 由 CSS 填滿
+    // RESIZE：canvas 跟隨視口大小，直屏 portrait 模式
     mode: Phaser.Scale.RESIZE,
     parent: document.body,
     width: window.innerWidth,
