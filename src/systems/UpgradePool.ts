@@ -59,14 +59,25 @@ const EVOLVED_WEAPON_IDS: Set<string> = new Set(
  * 5. 排除已達 Lv8 的裝備（Requirement 11.6, 12.1, 12.2）
  * 6. 可用選項不足 3 個時顯示全部（Requirement 11.7）
  *
- * 驚鴻派分裂大道特殊邏輯：
- * - 條件：持有 >= 3 個 projectile 武器 且 >= 1 個已進化武器
- * - 條件達成後標記為 pending，下一次 getOptions() 必定出現
+ * 驚鴻派分裂大道特殊邏輯（兩階段延遲）：
+ * - 條件：assassin + projectile 武器 >= 3 + 已進化武器 >= 1
+ * - 條件達成的那次 getOptions() → 加入 conditionsMetDaos（不插入本次結果）
+ * - 下一次 getOptions() → 從 conditionsMetDaos 移至 pendingGuaranteedDaos → 必定出現
+ * - 玩家未選時，pendingGuaranteedDaos 保留，每次升級繼續保證出現
+ * - 玩家選取後，activeDaos 包含此 id，不再出現
  */
 export class UpgradePool {
   /**
-   * 待保證出現的大道 id 集合（pending 狀態）
-   * 條件達成後加入，下次 getOptions() 時強制插入結果
+   * 條件已達成但尚未進入 pending 的大道 id 集合（第一階段）
+   * 條件達成的那次 getOptions() 加入此集合，不插入本次結果。
+   * 下一次 getOptions() 開始時，移至 pendingGuaranteedDaos。
+   */
+  private conditionsMetDaos: Set<string> = new Set();
+
+  /**
+   * 待保證出現的大道 id 集合（第二階段 / pending 狀態）
+   * 從 conditionsMetDaos 晉升後，下次 getOptions() 時強制插入結果。
+   * 玩家未選時保留，每次升級繼續保證出現。
    */
   private pendingGuaranteedDaos: Set<string> = new Set();
 
@@ -94,8 +105,16 @@ export class UpgradePool {
     const weaponsFull = equipment.weapons.length >= MAX_WEAPON_SLOTS;
     const passivesFull = equipment.passives.length >= MAX_PASSIVE_SLOTS;
 
-    // ── 驚鴻派分裂大道：條件檢查與 pending 標記 ──────────────────────────
-    // 條件：驚鴻派角色 + projectile 武器 >= 3 + 已進化武器 >= 1 + 尚未取得
+    // ── 兩階段延遲：將上次達成條件的大道晉升為 pending（本次才插入結果）──
+    // conditionsMetDaos → pendingGuaranteedDaos（在本次結果生成前晉升）
+    for (const daoId of this.conditionsMetDaos) {
+      if (!activeDaos.has(daoId)) {
+        this.pendingGuaranteedDaos.add(daoId);
+      }
+    }
+    this.conditionsMetDaos.clear();
+
+    // ── 驚鴻派分裂大道：條件檢查，達成時寫入 conditionsMetDaos（不影響本次結果）──
     this.checkAndMarkJinghongSplitPending(equipment, characterId, activeDaos);
 
     // ── 武器進化選項（優先加入，不受武器欄滿限制，因為是取代而非新增）──
@@ -175,9 +194,14 @@ export class UpgradePool {
     }
 
     // ── 一般宗門大道選項（通用條件迴圈，排除已由特殊邏輯處理的大道）──
+    // jinghong_split 永遠不進入一般候選池，只能由 pending 保證邏輯插入
+    const SPECIAL_DAO_IDS = new Set(['jinghong_split']);
+
     for (const dao of DAOS) {
       // 已取得的大道不再顯示
       if (activeDaos.has(dao.id)) continue;
+      // 特殊大道（由專屬邏輯控制）：永遠排除在一般候選池之外
+      if (SPECIAL_DAO_IDS.has(dao.id)) continue;
       // 已在 pending 集合中的大道，不加入一般候選池（避免重複）
       if (this.pendingGuaranteedDaos.has(dao.id)) continue;
       // 宗門限制
@@ -229,13 +253,16 @@ export class UpgradePool {
   }
 
   /**
-   * 檢查驚鴻派分裂大道的觸發條件，條件達成時標記為 pending
+   * 檢查驚鴻派分裂大道的觸發條件
+   * 條件達成時寫入 conditionsMetDaos（不是 pendingGuaranteedDaos）
+   * → 下一次 getOptions() 開始時才晉升為 pending，確保不在條件達成當次出現
+   *
    * 條件：
    * 1. 玩家宗門為 assassin（驚鴻派）
    * 2. 持有 >= 3 個 projectile form 武器
    * 3. 持有 >= 1 個已進化武器（id 在 EVOLVED_WEAPON_IDS 中）
    * 4. 尚未取得此大道
-   * 5. 尚未在 pending 集合中
+   * 5. 尚未在 conditionsMetDaos 或 pendingGuaranteedDaos 中
    */
   private checkAndMarkJinghongSplitPending(
     equipment: EquipmentSlot,
@@ -244,8 +271,9 @@ export class UpgradePool {
   ): void {
     const DAO_ID = 'jinghong_split';
 
-    // 已取得或已 pending，不重複標記
+    // 已取得、已在 conditionsMet 或已在 pending，不重複標記
     if (activeDaos.has(DAO_ID)) return;
+    if (this.conditionsMetDaos.has(DAO_ID)) return;
     if (this.pendingGuaranteedDaos.has(DAO_ID)) return;
 
     // 宗門限制：僅驚鴻派（assassin）
@@ -264,8 +292,9 @@ export class UpgradePool {
     ).length;
     if (evolvedCount < 1) return;
 
-    // 兩個條件同時達成 → 標記為 pending，下次升級必定出現
-    this.pendingGuaranteedDaos.add(DAO_ID);
+    // 兩個條件同時達成 → 寫入 conditionsMetDaos
+    // 下一次 getOptions() 開始時才晉升為 pending，本次不出現
+    this.conditionsMetDaos.add(DAO_ID);
     console.log('[UpgradePool] jinghong_split 條件達成，下次升級必定出現');
   }
 
