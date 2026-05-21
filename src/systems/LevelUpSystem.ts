@@ -119,7 +119,7 @@ export class LevelUpSystem {
 
         // 確認武器欄未滿且未持有
         const alreadyOwned = player.equipment.weapons.some(w => w.weaponId === option.id);
-        if (!alreadyOwned && player.equipment.weapons.length < 6) {
+        if (!alreadyOwned && player.equipment.weapons.length < 4) {
           player.equipment.weapons.push({ weaponId: option.id, level: 1 });
         }
         break;
@@ -161,7 +161,7 @@ export class LevelUpSystem {
 
         // 確認被動欄未滿且未持有
         const alreadyOwned = player.equipment.passives.some(p => p.passiveId === option.id);
-        if (!alreadyOwned && player.equipment.passives.length < 6) {
+        if (!alreadyOwned && player.equipment.passives.length < 4) {
           player.equipment.passives.push({ passiveId: option.id, level: 1 });
         }
         break;

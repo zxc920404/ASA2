@@ -3,10 +3,10 @@ import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 
 /** 武器欄上限 */
-const MAX_WEAPON_SLOTS = 6;
+const MAX_WEAPON_SLOTS = 4;
 
 /** 被動欄上限 */
-const MAX_PASSIVE_SLOTS = 6;
+const MAX_PASSIVE_SLOTS = 4;
 
 /** 裝備等級上限 */
 const MAX_EQUIPMENT_LEVEL = 8;

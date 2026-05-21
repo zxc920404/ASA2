@@ -324,10 +324,10 @@ export class HUD {
 
   /**
    * 直屏武器格 + 被動格（上方 HUD 條下方，小圖示水平排列）
-   * 武器格：左側，被動格：右側，各最多 6 格
+   * 武器格：左側，被動格：右側，各最多 4 格
    */
   private buildSlotsPortrait(W: number, _H: number, startY: number): void {
-    const MAX_SLOTS = 6;
+    const MAX_SLOTS = 4;
     const slotSize = 30; // 小圖示尺寸
     const slotGap = 3;
     const rowH = slotSize + 2;
@@ -395,7 +395,7 @@ export class HUD {
    * 水平：武器欄 x=72，被動欄 x=W-72-slotW
    */
   private static slotLayout(W: number, H: number) {
-    const MAX_SLOTS = 6;
+    const MAX_SLOTS = 4;
     const slotW = 60;
     const slotH = 16;
     const slotGap = 2;
@@ -572,7 +572,7 @@ export class HUD {
   }
 
   private updateSlotsPortrait(player: Player, W: number, _H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
-    const MAX_SLOTS = 6;
+    const MAX_SLOTS = 4;
     const slotSize = 30;
     const slotGap = 3;
     const hudH = Math.round(_H * 0.10);

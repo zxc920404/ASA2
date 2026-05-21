@@ -404,8 +404,6 @@ export class WeaponSystem {
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist <= enemy.collisionRadius + 8) {
-              // 回程傷害 = finalDamage（已含 attackPower × passiveMultiplier）× returnDamageMultiplier
-              // proj.damage 在發射時已套用 levelDamage × attackPower × passiveMultiplier
               const returnDamage = Math.max(1, Math.floor(proj.damage * proj.returnDamageMultiplier));
               const died = enemy.takeDamage(returnDamage, proj.x, proj.y);
               if (died && !deadEnemies.includes(enemy)) {
@@ -877,9 +875,6 @@ export class WeaponSystem {
   /**
    * 發射流光返刃投射物（命中或到達最大距離後返還玩家，回程再次傷敵）
    * count > 1 時加入小角度偏移，避免完全重疊
-   *
-   * @param damage             去程傷害（已套用 levelDamage × attackPower × passiveMultiplier）
-   * @param returnDamageMultiplier 回程傷害倍率（回程傷害 = damage × returnDamageMultiplier）
    */
   private fireReturningProjectile(
     player: Player,
