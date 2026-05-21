@@ -131,6 +131,26 @@ export class BGMManager {
   }
 
   /**
+   * 立即停止當前 BGM（不淡出，用於場景 shutdown 時）
+   * 場景切換時 tween 會被銷毀，所以必須用此方法直接停止
+   */
+  static stopImmediate(): void {
+    if (!BGMManager.currentMusic) {
+      BGMManager.currentKey = '';
+      return;
+    }
+    const oldMusic = BGMManager.currentMusic;
+    BGMManager.currentMusic = null;
+    BGMManager.currentKey = '';
+    try {
+      oldMusic.stop();
+      oldMusic.destroy();
+    } catch {
+      // 靜默處理
+    }
+  }
+
+  /**
    * 設定選單 BGM 音量（立即套用到當前播放中的選單 BGM）
    * @param volume 0.0 ~ 1.0
    */

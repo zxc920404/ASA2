@@ -403,8 +403,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
       // 清理所有動態物件陣列，防止 scene restart 後殘留
       this.cleanupDynamicObjects();
-      // 停止戰鬥 BGM（淡出後切換到下一場景的 BGM）
-      BGMManager.stop(this);
+      // 立即停止戰鬥 BGM（不能用淡出，場景切換後 tween 會被銷毀導致 stop/destroy 永遠不執行）
+      BGMManager.stopImmediate();
     });
 
     // ── Phaser RESIZE 模式：螢幕旋轉時重建 HUD 與搖桿 ──────────────────
