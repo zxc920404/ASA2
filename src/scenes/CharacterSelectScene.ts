@@ -97,6 +97,17 @@ export class CharacterSelectScene extends Phaser.Scene {
     super({ key: 'CharacterSelectScene' });
   }
 
+  preload(): void {
+    // 延遲載入群組 2：宗門圖示、武器/被動圖示、選單 BGM
+    // 已載入的資源會被 AssetLoader 自動跳過（不重複載入）
+    AssetLoader.preloadMenuAssets(this);
+
+    // 載入失敗靜默處理
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn(`[CharacterSelectScene] 資源載入失敗（已 fallback）: ${file.key} → ${file.url}`);
+    });
+  }
+
   create(): void {
     const W = this.scale.width;
     const H = this.scale.height;

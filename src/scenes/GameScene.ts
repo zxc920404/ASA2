@@ -20,6 +20,7 @@ import { DropItem, DropItemType } from '../objects/DropItem';
 import { MetaProgression } from '../systems/MetaProgression';
 import { EliteLineAttack } from '../objects/EliteLineAttack';
 import { BGMManager } from '../systems/BGMManager';
+import { AssetLoader } from '../utils/AssetLoader';
 
 interface GameSceneData {
   characterId: string;
@@ -217,6 +218,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private readonly SHOW_DEBUG_HUD = false;
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  preload(): void {
+    // 延遲載入群組 3：敵人 sprite、戰鬥 BGM、宗門立繪
+    // 已載入的資源會被 AssetLoader 自動跳過（不重複載入）
+    AssetLoader.preloadGameAssets(this);
+
+    // 載入失敗靜默處理（不讓 console error 影響遊戲流程）
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn(`[GameScene] 資源載入失敗（已 fallback）: ${file.key} → ${file.url}`);
+    });
   }
 
   init(data: GameSceneData): void {
