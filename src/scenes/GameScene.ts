@@ -2338,21 +2338,24 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 霸刀橫斬：大當家普通近戰攻擊
    * 前搖結束後執行重型橫斬，命中造成傷害與小幅擊退
+   * 攻擊方向朝玩家，判定基於施放時的 cx/cy + 方向向量
    */
   private doChargerMeleeSlash(cx: number, cy: number, dmg: number, dirX: number, dirY: number): void {
     if (!this.scene.isActive()) return;
 
-    const SLASH_RANGE = 80;
+    const SLASH_RANGE = 140;          // 攻擊距離（px）
+    const SLASH_WIDTH = 120;          // 攻擊寬度（px，扇形弧長對應）
+    const arcSpread = Math.PI * 0.60; // 約 108°，對應 width 120
     const baseAngle = Math.atan2(dirY, dirX);
-    const arcSpread = Math.PI * 0.55; // 約 100° 弧
 
     // ── 重型橫斬弧線視覺（深紅/暗金色）──────────────────────────────
     const slashG = this.add.graphics();
     slashG.setDepth(19);
-    slashG.lineStyle(10, 0xcc2200, 0.95);
+    // 外層弧（深紅）
+    slashG.lineStyle(14, 0xcc2200, 0.95);
     slashG.beginPath();
-    for (let i = 0; i <= 14; i++) {
-      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 14);
+    for (let i = 0; i <= 16; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 16);
       const px = cx + Math.cos(a) * SLASH_RANGE;
       const py = cy + Math.sin(a) * SLASH_RANGE;
       if (i === 0) slashG.moveTo(px, py);
@@ -2360,79 +2363,98 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
     slashG.strokePath();
     // 內層弧（金色）
-    slashG.lineStyle(4, 0xffaa00, 0.7);
+    slashG.lineStyle(5, 0xffaa00, 0.75);
     slashG.beginPath();
-    for (let i = 0; i <= 14; i++) {
-      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 14);
-      const px = cx + Math.cos(a) * (SLASH_RANGE * 0.65);
-      const py = cy + Math.sin(a) * (SLASH_RANGE * 0.65);
+    for (let i = 0; i <= 16; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 16);
+      const px = cx + Math.cos(a) * (SLASH_RANGE * 0.6);
+      const py = cy + Math.sin(a) * (SLASH_RANGE * 0.6);
       if (i === 0) slashG.moveTo(px, py);
       else slashG.lineTo(px, py);
     }
     slashG.strokePath();
+    // 扇形填充（淡紅）
+    slashG.fillStyle(0xff2200, 0.08);
+    slashG.beginPath();
+    slashG.moveTo(cx, cy);
+    for (let i = 0; i <= 16; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 16);
+      slashG.lineTo(cx + Math.cos(a) * SLASH_RANGE, cy + Math.sin(a) * SLASH_RANGE);
+    }
+    slashG.closePath();
+    slashG.fillPath();
 
     this.tweens.add({
       targets: slashG,
       alpha: 0,
-      duration: 220,
+      duration: 250,
       ease: 'Power2',
       onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
     });
 
-    // ── 傷害與擊退判定 ────────────────────────────────────────────────
+    // ── 傷害與擊退判定（扇形範圍，基於施放位置 cx/cy）────────────────
     const pdx = this.player.x - cx;
     const pdy = this.player.y - cy;
     const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-    if (pdist <= SLASH_RANGE + 10) {
-      this.player.takeDamage(dmg, this);
-      // 小幅擊退
-      if (pdist > 1) {
-        this.player.applyExternalMove(
-          (pdx / pdist) * 45,
-          (pdy / pdist) * 45
-        );
+    if (pdist <= SLASH_RANGE + 14) {
+      // 角度判定：玩家是否在扇形內
+      const playerAngle = Math.atan2(pdy, pdx);
+      let angleDiff = playerAngle - baseAngle;
+      while (angleDiff > Math.PI)  angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      if (Math.abs(angleDiff) <= arcSpread * 0.5 + 0.1) {
+        this.player.takeDamage(dmg, this);
+        // 小幅擊退
+        if (pdist > 1) {
+          this.player.applyExternalMove(
+            (pdx / pdist) * 50,
+            (pdy / pdist) * 50
+          );
+        }
       }
     }
   }
 
   /**
    * 蠻王衝鋒：大當家連續衝刺技能
-   * 蓄力後連續衝刺 2～3 次，每次落點造成小範圍傷害
+   * 蓄力後連續衝刺 2 次，每次衝刺前有清楚預警線，落點造成小範圍傷害
+   * 速度降低 35%，確保玩家有足夠反應時間
    */
   private spawnChargerDash(fromX: number, fromY: number, targetX: number, targetY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const WINDUP_DUR    = 600;   // 蓄力時間（ms）
-    const DASH_SPEED    = 520;   // 衝刺速度（px/s）
+    const WINDUP_DUR    = 1100;  // 初始蓄力時間（ms）：1.1 秒
+    const WARN_DUR      = 550;   // 每段衝刺前預警時間（ms）：0.55 秒
+    const DASH_SPEED    = 338;   // 衝刺速度（px/s）：原 520 降低 35%
     const DASH_DIST     = 220;   // 單次衝刺距離（px）
-    const DASH_DUR      = Math.round((DASH_DIST / DASH_SPEED) * 1000); // 約 423ms
-    const IMPACT_RADIUS = 85;    // 落點傷害半徑（px）
+    const DASH_DUR      = Math.round((DASH_DIST / DASH_SPEED) * 1000); // 約 651ms
+    const IMPACT_RADIUS = 120;   // 落點傷害半徑（px）
     const IMPACT_DMG    = Math.ceil(charger.contactDamage * 0.75);
-    const COMBO_COUNT   = 2 + (Math.random() < 0.4 ? 1 : 0); // 2 或 3 次
-    const PAUSE_BETWEEN = 220;   // 每次衝刺後停頓（ms）
-    const STAGGER_DUR   = 350;   // 最後衝刺後硬直（ms）
+    const COMBO_COUNT   = 2;     // 固定 2 次衝刺
+    const PAUSE_BETWEEN = 380;   // 每次衝刺後停頓（ms）：0.38 秒硬直
+    const STAGGER_DUR   = 420;   // 最後衝刺後硬直（ms）
 
-    // ── 蓄力視覺（紅色光圈收縮）──────────────────────────────────────
+    // ── 蓄力視覺（紅色光圈收縮 + 地面震動線）──────────────────────
     const windupG = this.add.graphics();
     windupG.setDepth(17);
-    windupG.lineStyle(4, 0xff2200, 0.85);
-    windupG.strokeCircle(fromX, fromY, 50);
-    windupG.fillStyle(0xff0000, 0.10);
-    windupG.fillCircle(fromX, fromY, 50);
+    windupG.lineStyle(5, 0xff2200, 0.9);
+    windupG.strokeCircle(fromX, fromY, 60);
+    windupG.lineStyle(2, 0xff6600, 0.6);
+    windupG.strokeCircle(fromX, fromY, 80);
+    windupG.fillStyle(0xff0000, 0.12);
+    windupG.fillCircle(fromX, fromY, 60);
 
     this.tweens.add({
       targets: windupG,
-      scaleX: 0.3, scaleY: 0.3,
-      alpha: 0.5,
+      scaleX: 0.2, scaleY: 0.2,
+      alpha: 0.4,
       duration: WINDUP_DUR,
       ease: 'Power2',
       onComplete: () => { if (windupG && windupG.active) windupG.destroy(); },
     });
 
-    // ── 蓄力期間：大當家停止移動（已由 chargerState = 'casting' 控制）
-
     // ── 執行連續衝刺 ──────────────────────────────────────────────────
-    const executeDash = (dashIndex: number, startX: number, startY: number, tX: number, tY: number) => {
+    const executeDash = (dashIndex: number, startX: number, startY: number) => {
       if (this.isPaused || this.isGameOver || this.isVictory) {
         charger.chargerEndCast();
         return;
@@ -2442,7 +2464,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      // 計算衝刺方向（朝玩家當前位置，略微修正）
+      // 計算衝刺方向（鎖定預警開始時的玩家位置，不追蹤）
       const px = this.player.x;
       const py = this.player.y;
       const dx = px - startX;
@@ -2454,113 +2476,137 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const endX = Phaser.Math.Clamp(startX + dirX * DASH_DIST, 32, WORLD_WIDTH  - 32);
       const endY = Phaser.Math.Clamp(startY + dirY * DASH_DIST, 32, WORLD_HEIGHT - 32);
 
-      // ── 衝刺方向預警線（短暫顯示）──────────────────────────────────
+      // ── 衝刺方向預警線（存在 WARN_DUR 秒，讓玩家有時間閃避）──────
       const warnG = this.add.graphics();
       warnG.setDepth(17);
-      warnG.lineStyle(3, 0xff4400, 0.75);
+      // 方向線（橘紅）
+      warnG.lineStyle(4, 0xff4400, 0.85);
       warnG.lineBetween(startX, startY, endX, endY);
-      warnG.lineStyle(1.5, 0xffaa00, 0.5);
+      // 落點範圍圈
+      warnG.lineStyle(3, 0xffaa00, 0.7);
       warnG.strokeCircle(endX, endY, IMPACT_RADIUS);
+      warnG.fillStyle(0xff4400, 0.08);
+      warnG.fillCircle(endX, endY, IMPACT_RADIUS);
+      // 箭頭指示
+      warnG.lineStyle(2, 0xffdd00, 0.6);
+      const arrowMidX = startX + dirX * DASH_DIST * 0.6;
+      const arrowMidY = startY + dirY * DASH_DIST * 0.6;
+      const perpX = -dirY * 12;
+      const perpY =  dirX * 12;
+      warnG.lineBetween(arrowMidX - perpX, arrowMidY - perpY, arrowMidX + dirX * 20, arrowMidY + dirY * 20);
+      warnG.lineBetween(arrowMidX + perpX, arrowMidY + perpY, arrowMidX + dirX * 20, arrowMidY + dirY * 20);
+
+      // 預警線在衝刺開始後淡出
       this.tweens.add({
         targets: warnG,
         alpha: 0,
-        duration: DASH_DUR + 100,
+        delay: WARN_DUR,
+        duration: DASH_DUR + 150,
         ease: 'Power1',
         onComplete: () => { if (warnG && warnG.active) warnG.destroy(); },
       });
 
-      // ── 大當家移動（tween 模擬衝刺）──────────────────────────────────
-      const eliteVisual = (charger as any).visual as Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
+      // ── 預警結束後執行衝刺 ────────────────────────────────────────────
+      this.time.delayedCall(WARN_DUR, () => {
+        if (this.isPaused || this.isGameOver || this.isVictory) {
+          charger.chargerEndCast();
+          return;
+        }
+        if (!charger.active || charger.isDying) {
+          charger.chargerEndCast();
+          return;
+        }
 
-      this.tweens.add({
-        targets: charger,
-        x: endX,
-        y: endY,
-        duration: DASH_DUR,
-        ease: 'Power2.In',
-        onUpdate: () => {
-          // 同步視覺
-          (charger as any).syncVisual?.();
-        },
-        onComplete: () => {
-          // 同步視覺到最終位置
-          (charger as any).syncVisual?.();
+        // ── 大當家移動（tween 模擬衝刺）──────────────────────────────
+        this.tweens.add({
+          targets: charger,
+          x: endX,
+          y: endY,
+          duration: DASH_DUR,
+          ease: 'Power2.In',
+          onUpdate: () => {
+            (charger as any).syncVisual?.();
+          },
+          onComplete: () => {
+            (charger as any).syncVisual?.();
 
-          // ── 落點衝擊視覺（塵土震地）──────────────────────────────────
-          const impactG = this.add.graphics();
-          impactG.setDepth(18);
-          impactG.lineStyle(6, 0xcc4400, 0.9);
-          impactG.strokeCircle(endX, endY, IMPACT_RADIUS * 0.4);
-          impactG.lineStyle(3, 0xff6600, 0.7);
-          impactG.strokeCircle(endX, endY, IMPACT_RADIUS);
-          impactG.fillStyle(0x884400, 0.18);
-          impactG.fillCircle(endX, endY, IMPACT_RADIUS);
-          this.tweens.add({
-            targets: impactG,
-            scaleX: 1.3, scaleY: 1.3,
-            alpha: 0,
-            duration: 300,
-            ease: 'Power2',
-            onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
-          });
-
-          // ── 落點傷害判定 ──────────────────────────────────────────────
-          const pdx = this.player.x - endX;
-          const pdy = this.player.y - endY;
-          const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-          if (pdist <= IMPACT_RADIUS + 14) {
-            this.player.takeDamage(IMPACT_DMG, this);
-            if (pdist > 1) {
-              this.player.applyExternalMove(
-                (pdx / pdist) * 55,
-                (pdy / pdist) * 55
-              );
-            }
-          }
-
-          // ── 衝刺殘影（3 個漸隱圓點）──────────────────────────────────
-          for (let t = 0; t < 3; t++) {
-            const trailX = startX + (endX - startX) * ((t + 1) / 4);
-            const trailY = startY + (endY - startY) * ((t + 1) / 4);
-            const trailG = this.add.graphics();
-            trailG.setDepth(16);
-            trailG.fillStyle(0xff4400, 0.35 - t * 0.1);
-            trailG.fillCircle(trailX, trailY, 18 - t * 4);
+            // ── 落點衝擊視覺（塵土震地）──────────────────────────────
+            const impactG = this.add.graphics();
+            impactG.setDepth(18);
+            impactG.lineStyle(7, 0xcc4400, 0.95);
+            impactG.strokeCircle(endX, endY, IMPACT_RADIUS * 0.35);
+            impactG.lineStyle(4, 0xff6600, 0.75);
+            impactG.strokeCircle(endX, endY, IMPACT_RADIUS);
+            impactG.fillStyle(0x884400, 0.20);
+            impactG.fillCircle(endX, endY, IMPACT_RADIUS);
             this.tweens.add({
-              targets: trailG,
+              targets: impactG,
+              scaleX: 1.4, scaleY: 1.4,
               alpha: 0,
-              duration: 250,
-              delay: t * 40,
-              ease: 'Power1',
-              onComplete: () => { if (trailG && trailG.active) trailG.destroy(); },
+              duration: 350,
+              ease: 'Power2',
+              onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
             });
-          }
 
-          // ── 繼續下一次衝刺或結束 ──────────────────────────────────────
-          const nextIndex = dashIndex + 1;
-          if (nextIndex < COMBO_COUNT) {
-            this.time.delayedCall(PAUSE_BETWEEN, () => {
-              if (this.isPaused || this.isGameOver || this.isVictory) {
-                charger.chargerEndCast();
-                return;
+            // ── 落點傷害判定（基於 endX/endY，不漂移）────────────────
+            const pdx = this.player.x - endX;
+            const pdy = this.player.y - endY;
+            const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (pdist <= IMPACT_RADIUS + 14) {
+              this.player.takeDamage(IMPACT_DMG, this);
+              if (pdist > 1) {
+                this.player.applyExternalMove(
+                  (pdx / pdist) * 60,
+                  (pdy / pdist) * 60
+                );
               }
-              if (!charger.active || charger.isDying) {
+            }
+
+            // ── 衝刺殘影（3 個漸隱圓點）──────────────────────────────
+            for (let t = 0; t < 3; t++) {
+              const trailX = startX + (endX - startX) * ((t + 1) / 4);
+              const trailY = startY + (endY - startY) * ((t + 1) / 4);
+              const trailG = this.add.graphics();
+              trailG.setDepth(16);
+              trailG.fillStyle(0xff4400, 0.35 - t * 0.1);
+              trailG.fillCircle(trailX, trailY, 20 - t * 4);
+              this.tweens.add({
+                targets: trailG,
+                alpha: 0,
+                duration: 280,
+                delay: t * 50,
+                ease: 'Power1',
+                onComplete: () => { if (trailG && trailG.active) trailG.destroy(); },
+              });
+            }
+
+            // ── 繼續下一次衝刺或結束 ──────────────────────────────────
+            const nextIndex = dashIndex + 1;
+            if (nextIndex < COMBO_COUNT) {
+              this.time.delayedCall(PAUSE_BETWEEN, () => {
+                if (this.isPaused || this.isGameOver || this.isVictory) {
+                  charger.chargerEndCast();
+                  return;
+                }
+                if (!charger.active || charger.isDying) {
+                  charger.chargerEndCast();
+                  return;
+                }
+                // 下一段衝刺重新瞄準玩家當前位置
+                executeDash(nextIndex, charger.x, charger.y);
+              });
+            } else {
+              // 最後一次衝刺後硬直
+              this.time.delayedCall(STAGGER_DUR, () => {
                 charger.chargerEndCast();
-                return;
-              }
-              executeDash(nextIndex, charger.x, charger.y, this.player.x, this.player.y);
-            });
-          } else {
-            // 最後一次衝刺後硬直
-            this.time.delayedCall(STAGGER_DUR, () => {
-              charger.chargerEndCast();
-            });
-          }
-        },
+              });
+            }
+          },
+        });
       });
     };
 
-    // 蓄力結束後開始第一次衝刺
+    // 蓄力結束後開始第一次衝刺（含預警）
     this.time.delayedCall(WINDUP_DUR, () => {
       if (this.isPaused || this.isGameOver || this.isVictory) {
         charger.chargerEndCast();
@@ -2570,7 +2616,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         charger.chargerEndCast();
         return;
       }
-      executeDash(0, charger.x, charger.y, this.player.x, this.player.y);
+      executeDash(0, charger.x, charger.y);
     });
   }
 
@@ -2578,23 +2624,30 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 裂寨三斬：大當家連續扇形斬擊
    * 連續揮出三次扇形斬擊，每斬朝向玩家，有間隔
    */
+  /**
+   * 裂寨三斬：大當家連續扇形斬擊
+   * 連續揮出三次扇形斬擊，每斬朝向玩家，有間隔
+   * 判定基於每斬開始時的 charger.x/y，不漂移
+   */
   private spawnChargerTripleSlash(cx: number, cy: number, dirX: number, dirY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const SLASH_RANGE  = 120;   // 斬擊距離（px）
-    const SLASH_ANGLE  = Math.PI * 0.45; // 約 81° 扇形
-    const SLASH_DMG    = Math.ceil(charger.contactDamage * 0.6);
+    const SLASH_RANGE  = 210;              // 斬擊距離（px）
+    const SLASH_ANGLE  = Math.PI * 0.611; // 約 110° 扇形
+    const SLASH_DMG    = Math.ceil(charger.contactDamage * 0.65);
     const SLASH_COUNT  = 3;
-    const SLASH_INTERVAL = 320; // 每斬間隔（ms）
-    const WINDUP_DUR   = 350;   // 第一斬前搖（ms）
+    const SLASH_INTERVAL = 380;            // 每斬間隔（ms）
+    const WINDUP_DUR   = 400;             // 第一斬前搖（ms）
 
-    // ── 前搖提示（大當家身上出現紅色光芒）──────────────────────────
+    // ── 前搖提示（大當家身上出現紅色光芒，範圍更大）──────────────
     const windupG = this.add.graphics();
     windupG.setDepth(17);
-    windupG.lineStyle(3, 0xff2200, 0.8);
-    windupG.strokeCircle(cx, cy, 38);
-    windupG.fillStyle(0xff0000, 0.12);
-    windupG.fillCircle(cx, cy, 38);
+    windupG.lineStyle(4, 0xff2200, 0.85);
+    windupG.strokeCircle(cx, cy, 50);
+    windupG.lineStyle(2, 0xff6600, 0.5);
+    windupG.strokeCircle(cx, cy, 70);
+    windupG.fillStyle(0xff0000, 0.10);
+    windupG.fillCircle(cx, cy, 50);
     this.tweens.add({
       targets: windupG,
       alpha: 0,
@@ -2613,37 +2666,68 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
+      // 記錄施放時的位置（判定基於此，不漂移）
+      const castX = charger.x;
+      const castY = charger.y;
+
       // 每斬重新朝向玩家
-      const bx = charger.x;
-      const by = charger.y;
-      const pdx = this.player.x - bx;
-      const pdy = this.player.y - by;
+      const pdx = this.player.x - castX;
+      const pdy = this.player.y - castY;
       const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
       const sDirX = pdist > 0 ? pdx / pdist : dirX;
       const sDirY = pdist > 0 ? pdy / pdist : dirY;
       const baseAngle = Math.atan2(sDirY, sDirX);
 
-      // ── 揮刀視覺（深紅弧線）──────────────────────────────────────────
+      // ── 預警扇形（與傷害扇形一致）────────────────────────────────
+      const previewG = this.add.graphics();
+      previewG.setDepth(17);
+      previewG.fillStyle(0xff2200, 0.10);
+      previewG.beginPath();
+      previewG.moveTo(castX, castY);
+      for (let i = 0; i <= 16; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+        previewG.lineTo(castX + Math.cos(a) * SLASH_RANGE, castY + Math.sin(a) * SLASH_RANGE);
+      }
+      previewG.closePath();
+      previewG.fillPath();
+      previewG.lineStyle(2, 0xff4400, 0.6);
+      previewG.beginPath();
+      previewG.moveTo(castX, castY);
+      for (let i = 0; i <= 16; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+        previewG.lineTo(castX + Math.cos(a) * SLASH_RANGE, castY + Math.sin(a) * SLASH_RANGE);
+      }
+      previewG.closePath();
+      previewG.strokePath();
+      this.tweens.add({
+        targets: previewG,
+        alpha: 0,
+        duration: 320,
+        ease: 'Power1',
+        onComplete: () => { if (previewG && previewG.active) previewG.destroy(); },
+      });
+
+      // ── 揮刀視覺（深紅弧線，與預警扇形一致）──────────────────────
       const slashG = this.add.graphics();
       slashG.setDepth(19);
       // 外層弧（深紅）
-      slashG.lineStyle(9, 0xcc1100, 0.95);
+      slashG.lineStyle(12, 0xcc1100, 0.95);
       slashG.beginPath();
-      for (let i = 0; i <= 14; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 14);
-        const px = bx + Math.cos(a) * SLASH_RANGE;
-        const py = by + Math.sin(a) * SLASH_RANGE;
+      for (let i = 0; i <= 16; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+        const px = castX + Math.cos(a) * SLASH_RANGE;
+        const py = castY + Math.sin(a) * SLASH_RANGE;
         if (i === 0) slashG.moveTo(px, py);
         else slashG.lineTo(px, py);
       }
       slashG.strokePath();
       // 內層弧（橘金）
-      slashG.lineStyle(4, 0xff8800, 0.7);
+      slashG.lineStyle(5, 0xff8800, 0.75);
       slashG.beginPath();
-      for (let i = 0; i <= 14; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 14);
-        const px = bx + Math.cos(a) * (SLASH_RANGE * 0.6);
-        const py = by + Math.sin(a) * (SLASH_RANGE * 0.6);
+      for (let i = 0; i <= 16; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+        const px = castX + Math.cos(a) * (SLASH_RANGE * 0.55);
+        const py = castY + Math.sin(a) * (SLASH_RANGE * 0.55);
         if (i === 0) slashG.moveTo(px, py);
         else slashG.lineTo(px, py);
       }
@@ -2652,20 +2736,18 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.tweens.add({
         targets: slashG,
         alpha: 0,
-        duration: 280,
+        duration: 300,
         ease: 'Power2',
         onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
       });
 
-      // ── 傷害判定（扇形範圍）──────────────────────────────────────────
-      const playerDx = this.player.x - bx;
-      const playerDy = this.player.y - by;
+      // ── 傷害判定（扇形範圍，基於 castX/castY，不漂移）────────────
+      const playerDx = this.player.x - castX;
+      const playerDy = this.player.y - castY;
       const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-      if (playerDist <= SLASH_RANGE + 10) {
-        // 角度判定：玩家是否在扇形內
+      if (playerDist <= SLASH_RANGE + 12) {
         const playerAngle = Math.atan2(playerDy, playerDx);
         let angleDiff = playerAngle - baseAngle;
-        // 正規化到 -π ~ π
         while (angleDiff > Math.PI)  angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
         if (Math.abs(angleDiff) <= SLASH_ANGLE * 0.5 + 0.1) {
@@ -2681,7 +2763,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         });
       } else {
         // 三斬結束，短暫硬直後回到 idle
-        this.time.delayedCall(300, () => {
+        this.time.delayedCall(320, () => {
           charger.chargerEndCast();
         });
       }
@@ -2699,28 +2781,29 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 連環破甲刺：大當家連續直線戳擊
-   * 站定後朝玩家方向連續戳擊 3～5 次，每次前方直線攻擊判定
+   * 站定後朝玩家方向連續戳擊 4 次，每次前方長條直線攻擊判定
+   * 判定基於每次戳擊時的 charger.x/y + 方向向量，不漂移
    */
   private spawnChargerStab(cx: number, cy: number, dirX: number, dirY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const STAB_COUNT    = 3 + Math.floor(Math.random() * 3); // 3～5 次
-    const STAB_RANGE    = 150;  // 戳擊距離（px）
-    const STAB_WIDTH    = 45;   // 攻擊寬度（px，用於判定）
-    const STAB_DMG      = Math.ceil(charger.contactDamage * 0.45);
-    const STAB_WINDUP   = 200;  // 每次戳擊前搖（ms）
-    const STAB_INTERVAL = 280;  // 每次戳擊間隔（ms）
-    const WINDUP_DUR    = 450;  // 技能前搖（ms）
+    const STAB_COUNT    = 4;     // 固定 4 次戳擊
+    const STAB_RANGE    = 300;   // 戳擊距離（px）
+    const STAB_WIDTH    = 80;    // 攻擊寬度（px，用於判定）
+    const STAB_DMG      = Math.ceil(charger.contactDamage * 0.50);
+    const STAB_WINDUP   = 250;   // 每次戳擊前搖（ms）
+    const STAB_INTERVAL = 350;   // 每次戳擊間隔（ms）
+    const WINDUP_DUR    = 500;   // 技能前搖（ms）
 
-    // ── 技能前搖提示（大當家身上出現藍白光芒）──────────────────────
+    // ── 技能前搖提示（大當家身上出現藍白光芒，範圍更大）──────────
     const windupG = this.add.graphics();
     windupG.setDepth(17);
-    windupG.lineStyle(3, 0xffffff, 0.7);
-    windupG.strokeCircle(cx, cy, 35);
-    windupG.lineStyle(2, 0xaaddff, 0.5);
-    windupG.strokeCircle(cx, cy, 50);
+    windupG.lineStyle(4, 0xffffff, 0.75);
+    windupG.strokeCircle(cx, cy, 45);
+    windupG.lineStyle(2, 0xaaddff, 0.55);
+    windupG.strokeCircle(cx, cy, 65);
     windupG.fillStyle(0xaaddff, 0.08);
-    windupG.fillCircle(cx, cy, 50);
+    windupG.fillCircle(cx, cy, 65);
     this.tweens.add({
       targets: windupG,
       alpha: 0,
@@ -2739,12 +2822,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      const bx = charger.x;
-      const by = charger.y;
+      // 記錄施放時的位置（判定基於此，不漂移）
+      const castX = charger.x;
+      const castY = charger.y;
 
       // 每次戳擊方向可略微修正（不可 360 度瞬間轉向）
-      const pdx = this.player.x - bx;
-      const pdy = this.player.y - by;
+      const pdx = this.player.x - castX;
+      const pdy = this.player.y - castY;
       const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
       // 混合原方向與玩家方向（70% 原方向 + 30% 玩家方向）
       const newDirX = dirX * 0.7 + (pdist > 0 ? pdx / pdist : 0) * 0.3;
@@ -2756,16 +2840,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       dirX = sDirX;
       dirY = sDirY;
 
-      const endX = bx + sDirX * STAB_RANGE;
-      const endY = by + sDirY * STAB_RANGE;
+      // 終點基於施放位置 + 方向（固定，不追蹤）
+      const endX = castX + sDirX * STAB_RANGE;
+      const endY = castY + sDirY * STAB_RANGE;
 
-      // ── 前方直線預警（短暫顯示）──────────────────────────────────────
+      // ── 前方直線預警（存在 STAB_WINDUP 時間，讓玩家可側移閃避）──
       const warnG = this.add.graphics();
       warnG.setDepth(17);
-      warnG.lineStyle(STAB_WIDTH, 0xffffff, 0.12);
-      warnG.lineBetween(bx, by, endX, endY);
-      warnG.lineStyle(2, 0xaaddff, 0.7);
-      warnG.lineBetween(bx, by, endX, endY);
+      warnG.lineStyle(STAB_WIDTH, 0xffffff, 0.10);
+      warnG.lineBetween(castX, castY, endX, endY);
+      warnG.lineStyle(3, 0xaaddff, 0.75);
+      warnG.lineBetween(castX, castY, endX, endY);
+      // 終點圓圈提示
+      warnG.lineStyle(2, 0x88ccff, 0.5);
+      warnG.strokeCircle(endX, endY, STAB_WIDTH * 0.5);
       this.tweens.add({
         targets: warnG,
         alpha: 0,
@@ -2779,40 +2867,38 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
         if (!charger.active || charger.isDying) return;
 
-        const stabBx = charger.x;
-        const stabBy = charger.y;
-        const stabEndX = stabBx + sDirX * STAB_RANGE;
-        const stabEndY = stabBy + sDirY * STAB_RANGE;
+        // 戳擊視覺基於施放時記錄的 castX/castY（不用 charger.x/y，避免漂移）
+        const stabEndX = castX + sDirX * STAB_RANGE;
+        const stabEndY = castY + sDirY * STAB_RANGE;
 
-        // ── 戳擊視覺（白藍色直線氣勁）──────────────────────────────────
+        // ── 戳擊視覺（白藍色直線氣勁，更粗更長）──────────────────────
         const stabG = this.add.graphics();
         stabG.setDepth(19);
-        stabG.lineStyle(STAB_WIDTH * 0.6, 0xaaddff, 0.35);
-        stabG.lineBetween(stabBx, stabBy, stabEndX, stabEndY);
-        stabG.lineStyle(4, 0xffffff, 0.95);
-        stabG.lineBetween(stabBx, stabBy, stabEndX, stabEndY);
-        stabG.lineStyle(2, 0x88ccff, 0.8);
-        stabG.lineBetween(stabBx, stabBy, stabEndX, stabEndY);
+        stabG.lineStyle(STAB_WIDTH * 0.7, 0xaaddff, 0.30);
+        stabG.lineBetween(castX, castY, stabEndX, stabEndY);
+        stabG.lineStyle(5, 0xffffff, 0.95);
+        stabG.lineBetween(castX, castY, stabEndX, stabEndY);
+        stabG.lineStyle(2, 0x88ccff, 0.85);
+        stabG.lineBetween(castX, castY, stabEndX, stabEndY);
         this.tweens.add({
           targets: stabG,
           alpha: 0,
-          duration: 180,
+          duration: 200,
           ease: 'Power2',
           onComplete: () => { if (stabG && stabG.active) stabG.destroy(); },
         });
 
-        // ── 傷害判定（直線矩形範圍）──────────────────────────────────────
-        // 計算玩家到直線的距離
-        const playerDx = this.player.x - stabBx;
-        const playerDy = this.player.y - stabBy;
+        // ── 傷害判定（直線矩形範圍，基於 castX/castY，不漂移）────────
+        const playerDx = this.player.x - castX;
+        const playerDy = this.player.y - castY;
         // 投影到戳擊方向
         const proj = playerDx * sDirX + playerDy * sDirY;
-        if (proj >= 0 && proj <= STAB_RANGE + 14) {
+        if (proj >= 0 && proj <= STAB_RANGE + 16) {
           // 垂直距離
           const perpX = playerDx - sDirX * proj;
           const perpY = playerDy - sDirY * proj;
           const perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
-          if (perpDist <= STAB_WIDTH * 0.5 + 10) {
+          if (perpDist <= STAB_WIDTH * 0.5 + 12) {
             this.player.takeDamage(STAB_DMG, this);
           }
         }
@@ -2826,7 +2912,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         });
       } else {
         // 全部戳擊結束，短暫硬直後回到 idle
-        this.time.delayedCall(350, () => {
+        this.time.delayedCall(380, () => {
           charger.chargerEndCast();
         });
       }

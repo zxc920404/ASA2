@@ -80,12 +80,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private chargerMeleeCooldown: number = 2000;
   /** 普通攻擊前搖計時（ms，> 0 表示前搖中） */
   private chargerMeleeWindupTimer: number = 0;
-  /** 普通攻擊距離（px） */
-  private readonly CHARGER_MELEE_RANGE = 75;
-  /** 普通攻擊前搖時間（ms） */
-  private readonly CHARGER_MELEE_WINDUP = 380;
+  /** 普通攻擊距離（px）：140 讓大當家在中距離就能觸發橫斬 */
+  private readonly CHARGER_MELEE_RANGE = 140;
+  /** 普通攻擊前搖時間（ms）：0.42 秒，玩家有時間反應 */
+  private readonly CHARGER_MELEE_WINDUP = 420;
   /** 普通攻擊冷卻最小值（ms） */
-  private readonly CHARGER_MELEE_CD_MIN = 1400;
+  private readonly CHARGER_MELEE_CD_MIN = 1500;
   /** 普通攻擊冷卻最大值（ms） */
   private readonly CHARGER_MELEE_CD_MAX = 2000;
 
