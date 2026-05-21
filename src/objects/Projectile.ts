@@ -70,6 +70,16 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   /** 回程命中的敵人集合（防止回程對同一敵人重複傷害） */
   public returnHitEnemies: Set<Enemy>;
 
+  // ── 霜裂冰痕狀態（霜裂冰錐用）──────────────────────────────────────
+  /** 是否啟用霜裂冰痕機制 */
+  public hasFrostCrack: boolean;
+  /** 霜裂冰痕爆裂傷害（已套用 attackPower） */
+  public crackDamage: number;
+  /** 霜裂冰痕爆裂半徑（已套用 areaMultiplier） */
+  public crackRadius: number;
+  /** 霜裂冰痕爆裂延遲（秒） */
+  public crackDelay: number;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -117,6 +127,12 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.splitDepth = 0;
     this.sourceWeaponId = weaponId;
     this.hasSplit = false;
+
+    // 霜裂冰痕狀態初始化
+    this.hasFrostCrack = false;
+    this.crackDamage = 0;
+    this.crackRadius = 0;
+    this.crackDelay = 0.25;
 
     scene.add.existing(this);
     this.setDepth(6);

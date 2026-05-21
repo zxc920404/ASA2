@@ -5,96 +5,123 @@ import { Projectile } from '../objects/Projectile';
 import { PoisonCloud } from '../objects/PoisonCloud';
 import { getWeaponById } from '../data/weapons';
 
-/** ?•å??©ç¾¤çµ„ä??ï?Requirement ?ˆèƒ½?åˆ¶ï¼?*/
+/** ?ï¿½ï¿½??ï¿½ç¾¤çµ„ï¿½??ï¿½ï¿½?Requirement ?ï¿½èƒ½?ï¿½åˆ¶ï¿½?*/
 const MAX_PROJECTILES = 100;
 
-/** ?€è¿‘æ•µäººå¿«?–æ›´?°é??”ï?æ¯«ç?ï¼Œæ??½å„ª?–ï? */
+/** ?ï¿½è¿‘æ•µäººå¿«?ï¿½æ›´?ï¿½ï¿½??ï¿½ï¿½?æ¯«ï¿½?ï¼Œï¿½??ï¿½å„ª?ï¿½ï¿½? */
 const ENEMY_CACHE_INTERVAL = 250;
 
-/** å®ˆå??°æ?è½‰é€Ÿåº¦ï¼ˆå¼§åº?ç§’ï? */
+/** å®ˆï¿½??ï¿½ï¿½?è½‰é€Ÿåº¦ï¼ˆå¼§ï¿½?ç§’ï¿½? */
 const RING_ROTATION_SPEED = 2.0;
 
-/** å®ˆå??°æ?è½‰å?å¾‘æ?ä¾‹ï??»æ?ç¯„å???60%ï¼?*/
+/** å®ˆï¿½??ï¿½ï¿½?è½‰ï¿½?å¾‘ï¿½?ä¾‹ï¿½??ï¿½ï¿½?ç¯„ï¿½???60%ï¿½?*/
 const RING_RADIUS_RATIO = 0.6;
 
-/** å®ˆå??°å??Œä??µäºº?„å‚·å®³å†·?»ï?æ¯«ç?ï¼?*/
+/** å®ˆï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½äºº?ï¿½å‚·å®³å†·?ï¿½ï¿½?æ¯«ï¿½?ï¿½?*/
 const RING_DAMAGE_COOLDOWN = 500;
 
-/** èµ¤ç„°?°ç??¸å?å¾‘ï?pxï¼?*/
+/** èµ¤ç„°?ï¿½ï¿½??ï¿½ï¿½?å¾‘ï¿½?pxï¿½?*/
 const FLAME_EXPLOSION_RADIUS = 80;
 
-/** ?½ä¸­?¹æ??Œæ?ä¸Šé? */
+/** ?ï¿½ä¸­?ï¿½ï¿½??ï¿½ï¿½?ä¸Šï¿½? */
 const MAX_HIT_EFFECTS = 30;
 
-/** ?Œæ?å­˜åœ¨?„æ??§æ•¸?ä???*/
+/** ?ï¿½ï¿½?å­˜åœ¨?ï¿½ï¿½??ï¿½æ•¸?ï¿½ï¿½???*/
 const MAX_POISON_CLOUDS = 8;
 
-// ?€?€ é©šé´»æ´¾å¤§?“ï??†è??•å??©å????€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
-/** é©šé´»æ´¾å??€ character id */
+/** éœœè£‚å†°ç—•æœ€å¤§æ•¸é‡ï¼ˆæ•ˆèƒ½é™åˆ¶ï¼‰ */
+const MAX_FROST_CRACKS = 40;
+
+// ?ï¿½?ï¿½ é©šé´»æ´¾å¤§?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½????ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
+/** é©šé´»æ´¾ï¿½??ï¿½ character id */
 const JINGHONG_CHARACTER_ID = 'assassin';
-/** ?†è?å­å??¸é? */
+/** ?ï¿½ï¿½?å­ï¿½??ï¿½ï¿½? */
 const SPLIT_COUNT = 2;
-/** ?†è?å­å??·å®³?ç? */
+/** ?ï¿½ï¿½?å­ï¿½??ï¿½å®³?ï¿½ï¿½? */
 const SPLIT_DAMAGE_MULTIPLIER = 0.55;
-/** ?†è?å­å?å°„ç??ç? */
+/** ?ï¿½ï¿½?å­ï¿½?å°„ï¿½??ï¿½ï¿½? */
 const SPLIT_RANGE_MULTIPLIER = 0.6;
-/** ?†è?è§’åº¦?ç§»ï¼ˆå¼§åº¦ï?ï¼ŒÂ?5 åº?*/
+/** ?ï¿½ï¿½?è§’åº¦?ï¿½ç§»ï¼ˆå¼§åº¦ï¿½?ï¼Œï¿½?5 ï¿½?*/
 const SPLIT_ANGLE_OFFSET = 25 * (Math.PI / 180);
 
 /**
- * å®ˆå??°ç’°ç¹é?
- * ç¹ç©å®¶æ?è½‰ï?ç¢°åˆ°?µäºº? æ??·å®³
+ * å®ˆï¿½??ï¿½ç’°ç¹ï¿½?
+ * ç¹ç©å®¶ï¿½?è½‰ï¿½?ç¢°åˆ°?ï¿½äºº?ï¿½ï¿½??ï¿½å®³
  */
 interface RingOrb {
-  /** Phaser Rectangle é¡¯ç¤º?©ä»¶ */
+  /** Phaser Rectangle é¡¯ç¤º?ï¿½ä»¶ */
   rect: Phaser.GameObjects.Rectangle;
-  /** ?¶å?è§’åº¦ï¼ˆå¼§åº¦ï? */
+  /** ?ï¿½ï¿½?è§’åº¦ï¼ˆå¼§åº¦ï¿½? */
   angle: number;
-  /** å°å??µäºº?„æ?å¾Œå‚·å®³æ??“ï?key: enemy ?©ä»¶å¼•ç”¨ï¼Œvalue: ?‚é??³ï? */
+  /** å°ï¿½??ï¿½äºº?ï¿½ï¿½?å¾Œå‚·å®³ï¿½??ï¿½ï¿½?key: enemy ?ï¿½ä»¶å¼•ç”¨ï¼Œvalue: ?ï¿½ï¿½??ï¿½ï¿½? */
   lastHitMap: Map<Enemy, number>;
 }
 
 /**
- * æ­¦å™¨å¯¦ä??€??
+ * éœœè£‚å†°ç—•ï¼ˆfrostCrackï¼‰
+ * éœœè£‚å†°éŒå‘½ä¸­æ•µäººæ™‚åœ¨å‘½ä¸­ä½ç½®ç”Ÿæˆï¼Œå»¶é²å¾Œçˆ†è£‚é€ æˆç¯„åœå‚·å®³
+ */
+interface FrostCrack {
+  /** å†°ç—•ä½ç½® X */
+  x: number;
+  /** å†°ç—•ä½ç½® Y */
+  y: number;
+  /** çˆ†è£‚å‚·å®³ï¼ˆå·²å¥—ç”¨ attackPowerï¼‰ */
+  damage: number;
+  /** çˆ†è£‚åŠå¾‘ï¼ˆå·²å¥—ç”¨ areaMultiplierï¼‰ */
+  radius: number;
+  /** å‰©é¤˜å»¶é²æ™‚é–“ï¼ˆæ¯«ç§’ï¼‰ */
+  delayRemaining: number;
+  /** è¦–è¦ºåœ–å½¢ç‰©ä»¶ */
+  graphics: Phaser.GameObjects.Graphics;
+  /** æ˜¯å¦å·²çˆ†è£‚ */
+  exploded: boolean;
+}
+
+/**
+ * æ­¦å™¨å¯¦ï¿½??ï¿½??
  */
 interface WeaponInstance {
   weaponId: string;
   level: number;
-  /** è·é›¢ä¸‹æ¬¡?»æ??„å‰©é¤˜æ??“ï?æ¯«ç?ï¼?*/
+  /** è·é›¢ä¸‹æ¬¡?ï¿½ï¿½??ï¿½å‰©é¤˜ï¿½??ï¿½ï¿½?æ¯«ï¿½?ï¿½?*/
   attackCooldown: number;
-  /** å®ˆå??°ç??°ç?é«”å?è¡¨ï???guardian_ring ä½¿ç”¨ï¼?*/
+  /** å®ˆï¿½??ï¿½ï¿½??ï¿½ï¿½?é«”ï¿½?è¡¨ï¿½???guardian_ring ä½¿ç”¨ï¿½?*/
   ringOrbs: RingOrb[];
 }
 
 /**
  * WeaponSystem
- * ç®¡ç??©å®¶?€?‰æ­¦?¨ï?ä¾æ”»?Šé??”è‡ª?•ç™¼å°„æ?å°„ç‰©ï¼ˆRequirement 5.1ï½?.5ï¼?
+ * ç®¡ï¿½??ï¿½å®¶?ï¿½?ï¿½æ­¦?ï¿½ï¿½?ä¾æ”»?ï¿½ï¿½??ï¿½è‡ª?ï¿½ç™¼å°„ï¿½?å°„ç‰©ï¼ˆRequirement 5.1ï¿½?.5ï¿½?
  */
 export class WeaponSystem {
   private scene: Phaser.Scene;
 
-  /** ?•å??©ç¾¤çµ?*/
+  /** ?ï¿½ï¿½??ï¿½ç¾¤ï¿½?*/
   private projectiles: Projectile[] = [];
 
-  /** æ­¦å™¨å¯¦ä??—è¡¨ */
+  /** æ­¦å™¨å¯¦ï¿½??ï¿½è¡¨ */
   private weaponInstances: WeaponInstance[] = [];
 
-  /** ?€è¿‘æ•µäººå¿«??*/
+  /** ?ï¿½è¿‘æ•µäººå¿«??*/
   private cachedEnemies: Enemy[] = [];
 
-  /** è·é›¢ä¸‹æ¬¡å¿«å??´æ–°?„å‰©é¤˜æ??“ï?æ¯«ç?ï¼?*/
+  /** è·é›¢ä¸‹æ¬¡å¿«ï¿½??ï¿½æ–°?ï¿½å‰©é¤˜ï¿½??ï¿½ï¿½?æ¯«ï¿½?ï¿½?*/
   private cacheTimer: number = 0;
 
-  /** ?¯å¦?«å?ï¼ˆRequirement 5.5ï¼?*/
+  /** ?ï¿½å¦?ï¿½ï¿½?ï¼ˆRequirement 5.5ï¿½?*/
   private paused: boolean = false;
 
-  /** ?½ä¸­?¹æ?è¨ˆæ•¸ */
+  /** ?ï¿½ä¸­?ï¿½ï¿½?è¨ˆæ•¸ */
   private activeHitEffects: number = 0;
 
-  /** æ¯’éœ§?€?Ÿå?è¡¨ï?æ¯’éœ§??”¨ï¼?*/
+  /** æ¯’éœ§?ï¿½?ï¿½ï¿½?è¡¨ï¿½?æ¯’éœ§??ï¿½ï¿½ï¿½?*/
   private poisonClouds: PoisonCloud[] = [];
 
-  /** ?¶å??©å®¶å®—é? character idï¼ˆé?é´»æ´¾å¤§é??¤æ–·?¨ï? */
+  /** éœœè£‚å†°ç—•åˆ—è¡¨ */
+  private frostCracks: FrostCrack[] = [];
+
+  /** ?ï¿½ï¿½??ï¿½å®¶å®—ï¿½? character idï¼ˆï¿½?é´»æ´¾å¤§ï¿½??ï¿½æ–·?ï¿½ï¿½? */
   private characterId: string = '';
 
   constructor(scene: Phaser.Scene) {
@@ -102,9 +129,9 @@ export class WeaponSystem {
   }
 
   /**
-   * ?å??–æ­¦?¨ç³»çµ±ï?ä¾ç©å®¶è??™æ?å»ºç?æ­¦å™¨å¯¦ä?
-   * @param player ?©å®¶?©ä»¶
-   * @param characterId ?©å®¶å®—é? character idï¼ˆé?é´»æ´¾å¤§é??¤æ–·?¨ï?
+   * ?ï¿½ï¿½??ï¿½æ­¦?ï¿½ç³»çµ±ï¿½?ä¾ç©å®¶ï¿½??ï¿½ï¿½?å»ºï¿½?æ­¦å™¨å¯¦ï¿½?
+   * @param player ?ï¿½å®¶?ï¿½ä»¶
+   * @param characterId ?ï¿½å®¶å®—ï¿½? character idï¼ˆï¿½?é´»æ´¾å¤§ï¿½??ï¿½æ–·?ï¿½ï¿½?
    */
   public init(player: Player, characterId: string = ''): void {
     this.characterId = characterId;
@@ -118,7 +145,7 @@ export class WeaponSystem {
         ringOrbs: [],
       };
 
-      // å®ˆå??°ï??å?å»ºç??°ç?é«”ï??¸é?å¾?levelStats.count è®€?–ï?å¥—ç”¨ amountBonusï¼?
+      // å®ˆï¿½??ï¿½ï¿½??ï¿½ï¿½?å»ºï¿½??ï¿½ï¿½?é«”ï¿½??ï¿½ï¿½?ï¿½?levelStats.count è®€?ï¿½ï¿½?å¥—ç”¨ amountBonusï¿½?
       if (slot.weaponId === 'guardian_ring') {
         const weaponData = getWeaponById(slot.weaponId);
         const baseCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
@@ -132,28 +159,28 @@ export class WeaponSystem {
   }
 
   /**
-   * ?æ–°?Œæ­¥æ­¦å™¨å¯¦ä?ï¼ˆè??™è??´å??¼å«ï¼?
-   * @param player ?©å®¶?©ä»¶
+   * ?ï¿½æ–°?ï¿½æ­¥æ­¦å™¨å¯¦ï¿½?ï¼ˆï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½å«ï¿½?
+   * @param player ?ï¿½å®¶?ï¿½ä»¶
    */
   public syncWeapons(player: Player): void {
     const newInstances: WeaponInstance[] = [];
 
     for (const slot of player.equipment.weapons) {
-      // å°‹æ‰¾?¾æ?å¯¦ä?
+      // å°‹æ‰¾?ï¿½ï¿½?å¯¦ï¿½?
       const existing = this.weaponInstances.find(w => w.weaponId === slot.weaponId);
 
       if (existing) {
-        // ?´æ–°ç­‰ç?
+        // ?ï¿½æ–°ç­‰ï¿½?
         existing.level = slot.level;
 
-        // å®ˆå??°ï??¥ç?ç´šæ”¹è®Šï??å»º?°ç?é«”ï??¸é?å¾?levelStats.count è®€?–ï?å¥—ç”¨ amountBonusï¼?
+        // å®ˆï¿½??ï¿½ï¿½??ï¿½ï¿½?ç´šæ”¹è®Šï¿½??ï¿½å»º?ï¿½ï¿½?é«”ï¿½??ï¿½ï¿½?ï¿½?levelStats.count è®€?ï¿½ï¿½?å¥—ç”¨ amountBonusï¿½?
         if (slot.weaponId === 'guardian_ring') {
           const weaponData = getWeaponById(slot.weaponId);
           const baseCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
           const amountBonus = weaponData?.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
           const newCount = Math.max(1, baseCount + amountBonus);
           if (existing.ringOrbs.length !== newCount) {
-            // ç§»é™¤?Šç’°ç¹é?
+            // ç§»é™¤?ï¿½ç’°ç¹ï¿½?
             for (const orb of existing.ringOrbs) {
               orb.rect.destroy();
             }
@@ -164,7 +191,7 @@ export class WeaponSystem {
 
         newInstances.push(existing);
       } else {
-        // ?°æ­¦??
+        // ?ï¿½æ­¦??
         const instance: WeaponInstance = {
           weaponId: slot.weaponId,
           level: slot.level,
@@ -184,7 +211,7 @@ export class WeaponSystem {
       }
     }
 
-    // ç§»é™¤å·²ä??¨è??™æ??„æ­¦?¨ï?æ¸…ç??°ç?é«”ï?
+    // ç§»é™¤å·²ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½æ­¦?ï¿½ï¿½?æ¸…ï¿½??ï¿½ï¿½?é«”ï¿½?
     for (const inst of this.weaponInstances) {
       if (!newInstances.includes(inst)) {
         for (const orb of inst.ringOrbs) {
@@ -197,26 +224,26 @@ export class WeaponSystem {
   }
 
   /**
-   * ?«å??€?‰æ”»?Šè??‚ï?Requirement 5.5ï¼?
+   * ?ï¿½ï¿½??ï¿½?ï¿½æ”»?ï¿½ï¿½??ï¿½ï¿½?Requirement 5.5ï¿½?
    */
   public pause(): void {
     this.paused = true;
   }
 
   /**
-   * ?¢å¾©?»æ?è¨ˆæ?ï¼ˆRequirement 5.5ï¼?
+   * ?ï¿½å¾©?ï¿½ï¿½?è¨ˆï¿½?ï¼ˆRequirement 5.5ï¿½?
    */
   public resume(): void {
     this.paused = false;
   }
 
   /**
-   * æ¯å??´æ–°ï¼ˆç”± GameScene.update() ?¼å«ï¼?
-   * @param time  ?¶å??‚é??³ï?æ¯«ç?ï¼?
-   * @param delta å¹€?‚é?å·®ï?æ¯«ç?ï¼?
-   * @param player ?©å®¶?©ä»¶
-   * @param enemies ?´ä??€?‰æ•µäº?
-   * @returns ?€è¦ç§»?¤ç??µäºº?—è¡¨ï¼ˆHP ??0ï¼?
+   * æ¯ï¿½??ï¿½æ–°ï¼ˆç”± GameScene.update() ?ï¿½å«ï¿½?
+   * @param time  ?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?æ¯«ï¿½?ï¿½?
+   * @param delta å¹€?ï¿½ï¿½?å·®ï¿½?æ¯«ï¿½?ï¿½?
+   * @param player ?ï¿½å®¶?ï¿½ä»¶
+   * @param enemies ?ï¿½ï¿½??ï¿½?ï¿½æ•µï¿½?
+   * @returns ?ï¿½è¦ç§»?ï¿½ï¿½??ï¿½äºº?ï¿½è¡¨ï¼ˆHP ??0ï¿½?
    */
   public update(
     time: number,
@@ -226,9 +253,9 @@ export class WeaponSystem {
   ): Enemy[] {
     const deadEnemies: Enemy[] = [];
 
-    // ?«å??‚å?æ­¢æ??‰æ”»?Šè??ºï?Requirement 5.5ï¼?
+    // ?ï¿½ï¿½??ï¿½ï¿½?æ­¢ï¿½??ï¿½æ”»?ï¿½ï¿½??ï¿½ï¿½?Requirement 5.5ï¿½?
     if (this.paused) {
-      // ?«å??‚ä??€?´æ–°å®ˆå??°ä?ç½®ï?è¦–è¦ºä¸Šå?æ­¢æ?è½‰ï?
+      // ?ï¿½ï¿½??ï¿½ï¿½??ï¿½?ï¿½æ–°å®ˆï¿½??ï¿½ï¿½?ç½®ï¿½?è¦–è¦ºä¸Šï¿½?æ­¢ï¿½?è½‰ï¿½?
       for (const inst of this.weaponInstances) {
         if (inst.weaponId === 'guardian_ring') {
           this.updateRingOrbPositions(inst, player);
@@ -237,55 +264,55 @@ export class WeaponSystem {
       return deadEnemies;
     }
 
-    // ?´æ–°?€è¿‘æ•µäººå¿«?–ï?æ¯?250ms ä¸€æ¬¡ï?
+    // ?ï¿½æ–°?ï¿½è¿‘æ•µäººå¿«?ï¿½ï¿½?ï¿½?250ms ä¸€æ¬¡ï¿½?
     this.cacheTimer -= delta;
     if (this.cacheTimer <= 0) {
       this.cacheTimer = ENEMY_CACHE_INTERVAL;
       this.updateEnemyCache(player, enemies);
     }
 
-    // ?´æ–°?„æ­¦??
+    // ?ï¿½æ–°?ï¿½æ­¦??
     for (const inst of this.weaponInstances) {
       const weaponData = getWeaponById(inst.weaponId);
       if (!weaponData) continue;
 
-      // å¾?levelStats è®€?–ç•¶?ç?ç´šç??¸å€¼ï??ªå?è®€ levelStatsï¼Œfallback ??base ?¼ï?
+      // ï¿½?levelStats è®€?ï¿½ç•¶?ï¿½ï¿½?ç´šï¿½??ï¿½å€¼ï¿½??ï¿½ï¿½?è®€ levelStatsï¼Œfallback ??base ?ï¿½ï¿½?
       const stats = weaponData.levelStats[inst.level - 1] ?? weaponData.levelStats[0];
 
-      // ?»æ??“é?ï¼šå„ª?ˆè? stats.intervalï¼Œfallback ??baseAttackInterval
+      // ?ï¿½ï¿½??ï¿½ï¿½?ï¼šå„ª?ï¿½ï¿½? stats.intervalï¼Œfallback ??baseAttackInterval
       const baseInterval = stats.interval ?? weaponData.baseAttackInterval;
 
-      // è¨ˆç??€çµ‚æ”»?Šé??”ï?æ¯«ç?ï¼‰ï?å¥—ç”¨?·å»?ç?è¢«å?ï¼ˆæ€¥æ”»ä»¤ï?
-      // cooldownMultiplier < 1 è¡¨ç¤º?·å»ç¸®çŸ­ï¼ˆä?ï¼?.94 = ç¸®çŸ­ 6%ï¼?
+      // è¨ˆï¿½??ï¿½çµ‚æ”»?ï¿½ï¿½??ï¿½ï¿½?æ¯«ï¿½?ï¼‰ï¿½?å¥—ç”¨?ï¿½å»?ï¿½ï¿½?è¢«ï¿½?ï¼ˆæ€¥æ”»ä»¤ï¿½?
+      // cooldownMultiplier < 1 è¡¨ç¤º?ï¿½å»ç¸®çŸ­ï¼ˆï¿½?ï¿½?.94 = ç¸®çŸ­ 6%ï¿½?
       const finalInterval = baseInterval * player.stats.cooldownMultiplier * 1000;
 
-      // ?»æ?ç¯„å?ï¼šå„ª?ˆè? stats.rangeï¼Œfallback ??baseAttackRange
-      // æ³¨æ?ï¼šæ”»?Šç??ï?ç´¢æ•µè·é›¢ï¼‰ä??å??´è?ç¬¦å½±?¿ï??´è?ç¬¦æ”¹?ºå½±?¿ç???æ¯’éœ§?Šå?
+      // ?ï¿½ï¿½?ç¯„ï¿½?ï¼šå„ª?ï¿½ï¿½? stats.rangeï¼Œfallback ??baseAttackRange
+      // æ³¨ï¿½?ï¼šæ”»?ï¿½ï¿½??ï¿½ï¿½?ç´¢æ•µè·é›¢ï¼‰ï¿½??ï¿½ï¿½??ï¿½ï¿½?ç¬¦å½±?ï¿½ï¿½??ï¿½ï¿½?ç¬¦æ”¹?ï¿½å½±?ï¿½ï¿½???æ¯’éœ§?ï¿½ï¿½?
       const baseRange = stats.range ?? weaponData.baseAttackRange;
       const finalRange = baseRange;
 
-      // ?·å®³ï¼šå? stats.damage è®€?–ï?å¥—ç”¨?»æ???
-      // player.stats.attackPower å·²ç”± StatCalculator å¥—ç”¨?€?‰è¢«?•å€ç?ï¼ˆå«?´å‹¢?°ï?
-      // ä¸å?é¡å??¼å« getPassiveAttackMultiplierï¼Œé¿?é??è?ç®?
+      // ?ï¿½å®³ï¼šï¿½? stats.damage è®€?ï¿½ï¿½?å¥—ç”¨?ï¿½ï¿½???
+      // player.stats.attackPower å·²ç”± StatCalculator å¥—ç”¨?ï¿½?ï¿½è¢«?ï¿½å€ï¿½?ï¼ˆå«?ï¿½å‹¢?ï¿½ï¿½?
+      // ä¸ï¿½?é¡ï¿½??ï¿½å« getPassiveAttackMultiplierï¼Œé¿?ï¿½ï¿½??ï¿½ï¿½?ï¿½?
       const levelDamage = stats.damage;
       const finalDamage = Math.max(1, Math.floor(levelDamage * player.stats.attackPower));
 
       if (inst.weaponId === 'guardian_ring') {
-        // å®ˆå??°ï??´æ–°?‹è?ä½ç½®ï¼Œæª¢æ¸¬ç¢°??
+        // å®ˆï¿½??ï¿½ï¿½??ï¿½æ–°?ï¿½ï¿½?ä½ç½®ï¼Œæª¢æ¸¬ç¢°??
         this.updateGuardianRing(inst, time, delta, player, enemies, finalRange, finalDamage, deadEnemies, stats);
       } else {
-        // ?¶ä?æ­¦å™¨ï¼šå€’è??‚æ”»??
+        // ?ï¿½ï¿½?æ­¦å™¨ï¼šå€’ï¿½??ï¿½æ”»??
         inst.attackCooldown -= delta;
 
         if (inst.attackCooldown <= 0) {
-          // å°‹æ‰¾?»æ?ç¯„å??§æ?è¿‘ç??µäººï¼ˆRequirement 5.4ï¼?
+          // å°‹æ‰¾?ï¿½ï¿½?ç¯„ï¿½??ï¿½ï¿½?è¿‘ï¿½??ï¿½äººï¼ˆRequirement 5.4ï¿½?
           const target = this.findNearestEnemyInRange(player, finalRange);
 
           if (target) {
-            // ?•å??©é€Ÿåº¦ï¼šå???projectileSpeedMultiplierï¼ˆTODO: ?®å??¡è¢«?•å??æ­¤å±¬æ€§ï??è¨­ 1.0ï¼?
+            // ?ï¿½ï¿½??ï¿½é€Ÿåº¦ï¼šï¿½???projectileSpeedMultiplierï¼ˆTODO: ?ï¿½ï¿½??ï¿½è¢«?ï¿½ï¿½??ï¿½æ­¤å±¬æ€§ï¿½??ï¿½è¨­ 1.0ï¿½?
             const projSpeed = (stats.projectileSpeed ?? weaponData.projectileSpeed) * player.stats.projectileSpeedMultiplier;
 
-            // è¨ˆç??€çµ‚æ•¸?ï?baseCount + amountBonusï¼ˆå? usesAmountBonus === true ?‚å??¨ï?
+            // è¨ˆï¿½??ï¿½çµ‚æ•¸?ï¿½ï¿½?baseCount + amountBonusï¼ˆï¿½? usesAmountBonus === true ?ï¿½ï¿½??ï¿½ï¿½?
             const baseCount = stats.count ?? 1;
             const amountBonus = weaponData.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
             const finalCount = Math.max(1, baseCount + amountBonus);
@@ -298,76 +325,85 @@ export class WeaponSystem {
             } else if (inst.weaponId === 'thunder_claw') {
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, finalCount);
             } else if (inst.weaponId === 'ice_spike') {
-              // å¯’å†°?ï??Ÿç”¨ç©¿é€ï?pierce ?¸å? levelStats è®€?–ï?finalCount ?§åˆ¶?Œæ??¼å???
+              // å¯’å†°?ï¿½ï¿½??ï¿½ç”¨ç©¿é€ï¿½?pierce ?ï¿½ï¿½? levelStats è®€?ï¿½ï¿½?finalCount ?ï¿½åˆ¶?ï¿½ï¿½??ï¿½ï¿½???
               const pierceCount = stats.pierce ?? 1;
               for (let i = 0; i < finalCount; i++) {
                 this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
               }
             } else if (inst.weaponId === 'light_shuttle') {
-              // æµå?æ¢­ï?ç©¿é€æ?å°„ç‰©ï¼Œæ²¿?¨å??°é??è¼¯
+              // æµï¿½?æ¢­ï¿½?ç©¿é€ï¿½?å°„ç‰©ï¼Œæ²¿?ï¿½ï¿½??ï¿½ï¿½??ï¿½è¼¯
               const pierceCount = stats.pierce ?? 1;
               for (let i = 0; i < finalCount; i++) {
                 this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount, 'light_shuttle');
               }
             } else if (inst.weaponId === 'soul_chasing_needle') {
-              // è¿½é??ï??ªå?è¿½å°¾?•å??©ï?æ²¿ç”¨?¾é¢¨?ƒé?è¼?
+              // è¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?è¿½å°¾?ï¿½ï¿½??ï¿½ï¿½?æ²¿ç”¨?ï¿½é¢¨?ï¿½ï¿½?ï¿½?
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'soul_chasing_needle', 0xff88ff, finalCount);
             } else if (inst.weaponId === 'swift_blade_evolved') {
-              // æµå?è¿”å?ï¼šç™¼å°„å??½ä¸­?–åˆ°?”æ?å¤§è??¢æ?è¿”é?ï¼Œå?ç¨‹å?æ¬¡å‚·??
+              // æµï¿½?è¿”ï¿½?ï¼šç™¼å°„ï¿½??ï¿½ä¸­?ï¿½åˆ°?ï¿½ï¿½?å¤§ï¿½??ï¿½ï¿½?è¿”ï¿½?ï¼Œï¿½?ç¨‹ï¿½?æ¬¡å‚·??
               const returnMult = stats.returnDamageMultiplier ?? 0.7;
               this.fireReturningProjectile(player, target, finalDamage, projSpeed, finalRange, finalCount, returnMult);
+            } else if (inst.weaponId === 'ice_spike_evolved') {
+              // éœœè£‚å†°éŒï¼šç©¿é€æŠ•å°„ç‰©ï¼Œå‘½ä¸­æ™‚ç”Ÿæˆéœœè£‚å†°ç—•ï¼Œå»¶é²å¾Œçˆ†è£‚
+              const pierceCount = stats.pierce ?? 3;
+              const crackDamage = Math.max(1, Math.floor((stats.crackDamage ?? 14) * player.stats.attackPower));
+              const crackRadius = (stats.crackRadius ?? 42) * player.stats.areaMultiplier;
+              const crackDelay = stats.crackDelay ?? 0.25;
+              for (let i = 0; i < finalCount; i++) {
+                this.fireFrostCrackProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount, crackDamage, crackRadius, crackDelay);
+              }
             } else if (inst.weaponId === 'poison_mist') {
-              // æ¯’éœ§???ä¸å? amountBonusï¼Œç›´?¥ç”¨ baseCount
+              // æ¯’éœ§???ä¸ï¿½? amountBonusï¼Œç›´?ï¿½ç”¨ baseCount
               const cloudCount = baseCount;
               const cloudRadius = (stats.radius ?? 45) * player.stats.areaMultiplier;
-              // ?ç??‚é?å¥—ç”¨ durationMultiplierï¼ˆTODO: ?®å??¡è¢«?•å??æ­¤å±¬æ€§ï??è¨­ 1.0ï¼?
+              // ?ï¿½ï¿½??ï¿½ï¿½?å¥—ç”¨ durationMultiplierï¼ˆTODO: ?ï¿½ï¿½??ï¿½è¢«?ï¿½ï¿½??ï¿½æ­¤å±¬æ€§ï¿½??ï¿½è¨­ 1.0ï¿½?
               const cloudDuration = (stats.duration ?? 2.2) * player.stats.durationMultiplier * 1000;
               this.firePoisonMist(player, finalDamage, projSpeed, finalRange, cloudCount, cloudRadius, cloudDuration, enemies);
             } else {
-              // ?¶ä?æ­¦å™¨ï¼šé?è¨­ç›´ç·šæ?å°?
+              // ?ï¿½ï¿½?æ­¦å™¨ï¼šï¿½?è¨­ç›´ç·šï¿½?ï¿½?
               this.fireLinearProjectile(player, target, finalDamage, projSpeed, finalRange, inst.weaponId);
             }          }
-          // ?¡è??¯å¦?‰ç›®æ¨™ï??ç½®?·å»
+          // ?ï¿½ï¿½??ï¿½å¦?ï¿½ç›®æ¨™ï¿½??ï¿½ç½®?ï¿½å»
           inst.attackCooldown = finalInterval;
         }
       }
     }
 
-    // ?´æ–°?€?‰æ?å°„ç‰©
+    // ?ï¿½æ–°?ï¿½?ï¿½ï¿½?å°„ç‰©
     const toRemove: Projectile[] = [];
     for (const proj of this.projectiles) {
       const alive = proj.updateProjectile(delta);
 
       if (!alive) {
-        // èµ¤ç„°?°åˆ°?Ÿæ??†ç‚¸
+        // èµ¤ç„°?ï¿½åˆ°?ï¿½ï¿½??ï¿½ç‚¸
         if (proj.isExplosive && !proj.hasExploded) {
           const killed = this.explodeFlameSeal(proj, enemies, time);
           for (const e of killed) {
             if (!deadEnemies.includes(e)) deadEnemies.push(e);
           }
         }
-        // æ¯’éœ§??ˆ°?Ÿæ?ï¼Œåœ¨?¶å?ä½ç½®?Ÿæ?æ¯’éœ§ï¼ˆé˜²æ­¢é??é ­å°è‡´æ¯’éœ§ä¸ç??ï?
+        // æ¯’éœ§??ï¿½ï¿½?ï¿½ï¿½?ï¼Œåœ¨?ï¿½ï¿½?ä½ç½®?ï¿½ï¿½?æ¯’éœ§ï¼ˆé˜²æ­¢ï¿½??ï¿½é ­å°è‡´æ¯’éœ§ä¸ï¿½??ï¿½ï¿½?
         if (proj.weaponId === 'poison_mist') {
           this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius, proj.cloudDuration);
         }
-        // æµå?è¿”å?ï¼šå»ç¨‹åˆ°?Ÿæ??²å…¥è¿”é??€?‹ï?ä¸ç??»éŠ·æ¯€
+        // æµï¿½?è¿”ï¿½?ï¼šå»ç¨‹åˆ°?ï¿½ï¿½??ï¿½å…¥è¿”ï¿½??ï¿½?ï¿½ï¿½?ä¸ï¿½??ï¿½éŠ·æ¯€
         if (proj.canReturn && !proj.isReturning && !proj.hasReturned) {
           proj.isReturning = true;
-          proj.lifeTime = 3000; // çµ?3 ç§’é??ç©å®?
-          continue; // ä¸å???toRemoveï¼Œç¹¼çºŒå?æ´?
+          proj.lifeTime = 3000; // ï¿½?3 ç§’ï¿½??ï¿½ç©ï¿½?
+          continue; // ä¸ï¿½???toRemoveï¼Œç¹¼çºŒï¿½?ï¿½?
         }
         toRemove.push(proj);
         continue;
       }
 
-      // èµ¤ç„°?°ï?æª¢æŸ¥?¯å¦?°é??®æ?ä½ç½®
+      // èµ¤ç„°?ï¿½ï¿½?æª¢æŸ¥?ï¿½å¦?ï¿½ï¿½??ï¿½ï¿½?ä½ç½®
       if (proj.isExplosive && !proj.hasExploded) {
         const dx = proj.targetX - proj.x;
         const dy = proj.targetY - proj.y;
         const distToTarget = Math.sqrt(dx * dx + dy * dy);
 
         if (distToTarget < 10) {
-          // ?°é??®æ?ï¼Œç???
+          // ?ï¿½ï¿½??ï¿½ï¿½?ï¼Œï¿½???
           const killed = this.explodeFlameSeal(proj, enemies, time);
           for (const e of killed) {
             if (!deadEnemies.includes(e)) deadEnemies.push(e);
@@ -378,33 +414,33 @@ export class WeaponSystem {
         }
       }
 
-      // æ¯’éœ§???å°„ç‰©ï¼šæª¢?¥æ˜¯?¦åˆ°?”ç›®æ¨™ä?ç½®ï??°é?å¾Œç??æ???
+      // æ¯’éœ§???å°„ç‰©ï¼šæª¢?ï¿½æ˜¯?ï¿½åˆ°?ï¿½ç›®æ¨™ï¿½?ç½®ï¿½??ï¿½ï¿½?å¾Œï¿½??ï¿½ï¿½???
       if (proj.weaponId === 'poison_mist' && !proj.isExplosive) {
         const dx = proj.targetX - proj.x;
         const dy = proj.targetY - proj.y;
         const distToTarget = Math.sqrt(dx * dx + dy * dy);
 
         if (distToTarget < 20) {
-          // ?°é??®æ?ï¼Œç??æ???
+          // ?ï¿½ï¿½??ï¿½ï¿½?ï¼Œï¿½??ï¿½ï¿½???
           this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius, proj.cloudDuration);
           toRemove.push(proj);
           continue;
         }
       }
 
-      // ?ç??¸å??•å??©ï?æª¢æ¸¬?½ä¸­?µäººï¼ˆRequirement 5.3ï¼?
-      // æ¯’éœ§???å°„ç‰©ä¸ç›´?¥å‘½ä¸­æ•µäººï??±æ??§å??Ÿè?è²¬å‚·å®?
+      // ?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?æª¢æ¸¬?ï¿½ä¸­?ï¿½äººï¼ˆRequirement 5.3ï¿½?
+      // æ¯’éœ§???å°„ç‰©ä¸ç›´?ï¿½å‘½ä¸­æ•µäººï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?è²¬å‚·ï¿½?
       if (!proj.isExplosive && proj.weaponId !== 'poison_mist') {
 
-        // ?€?€ æµå?è¿”å?ï¼šè??„ä¸­?„æ?å°„ç‰©?ç©å®¶é????€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
+        // ?ï¿½?ï¿½ æµï¿½?è¿”ï¿½?ï¼šï¿½??ï¿½ä¸­?ï¿½ï¿½?å°„ç‰©?ï¿½ç©å®¶ï¿½????ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
         if (proj.canReturn && proj.isReturning && !proj.hasReturned) {
-          // ?´æ–°?Ÿåº¦?¹å?ï¼Œæ??©å®¶?¶å?ä½ç½®
+          // ?ï¿½æ–°?ï¿½åº¦?ï¿½ï¿½?ï¼Œï¿½??ï¿½å®¶?ï¿½ï¿½?ä½ç½®
           const rdx = player.x - proj.x;
           const rdy = player.y - proj.y;
           const rdist = Math.sqrt(rdx * rdx + rdy * rdy);
 
           if (rdist < 20) {
-            // ?°é??©å®¶?„è?ï¼ŒéŠ·æ¯€
+            // ?ï¿½ï¿½??ï¿½å®¶?ï¿½ï¿½?ï¼ŒéŠ·æ¯€
             proj.hasReturned = true;
             toRemove.push(proj);
             continue;
@@ -414,11 +450,11 @@ export class WeaponSystem {
           proj.velocityX = (rdx / rdist) * speed;
           proj.velocityY = (rdy / rdist) * speed;
 
-          // ?ç??½ä¸­?µäºº
+          // ?ï¿½ï¿½??ï¿½ä¸­?ï¿½äºº
           for (const enemy of enemies) {
             if (deadEnemies.includes(enemy)) continue;
             if (enemy.isDying) continue;
-            if (proj.returnHitEnemies.has(enemy)) continue; // ?ç?å·²å‘½ä¸­é?
+            if (proj.returnHitEnemies.has(enemy)) continue; // ?ï¿½ï¿½?å·²å‘½ä¸­ï¿½?
 
             const dx = proj.x - enemy.x;
             const dy = proj.y - enemy.y;
@@ -434,14 +470,14 @@ export class WeaponSystem {
               proj.returnHitEnemies.add(enemy);
             }
           }
-          continue; // è¿”é?ä¸­ç??•å??©ä?èµ°ä??¬å‘½ä¸­é?è¼?
+          continue; // è¿”ï¿½?ä¸­ï¿½??ï¿½ï¿½??ï¿½ï¿½?èµ°ï¿½??ï¿½å‘½ä¸­ï¿½?ï¿½?
         }
 
         let hit = false;
         for (const enemy of enemies) {
           if (deadEnemies.includes(enemy)) continue;
           if (enemy.isDying) continue;
-          // ç©¿é€æ?å°„ç‰©ï¼šè·³?å·²?½ä¸­?ç??µäºº
+          // ç©¿é€ï¿½?å°„ç‰©ï¼šè·³?ï¿½å·²?ï¿½ä¸­?ï¿½ï¿½??ï¿½äºº
           if (proj.hitEnemies.has(enemy)) continue;
 
           const dx = proj.x - enemy.x;
@@ -449,23 +485,28 @@ export class WeaponSystem {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist <= enemy.collisionRadius + 8) {
-            // ?½ä¸­ï¼å‘¼??takeDamageï¼ˆæ‰£è¡€ + ?ƒç™½ + ?·å®³?¸å?ï¼?
+            // ?ï¿½ä¸­ï¼å‘¼??takeDamageï¼ˆæ‰£è¡€ + ?ï¿½ç™½ + ?ï¿½å®³?ï¿½ï¿½?ï¿½?
             const died = enemy.takeDamage(proj.damage, proj.x, proj.y);
             if (died && !deadEnemies.includes(enemy)) {
               deadEnemies.push(enemy);
             }
-            // ?½ä¸­?¹æ?ï¼ˆå??‰å?ï¼?
+            // ?ï¿½ä¸­?ï¿½ï¿½?ï¼ˆï¿½??ï¿½ï¿½?ï¿½?
             this.spawnHitEffect(proj.x, proj.y);
 
+            // éœœè£‚å†°ç—•ï¼šå‘½ä¸­æ™‚åœ¨å‘½ä¸­ä½ç½®ç”Ÿæˆå†°ç—•
+            if (proj.hasFrostCrack) {
+              this.spawnFrostCrack(proj.x, proj.y, proj.crackDamage, proj.crackRadius, proj.crackDelay);
+            }
+
             if (proj.canReturn && !proj.isReturning) {
-              // æµå?è¿”å?ï¼šå‘½ä¸­å??²å…¥è¿”é??€?‹ï?ä¸éŠ·æ¯€
+              // æµï¿½?è¿”ï¿½?ï¼šå‘½ä¸­ï¿½??ï¿½å…¥è¿”ï¿½??ï¿½?ï¿½ï¿½?ä¸éŠ·æ¯€
               proj.outboundHitEnemies.add(enemy);
               proj.isReturning = true;
-              // å»¶é•·å­˜æ´»?‚é?ç¢ºä??½é??ç©å®¶ï?3 ç§’è¶³å¤ ï?
+              // å»¶é•·å­˜æ´»?ï¿½ï¿½?ç¢ºï¿½??ï¿½ï¿½??ï¿½ç©å®¶ï¿½?3 ç§’è¶³å¤ ï¿½?
               proj.lifeTime = 3000;
-              // ä¸è¨­ hit = trueï¼Œç¹¼çºŒé?è¡Œï??²å…¥è¿”é?æ¨¡å?ï¼?
+              // ä¸è¨­ hit = trueï¼Œç¹¼çºŒï¿½?è¡Œï¿½??ï¿½å…¥è¿”ï¿½?æ¨¡ï¿½?ï¿½?
 
-              // é©šé´»æ´¾å¤§?“ï??»ç?ç¬¬ä?æ¬¡å‘½ä¸­æ??†è?ï¼ˆå?ç¨‹ä?è§¸ç™¼ï¼?
+              // é©šé´»æ´¾å¤§?ï¿½ï¿½??ï¿½ï¿½?ç¬¬ï¿½?æ¬¡å‘½ä¸­ï¿½??ï¿½ï¿½?ï¼ˆï¿½?ç¨‹ï¿½?è§¸ç™¼ï¿½?
               if (
                 player.activeDaos.has('jinghong_split') &&
                 !proj.isSplitProjectile &&
@@ -476,12 +517,12 @@ export class WeaponSystem {
                 this.spawnSplitProjectiles(proj, proj.x, proj.y);
               }
             } else if (proj.pierceRemaining > 0) {
-              // ç©¿é€æ¨¡å¼ï?è¨˜é?å·²å‘½ä¸­æ•µäººï?æ¶ˆè€—ä?æ¬¡ç©¿?æ¬¡?¸ï?ç¹¼ç?é£›è?
+              // ç©¿é€æ¨¡å¼ï¿½?è¨˜ï¿½?å·²å‘½ä¸­æ•µäººï¿½?æ¶ˆè€—ï¿½?æ¬¡ç©¿?ï¿½æ¬¡?ï¿½ï¿½?ç¹¼ï¿½?é£›ï¿½?
               proj.hitEnemies.add(enemy);
               proj.pierceRemaining -= 1;
-              // ä¸è¨­ hit = trueï¼Œç¹¼çºŒæª¢?¥å…¶ä»–æ•µäººï??Œå??¯ç©¿?å??‹ï?
+              // ä¸è¨­ hit = trueï¼Œç¹¼çºŒæª¢?ï¿½å…¶ä»–æ•µäººï¿½??ï¿½ï¿½??ï¿½ç©¿?ï¿½ï¿½??ï¿½ï¿½?
 
-              // é©šé´»æ´¾å¤§?“ï?ç©¿é€æ?å°„ç‰©?ªåœ¨ç¬¬ä?æ¬¡å‘½ä¸­æ??†è?ä¸€æ¬?
+              // é©šé´»æ´¾å¤§?ï¿½ï¿½?ç©¿é€ï¿½?å°„ç‰©?ï¿½åœ¨ç¬¬ï¿½?æ¬¡å‘½ä¸­ï¿½??ï¿½ï¿½?ä¸€ï¿½?
               if (
                 player.activeDaos.has('jinghong_split') &&
                 !proj.isSplitProjectile &&
@@ -492,9 +533,9 @@ export class WeaponSystem {
                 this.spawnSplitProjectiles(proj, proj.x, proj.y);
               }
             } else {
-              // ?ç©¿?æ¨¡å¼ï??½ä¸­?³éŠ·æ¯€
+              // ?ï¿½ç©¿?ï¿½æ¨¡å¼ï¿½??ï¿½ä¸­?ï¿½éŠ·æ¯€
 
-              // é©šé´»æ´¾å¤§?“ï??½ä¸­?‚å?è£?
+              // é©šé´»æ´¾å¤§?ï¿½ï¿½??ï¿½ä¸­?ï¿½ï¿½?ï¿½?
               if (
                 player.activeDaos.has('jinghong_split') &&
                 !proj.isSplitProjectile &&
@@ -517,12 +558,12 @@ export class WeaponSystem {
       }
     }
 
-    // ç§»é™¤æ­»äº¡?•å???
+    // ç§»é™¤æ­»äº¡?ï¿½ï¿½???
     for (const proj of toRemove) {
       this.removeProjectile(proj);
     }
 
-    // ?´æ–°?€?‰æ??§å??Ÿï?tick ?·å®³ + ?Ÿå‘½?±æ?ï¼?
+    // ?ï¿½æ–°?ï¿½?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?tick ?ï¿½å®³ + ?ï¿½å‘½?ï¿½ï¿½?ï¿½?
     const cloudsToRemove: PoisonCloud[] = [];
     for (const cloud of this.poisonClouds) {
       const result = cloud.update(delta, enemies, deadEnemies);
@@ -539,17 +580,38 @@ export class WeaponSystem {
       if (idx !== -1) this.poisonClouds.splice(idx, 1);
     }
 
+    // æ›´æ–°éœœè£‚å†°ç—•ï¼ˆfrostCrackï¼‰ï¼šå€’è¨ˆæ™‚å¾Œçˆ†è£‚
+    const cracksToRemove: FrostCrack[] = [];
+    for (const crack of this.frostCracks) {
+      if (crack.exploded) {
+        cracksToRemove.push(crack);
+        continue;
+      }
+      crack.delayRemaining -= delta;
+      if (crack.delayRemaining <= 0) {
+        // çˆ†è£‚ï¼šå°ç¯„åœå…§æ•µäººé€ æˆå‚·å®³
+        crack.exploded = true;
+        this.explodeFrostCrack(crack, enemies, deadEnemies);
+        cracksToRemove.push(crack);
+      }
+    }
+    for (const crack of cracksToRemove) {
+      crack.graphics.destroy();
+      const idx = this.frostCracks.indexOf(crack);
+      if (idx !== -1) this.frostCracks.splice(idx, 1);
+    }
+
     return deadEnemies;
   }
 
   /**
-   * æ¶ˆé™¤?²å…¥ shield è­·ç›¾ç¯„å??§ç??©å®¶?•å???
-   * ?ªæ??¤ç?æ­?? Projectileï¼ˆä?å½±éŸ¿å®ˆå??°ç’°ç¹é?ï¼?
+   * æ¶ˆé™¤?ï¿½å…¥ shield è­·ç›¾ç¯„ï¿½??ï¿½ï¿½??ï¿½å®¶?ï¿½ï¿½???
+   * ?ï¿½ï¿½??ï¿½ï¿½?ï¿½?? Projectileï¼ˆï¿½?å½±éŸ¿å®ˆï¿½??ï¿½ç’°ç¹ï¿½?ï¿½?
    */
   public destroyProjectilesInShieldRange(shieldEnemies: import('../objects/Enemy').Enemy[]): void {
     const toRemove: Projectile[] = [];
     for (const proj of this.projectiles) {
-      // å®ˆå??°ç’°ç¹é?ä¸åœ¨ projectiles ???ï¼Œè·³??
+      // å®ˆï¿½??ï¿½ç’°ç¹ï¿½?ä¸åœ¨ projectiles ???ï¼Œè·³??
       if (proj.weaponId === 'guardian_ring') continue;
       for (const shield of shieldEnemies) {
         const dx = proj.x - shield.x;
@@ -567,7 +629,7 @@ export class WeaponSystem {
   }
 
   /**
-   * æ¸…ç??€?‰æ?å°„ç‰©?‡ç’°ç¹é?ï¼ˆå ´?¯å??›æ??¼å«ï¼?
+   * æ¸…ï¿½??ï¿½?ï¿½ï¿½?å°„ç‰©?ï¿½ç’°ç¹ï¿½?ï¼ˆå ´?ï¿½ï¿½??ï¿½ï¿½??ï¿½å«ï¿½?
    */
   public destroy(): void {
     for (const proj of this.projectiles) {
@@ -586,14 +648,19 @@ export class WeaponSystem {
       cloud.destroy();
     }
     this.poisonClouds = [];
+
+    for (const crack of this.frostCracks) {
+      crack.graphics.destroy();
+    }
+    this.frostCracks = [];
   }
 
-  // ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
-  // ç§æ??¹æ?
-  // ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
+  // ?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
+  // ç§ï¿½??ï¿½ï¿½?
+  // ?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
 
   /**
-   * ?´æ–°?€è¿‘æ•µäººå¿«?–ï?ä¾è??¢æ?åºï?
+   * ?ï¿½æ–°?ï¿½è¿‘æ•µäººå¿«?ï¿½ï¿½?ä¾ï¿½??ï¿½ï¿½?åºï¿½?
    */
   private updateEnemyCache(player: Player, enemies: Enemy[]): void {
     this.cachedEnemies = [...enemies].sort((a, b) => {
@@ -606,7 +673,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¨æ”»?Šç??å…§å°‹æ‰¾?€è¿‘ç??µäººï¼ˆRequirement 5.4ï¼?
+   * ?ï¿½æ”»?ï¿½ï¿½??ï¿½å…§å°‹æ‰¾?ï¿½è¿‘ï¿½??ï¿½äººï¼ˆRequirement 5.4ï¿½?
    */
   private findNearestEnemyInRange(player: Player, range: number): Enemy | null {
     for (const enemy of this.cachedEnemies) {
@@ -621,7 +688,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?å??–å?å¿ƒç’°?°ç?é«?
+   * ?ï¿½ï¿½??ï¿½ï¿½?å¿ƒç’°?ï¿½ï¿½?ï¿½?
    */
   private initRingOrbs(inst: WeaponInstance, count: number, player: Player): void {
     for (let i = 0; i < count; i++) {
@@ -636,7 +703,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?´æ–°å®ˆå??°ç’°ç¹é?ä½ç½®ï¼ˆä??‹è?ï¼Œå?è·Ÿéš¨?©å®¶ï¼?
+   * ?ï¿½æ–°å®ˆï¿½??ï¿½ç’°ç¹ï¿½?ä½ç½®ï¼ˆï¿½??ï¿½ï¿½?ï¼Œï¿½?è·Ÿéš¨?ï¿½å®¶ï¿½?
    */
   private updateRingOrbPositions(inst: WeaponInstance, player: Player): void {
     const weaponData = getWeaponById(inst.weaponId);
@@ -650,7 +717,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?´æ–°å®ˆå??°ï??‹è? + ç¢°æ??·å®³
+   * ?ï¿½æ–°å®ˆï¿½??ï¿½ï¿½??ï¿½ï¿½? + ç¢°ï¿½??ï¿½å®³
    */
   private updateGuardianRing(
     inst: WeaponInstance,
@@ -670,14 +737,14 @@ export class WeaponSystem {
     const dt = delta / 1000;
 
     for (const orb of inst.ringOrbs) {
-      // ?‹è?è§’åº¦
+      // ?ï¿½ï¿½?è§’åº¦
       orb.angle += RING_ROTATION_SPEED * dt;
 
-      // ?´æ–°ä½ç½®
+      // ?ï¿½æ–°ä½ç½®
       orb.rect.x = player.x + Math.cos(orb.angle) * radius;
       orb.rect.y = player.y + Math.sin(orb.angle) * radius;
 
-      // ç¢°æ?æª¢æ¸¬
+      // ç¢°ï¿½?æª¢æ¸¬
       for (const enemy of enemies) {
         if (deadEnemies.includes(enemy)) continue;
         if (enemy.isDying) continue;
@@ -687,7 +754,7 @@ export class WeaponSystem {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist <= enemy.collisionRadius + 6) {
-          // æª¢æŸ¥?·å»ï¼ˆæ??‹ç’°ç¹é?å°å?ä¸€?µäºº 0.5 ç§’å†·?»ï?
+          // æª¢æŸ¥?ï¿½å»ï¼ˆï¿½??ï¿½ç’°ç¹ï¿½?å°ï¿½?ä¸€?ï¿½äºº 0.5 ç§’å†·?ï¿½ï¿½?
           const lastHit = orb.lastHitMap.get(enemy) ?? -Infinity;
           if (time - lastHit >= RING_DAMAGE_COOLDOWN) {
             const died = enemy.takeDamage(finalDamage, orb.rect.x, orb.rect.y);
@@ -700,7 +767,7 @@ export class WeaponSystem {
         }
       }
 
-      // æ¸…ç?å·²æ­»äº¡æ•µäººç??·å»è¨˜é?ï¼ˆé˜²æ­?Map ?¡é?å¢é•·ï¼?
+      // æ¸…ï¿½?å·²æ­»äº¡æ•µäººï¿½??ï¿½å»è¨˜ï¿½?ï¼ˆé˜²ï¿½?Map ?ï¿½ï¿½?å¢é•·ï¿½?
       for (const [e] of orb.lastHitMap) {
         if (!enemies.includes(e)) {
           orb.lastHitMap.delete(e);
@@ -710,8 +777,8 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¼å?å¤šç™¼?•å??©ï??¾é¢¨?ƒã€é›·?†çˆª?¨ï?
-   * count > 1 ?‚å??¥å?è§’åº¦?ç§»ï¼Œé¿?å??¨é???
+   * ?ï¿½ï¿½?å¤šç™¼?ï¿½ï¿½??ï¿½ï¿½??ï¿½é¢¨?ï¿½ã€é›·?ï¿½çˆª?ï¿½ï¿½?
+   * count > 1 ?ï¿½ï¿½??ï¿½ï¿½?è§’åº¦?ï¿½ç§»ï¼Œé¿?ï¿½ï¿½??ï¿½ï¿½???
    */
   private fireMultiProjectile(
     player: Player,
@@ -731,7 +798,7 @@ export class WeaponSystem {
     const baseAngle = Math.atan2(dy, dx);
     const lifeTime = (range / speed) * 1000;
 
-    // å¤šç™¼?‚å??»å????åº¦ï?æ¯ç™¼?“é?ç´?0.15 å¼§åº¦ ??8.6 åº¦ï?
+    // å¤šç™¼?ï¿½ï¿½??ï¿½ï¿½????åº¦ï¿½?æ¯ç™¼?ï¿½ï¿½?ï¿½?0.15 å¼§åº¦ ??8.6 åº¦ï¿½?
     const angleSpread = count > 1 ? 0.15 : 0;
 
     for (let i = 0; i < count; i++) {
@@ -756,8 +823,8 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¼å?èµ¤ç„°?°ï?é£›å??®æ?ä½ç½®ï¼Œåˆ°?”å??†ç‚¸ï¼?
-   * count > 1 ?‚ä»¥å°è?åº¦å?ç§»ç™¼å°„å??¼ï?usesAmountBonus å¥—ç”¨å¾Œï?
+   * ?ï¿½ï¿½?èµ¤ç„°?ï¿½ï¿½?é£›ï¿½??ï¿½ï¿½?ä½ç½®ï¼Œåˆ°?ï¿½ï¿½??ï¿½ç‚¸ï¿½?
+   * count > 1 ?ï¿½ä»¥å°ï¿½?åº¦ï¿½?ç§»ç™¼å°„ï¿½??ï¿½ï¿½?usesAmountBonus å¥—ç”¨å¾Œï¿½?
    */
   private fireFlameSeal(
     player: Player,
@@ -781,7 +848,7 @@ export class WeaponSystem {
       const nx = Math.cos(angle);
       const ny = Math.sin(angle);
 
-      // å­˜æ´»?‚é?ï¼šè¶³å¤ é??°ç›®æ¨™ï?? ä?é»é?è£•ï?
+      // å­˜æ´»?ï¿½ï¿½?ï¼šè¶³å¤ ï¿½??ï¿½ç›®æ¨™ï¿½??ï¿½ï¿½?é»ï¿½?è£•ï¿½?
       const lifeTime = (dist / speed) * 1000 + 500;
 
       const proj = new Projectile(
@@ -793,7 +860,7 @@ export class WeaponSystem {
         ny * speed,
         lifeTime,
         'flame_seal',
-        0xff4400, // æ©™ç???
+        0xff4400, // æ©™ï¿½???
         true,     // isExplosive
         explosionRadius,
         target.x,
@@ -805,7 +872,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¼å??šç”¨?´ç??•å??©ï??¶ä?æ­¦å™¨?è¨­è¡Œç‚ºï¼?
+   * ?ï¿½ï¿½??ï¿½ç”¨?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?æ­¦å™¨?ï¿½è¨­è¡Œç‚ºï¿½?
    */
   private fireLinearProjectile(
     player: Player,
@@ -841,8 +908,8 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¼å?ç©¿é€æ?å°„ç‰©ï¼ˆå??°é??æ??‰æ¢­?¨ï?
-   * pierceCount ?ºå¯ç©¿é€ç??µäºº?¸é?ï¼ˆå‘½ä¸­ç¬¬ pierceCount+1 ?‹æ??·æ?ï¼?
+   * ?ï¿½ï¿½?ç©¿é€ï¿½?å°„ç‰©ï¼ˆï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½æ¢­?ï¿½ï¿½?
+   * pierceCount ?ï¿½å¯ç©¿é€ï¿½??ï¿½äºº?ï¿½ï¿½?ï¼ˆå‘½ä¸­ç¬¬ pierceCount+1 ?ï¿½ï¿½??ï¿½ï¿½?ï¿½?
    */
   private firePiercingProjectile(
     player: Player,
@@ -863,9 +930,9 @@ export class WeaponSystem {
 
     const lifeTime = (range / speed) * 1000;
 
-    // pierceRemaining = pierceCount - 1ï¼?
-    // ç¬¬ä?æ¬¡å‘½ä¸­æ??—ä?æ¬¡ï??¨å‘½ä¸­åˆ¤?·ä¸­ï¼‰ï?ä¹‹å?æ¯æ¬¡?½ä¸­?æ??—ä?æ¬?
-    // ??pierceRemaining ?åˆ° 0 ?‚ï?ä¸‹ä?æ¬¡å‘½ä¸­æ??·æ?
+    // pierceRemaining = pierceCount - 1ï¿½?
+    // ç¬¬ï¿½?æ¬¡å‘½ä¸­ï¿½??ï¿½ï¿½?æ¬¡ï¿½??ï¿½å‘½ä¸­åˆ¤?ï¿½ä¸­ï¼‰ï¿½?ä¹‹ï¿½?æ¯æ¬¡?ï¿½ä¸­?ï¿½ï¿½??ï¿½ï¿½?ï¿½?
+    // ??pierceRemaining ?ï¿½åˆ° 0 ?ï¿½ï¿½?ä¸‹ï¿½?æ¬¡å‘½ä¸­ï¿½??ï¿½ï¿½?
     const proj = new Projectile(
       this.scene,
       player.x,
@@ -875,20 +942,20 @@ export class WeaponSystem {
       ny * speed,
       lifeTime,
       weaponId,
-      0x88ddff, // æ·¡è??²ï??€?¥æ–¼?¶ä??•å???
-      false,    // ?ç??¸å?
+      0x88ddff, // æ·¡ï¿½??ï¿½ï¿½??ï¿½?ï¿½æ–¼?ï¿½ï¿½??ï¿½ï¿½???
+      false,    // ?ï¿½ï¿½??ï¿½ï¿½?
       0,        // explosionRadius
       0,        // targetX
       0,        // targetY
-      pierceCount - 1  // pierceRemainingï¼šå·²??™¤ç¬¬ä?æ¬¡å‘½ä¸?
+      pierceCount - 1  // pierceRemainingï¼šå·²??ï¿½ï¿½ç¬¬ï¿½?æ¬¡å‘½ï¿½?
     );
 
     this.addProjectile(proj);
   }
 
   /**
-   * ?¼å?æµå?è¿”å??•å??©ï??½ä¸­?–åˆ°?”æ?å¤§è??¢å?è¿”é??©å®¶ï¼Œå?ç¨‹å?æ¬¡å‚·?µï?
-   * count > 1 ?‚å??¥å?è§’åº¦?ç§»ï¼Œé¿?å??¨é???
+   * ?ï¿½ï¿½?æµï¿½?è¿”ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ä¸­?ï¿½åˆ°?ï¿½ï¿½?å¤§ï¿½??ï¿½ï¿½?è¿”ï¿½??ï¿½å®¶ï¼Œï¿½?ç¨‹ï¿½?æ¬¡å‚·?ï¿½ï¿½?
+   * count > 1 ?ï¿½ï¿½??ï¿½ï¿½?è§’åº¦?ï¿½ç§»ï¼Œé¿?ï¿½ï¿½??ï¿½ï¿½???
    */
   private fireReturningProjectile(
     player: Player,
@@ -923,7 +990,7 @@ export class WeaponSystem {
         ny * speed,
         lifeTime,
         'swift_blade_evolved',
-        0x88ffee // ?’ç™½?²ï??€?¥æ–¼?¾é¢¨?ƒç??’è‰²
+        0x88ffee // ?ï¿½ç™½?ï¿½ï¿½??ï¿½?ï¿½æ–¼?ï¿½é¢¨?ï¿½ï¿½??ï¿½è‰²
       );
       proj.canReturn = true;
       proj.returnDamageMultiplier = returnDamageMultiplier;
@@ -933,9 +1000,9 @@ export class WeaponSystem {
   }
 
   /**
-   * ?¼å?æ¯’éœ§???å°„ç‰©ï¼ˆæ”¯?´å??¼ï?ä¾?count æ±ºå??¸é?ï¼?
-   * ?ªå??¸æ? range ?§ä??Œæ•µäººä??ºç›®æ¨™ï??µäººä¸è¶³?‚åœ¨ç¬¬ä??®æ??„è?? éš¨æ©Ÿå?ç§?
-   * ?•å??©åˆ°?”ç›®æ¨™ä?ç½®å??Ÿæ? PoisonCloud
+   * ?ï¿½ï¿½?æ¯’éœ§???å°„ç‰©ï¼ˆæ”¯?ï¿½ï¿½??ï¿½ï¿½?ï¿½?count æ±ºï¿½??ï¿½ï¿½?ï¿½?
+   * ?ï¿½ï¿½??ï¿½ï¿½? range ?ï¿½ï¿½??ï¿½æ•µäººï¿½??ï¿½ç›®æ¨™ï¿½??ï¿½äººä¸è¶³?ï¿½åœ¨ç¬¬ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½éš¨æ©Ÿï¿½?ï¿½?
+   * ?ï¿½ï¿½??ï¿½åˆ°?ï¿½ç›®æ¨™ï¿½?ç½®ï¿½??ï¿½ï¿½? PoisonCloud
    */
   private firePoisonMist(
     player: Player,
@@ -947,7 +1014,7 @@ export class WeaponSystem {
     cloudDuration: number,
     enemies: Enemy[]
   ): void {
-    // ?¶é? range ?§æ??‰æ•µäººï?ä¾è??¢æ?åºï?å·²ç”± cachedEnemies ?’å¥½ï¼?
+    // ?ï¿½ï¿½? range ?ï¿½ï¿½??ï¿½æ•µäººï¿½?ä¾ï¿½??ï¿½ï¿½?åºï¿½?å·²ç”± cachedEnemies ?ï¿½å¥½ï¿½?
     const targetsInRange: Enemy[] = [];
     for (const enemy of this.cachedEnemies) {
       if (enemy.isDying) continue;
@@ -958,20 +1025,20 @@ export class WeaponSystem {
       }
     }
 
-    if (targetsInRange.length === 0) return; // æ²’æ??®æ?ï¼Œä??¼å?
+    if (targetsInRange.length === 0) return; // æ²’ï¿½??ï¿½ï¿½?ï¼Œï¿½??ï¿½ï¿½?
 
     for (let i = 0; i < count; i++) {
       let targetX: number;
       let targetY: number;
 
       if (i < targetsInRange.length) {
-        // ?ªå??¸æ?ä¸å??µäºº
+        // ?ï¿½ï¿½??ï¿½ï¿½?ä¸ï¿½??ï¿½äºº
         targetX = targetsInRange[i].x;
         targetY = targetsInRange[i].y;
       } else {
-        // ?µäººä¸è¶³ï¼šåœ¨ç¬¬ä??®æ??„è?? éš¨æ©Ÿå?ç§»ï?30ï½?0pxï¼?
+        // ?ï¿½äººä¸è¶³ï¼šåœ¨ç¬¬ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½éš¨æ©Ÿï¿½?ç§»ï¿½?30ï¿½?0pxï¿½?
         const baseTarget = targetsInRange[0];
-        const offsetDist = 30 + Math.random() * 40; // 30ï½?0px
+        const offsetDist = 30 + Math.random() * 40; // 30ï¿½?0px
         const offsetAngle = Math.random() * Math.PI * 2;
         targetX = baseTarget.x + Math.cos(offsetAngle) * offsetDist;
         targetY = baseTarget.y + Math.sin(offsetAngle) * offsetDist;
@@ -985,7 +1052,7 @@ export class WeaponSystem {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      // å­˜æ´»?‚é?ï¼šè¶³å¤ é??°ç›®æ¨™ï?? ä?é»é?è£•ï?
+      // å­˜æ´»?ï¿½ï¿½?ï¼šè¶³å¤ ï¿½??ï¿½ç›®æ¨™ï¿½??ï¿½ï¿½?é»ï¿½?è£•ï¿½?
       const lifeTime = (dist / speed) * 1000 + 300;
 
       const proj = new Projectile(
@@ -998,20 +1065,20 @@ export class WeaponSystem {
         lifeTime,
         'poison_mist',
         0x44ff66,    // ç¶ è‰²
-        false,       // ?ç??¸å?
-        cloudRadius, // ??explosionRadius æ¬„ä??²å?æ¯’éœ§?Šå?
+        false,       // ?ï¿½ï¿½??ï¿½ï¿½?
+        cloudRadius, // ??explosionRadius æ¬„ï¿½??ï¿½ï¿½?æ¯’éœ§?ï¿½ï¿½?
         targetX,     // targetX
         targetY      // targetY
       );
-      proj.cloudDuration = cloudDuration; // æ¯’éœ§?ç??‚é?
+      proj.cloudDuration = cloudDuration; // æ¯’éœ§?ï¿½ï¿½??ï¿½ï¿½?
 
       this.addProjectile(proj);
     }
   }
 
   /**
-   * ?¨æ?å®šä?ç½®ç??æ??§å???
-   * è¶…é?ä¸Šé??‚ç§»?¤æ??Šç?æ¯’éœ§
+   * ?ï¿½ï¿½?å®šï¿½?ç½®ï¿½??ï¿½ï¿½??ï¿½ï¿½???
+   * è¶…ï¿½?ä¸Šï¿½??ï¿½ç§»?ï¿½ï¿½??ï¿½ï¿½?æ¯’éœ§
    */
   private spawnPoisonCloud(x: number, y: number, damage: number, radius: number, durationMs: number): void {
     if (this.poisonClouds.length >= MAX_POISON_CLOUDS) {
@@ -1024,12 +1091,12 @@ export class WeaponSystem {
   }
 
   /**
-   * èµ¤ç„°?°ç??¸ï?å°ç??¸å?å¾‘å…§?€?‰æ•µäººé€ æ??·å®³ï¼ˆRequirement 5.3ï¼?
+   * èµ¤ç„°?ï¿½ï¿½??ï¿½ï¿½?å°ï¿½??ï¿½ï¿½?å¾‘å…§?ï¿½?ï¿½æ•µäººé€ ï¿½??ï¿½å®³ï¼ˆRequirement 5.3ï¿½?
    */
   private explodeFlameSeal(proj: Projectile, enemies: Enemy[], _time: number): Enemy[] {
     const killed: Enemy[] = [];
 
-    // ?†ç‚¸æ³¢ç??¹æ?ï¼ˆå…©?ˆæ“´???ï¼?
+    // ?ï¿½ç‚¸æ³¢ï¿½??ï¿½ï¿½?ï¼ˆå…©?ï¿½æ“´???ï¿½?
     this.spawnExplosionEffect(proj.x, proj.y, proj.explosionRadius);
 
     for (const enemy of enemies) {
@@ -1051,7 +1118,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?°å??•å??©ï?è¶…é?ä¸Šé??‚ç§»?¤æ??Šç?
+   * ?ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½?è¶…ï¿½?ä¸Šï¿½??ï¿½ç§»?ï¿½ï¿½??ï¿½ï¿½?
    */
   private addProjectile(proj: Projectile): void {
     if (this.projectiles.length >= MAX_PROJECTILES) {
@@ -1062,7 +1129,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ç§»é™¤ä¸¦éŠ·æ¯€?•å???
+   * ç§»é™¤ä¸¦éŠ·æ¯€?ï¿½ï¿½???
    */
   private removeProjectile(proj: Projectile): void {
     const idx = this.projectiles.indexOf(proj);
@@ -1073,7 +1140,7 @@ export class WeaponSystem {
   }
 
   /**
-   * ?½ä¸­å°å??ˆç‰¹?ˆï??•å??©å‘½ä¸­æ?ï¼?
+   * ?ï¿½ä¸­å°ï¿½??ï¿½ç‰¹?ï¿½ï¿½??ï¿½ï¿½??ï¿½å‘½ä¸­ï¿½?ï¿½?
    */
   private spawnHitEffect(x: number, y: number): void {
     if (this.activeHitEffects >= MAX_HIT_EFFECTS) return;
@@ -1100,13 +1167,13 @@ export class WeaponSystem {
   }
 
   /**
-   * ?†ç‚¸æ³¢ç??¹æ?ï¼ˆèµ¤?°å°ï¼?
+   * ?ï¿½ç‚¸æ³¢ï¿½??ï¿½ï¿½?ï¼ˆèµ¤?ï¿½å°ï¿½?
    */
   private spawnExplosionEffect(x: number, y: number, radius: number): void {
     if (this.activeHitEffects >= MAX_HIT_EFFECTS) return;
     this.activeHitEffects++;
 
-    // å¤–å?æ©™è‰²æ³¢ç?
+    // å¤–ï¿½?æ©™è‰²æ³¢ï¿½?
     const g = this.scene.add.graphics();
     g.lineStyle(3, 0xff6600, 0.85);
     g.strokeCircle(0, 0, radius * 0.5);
@@ -1130,26 +1197,174 @@ export class WeaponSystem {
   }
 
   /**
-   * é©šé´»æ´¾å¤§?“ï??¨å‘½ä¸­é??Ÿæ??†è??•å???
-   * @param sourceProj ?Ÿå??•å???
-   * @param hitX ?½ä¸­é»?X
-   * @param hitY ?½ä¸­é»?Y
+   * ç™¼å°„éœœè£‚å†°éŒæŠ•å°„ç‰©ï¼ˆç©¿é€ + frostCrackï¼‰
+   */
+  private fireFrostCrackProjectile(
+    player: Player,
+    target: Enemy,
+    damage: number,
+    speed: number,
+    range: number,
+    pierceCount: number,
+    crackDamage: number,
+    crackRadius: number,
+    crackDelay: number
+  ): void {
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const lifeTime = (range / speed) * 1000;
+
+    const proj = new Projectile(
+      this.scene,
+      player.x,
+      player.y,
+      damage,
+      nx * speed,
+      ny * speed,
+      lifeTime,
+      'ice_spike_evolved',
+      0xaaddff, // æ·¡è—ç™½è‰²
+      false,
+      0,
+      0,
+      0,
+      pierceCount - 1 // pierceRemainingï¼šå·²ç®—ç¬¬ä¸€æ¬¡å‘½ä¸­
+    );
+
+    // è¨­å®šéœœè£‚å†°ç—•åƒæ•¸
+    proj.hasFrostCrack = true;
+    proj.crackDamage = crackDamage;
+    proj.crackRadius = crackRadius;
+    proj.crackDelay = crackDelay;
+
+    this.addProjectile(proj);
+  }
+
+  /**
+   * åœ¨æŒ‡å®šä½ç½®ç”Ÿæˆéœœè£‚å†°ç—•ï¼ˆfrostCrackï¼‰
+   * å»¶é² crackDelay ç§’å¾Œçˆ†è£‚
+   */
+  private spawnFrostCrack(x: number, y: number, damage: number, radius: number, delaySeconds: number): void {
+    if (this.frostCracks.length >= MAX_FROST_CRACKS) {
+      // ç§»é™¤æœ€èˆŠçš„å†°ç—•
+      const oldest = this.frostCracks.shift();
+      if (oldest) oldest.graphics.destroy();
+    }
+
+    // ç¹ªè£½è—ç™½è£‚ç—•è¦–è¦ºæ•ˆæœ
+    const g = this.scene.add.graphics();
+    g.setPosition(x, y);
+    g.setDepth(7);
+
+    // å¤–åœˆï¼šæ·¡è—è‰²åŠé€æ˜åœ“
+    g.fillStyle(0x88ccff, 0.25);
+    g.fillCircle(0, 0, radius * 0.5);
+    // å…§åœˆï¼šç™½è—è‰²è£‚ç—•ç·šæ¢
+    g.lineStyle(2, 0xcceeff, 0.8);
+    g.strokeCircle(0, 0, radius * 0.3);
+    // åå­—è£‚ç—•
+    g.lineStyle(1.5, 0xffffff, 0.7);
+    const cr = radius * 0.4;
+    g.lineBetween(-cr, 0, cr, 0);
+    g.lineBetween(0, -cr, 0, cr);
+    g.lineBetween(-cr * 0.7, -cr * 0.7, cr * 0.7, cr * 0.7);
+    g.lineBetween(cr * 0.7, -cr * 0.7, -cr * 0.7, cr * 0.7);
+
+    // é–ƒçˆå‹•ç•«ï¼ˆå­˜åœ¨æœŸé–“è¼•å¾®è„ˆå‹•ï¼‰
+    this.scene.tweens.add({
+      targets: g,
+      alpha: { from: 0.9, to: 0.5 },
+      duration: delaySeconds * 1000 * 0.8,
+      yoyo: false,
+      ease: 'Sine.easeIn',
+    });
+
+    const crack: FrostCrack = {
+      x,
+      y,
+      damage,
+      radius,
+      delayRemaining: delaySeconds * 1000,
+      graphics: g,
+      exploded: false,
+    };
+
+    this.frostCracks.push(crack);
+  }
+
+  /**
+   * éœœè£‚å†°ç—•çˆ†è£‚ï¼šå°ç¯„åœå…§æ•µäººé€ æˆå‚·å®³ï¼Œä¸¦æ’­æ”¾çˆ†è£‚è¦–è¦ºæ•ˆæœ
+   */
+  private explodeFrostCrack(crack: FrostCrack, enemies: Enemy[], deadEnemies: Enemy[]): void {
+    // çˆ†è£‚è¦–è¦ºæ•ˆæœ
+    if (this.activeHitEffects < MAX_HIT_EFFECTS) {
+      this.activeHitEffects++;
+      const g = this.scene.add.graphics();
+      g.lineStyle(2.5, 0x88ddff, 0.9);
+      g.strokeCircle(0, 0, crack.radius * 0.5);
+      g.fillStyle(0xaaddff, 0.2);
+      g.fillCircle(0, 0, crack.radius * 0.5);
+      g.setPosition(crack.x, crack.y);
+      g.setDepth(8);
+
+      this.scene.tweens.add({
+        targets: g,
+        scaleX: 2.0,
+        scaleY: 2.0,
+        alpha: 0,
+        duration: 250,
+        ease: 'Power2',
+        onComplete: () => {
+          g.destroy();
+          this.activeHitEffects--;
+        },
+      });
+    }
+
+    // å‚·å®³åˆ¤å®š
+    for (const enemy of enemies) {
+      if (enemy.isDying) continue;
+      if (deadEnemies.includes(enemy)) continue;
+
+      const dx = crack.x - enemy.x;
+      const dy = crack.y - enemy.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist <= crack.radius) {
+        const died = enemy.takeDamage(crack.damage, crack.x, crack.y);
+        if (died && !deadEnemies.includes(enemy)) {
+          deadEnemies.push(enemy);
+        }
+      }
+    }
+  }
+
+  /**
+   * é©šé´»æ´¾å¤§?ï¿½ï¿½??ï¿½å‘½ä¸­ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½???
+   * @param sourceProj ?ï¿½ï¿½??ï¿½ï¿½???
+   * @param hitX ?ï¿½ä¸­ï¿½?X
+   * @param hitY ?ï¿½ä¸­ï¿½?Y
    */
   private spawnSplitProjectiles(sourceProj: Projectile, hitX: number, hitY: number): void {
-    // è¨ˆç??Ÿå?é£›è??¹å?è§’åº¦
+    // è¨ˆï¿½??ï¿½ï¿½?é£›ï¿½??ï¿½ï¿½?è§’åº¦
     const speed = Math.sqrt(sourceProj.velocityX * sourceProj.velocityX + sourceProj.velocityY * sourceProj.velocityY);
     if (speed < 1) return;
 
     const baseAngle = Math.atan2(sourceProj.velocityY, sourceProj.velocityX);
 
-    // ?†è?å­å??Ÿåº¦ï¼šå??Ÿåº¦??105%ï¼ˆç•¥å¿«ä?é»è?è¦ºæ?ï¼?
+    // ?ï¿½ï¿½?å­ï¿½??ï¿½åº¦ï¼šï¿½??ï¿½åº¦??105%ï¼ˆç•¥å¿«ï¿½?é»ï¿½?è¦ºï¿½?ï¿½?
     const splitSpeed = speed * 1.05;
 
-    // ?†è?å­å??·å®³
+    // ?ï¿½ï¿½?å­ï¿½??ï¿½å®³
     const splitDamage = Math.max(1, Math.floor(sourceProj.damage * SPLIT_DAMAGE_MULTIPLIER));
 
-    // ?†è?å­å?å­˜æ´»?‚é?ï¼šä»¥?Ÿå??•å??©å‰©é¤?lifeTime ? å°„ç??ç?
-    // ?³å? 200msï¼Œé¿?ç¬?“æ?å¤?
+    // ?ï¿½ï¿½?å­ï¿½?å­˜æ´»?ï¿½ï¿½?ï¼šä»¥?ï¿½ï¿½??ï¿½ï¿½??ï¿½å‰©ï¿½?lifeTime ? å°„ï¿½??ï¿½ï¿½?
+    // ?ï¿½ï¿½? 200msï¼Œé¿?ï¿½ç¬?ï¿½ï¿½?ï¿½?
     const splitLifeTime = Math.max(200, sourceProj.lifeTime * SPLIT_RANGE_MULTIPLIER);
 
     const angles = [baseAngle - SPLIT_ANGLE_OFFSET, baseAngle + SPLIT_ANGLE_OFFSET];
@@ -1167,20 +1382,20 @@ export class WeaponSystem {
         ny * splitSpeed,
         splitLifeTime,
         sourceProj.sourceWeaponId,
-        0xaaffee, // ?¥å¸¶?’ç™½?²ï?è¦–è¦º?€??
-        false,    // ?ç??¸å?
+        0xaaffee, // ?ï¿½å¸¶?ï¿½ç™½?ï¿½ï¿½?è¦–è¦º?ï¿½??
+        false,    // ?ï¿½ï¿½??ï¿½ï¿½?
         0,
         0,
         0,
-        0         // pierceRemaining = 0ï¼ˆå?è£‚å?å½ˆä?ç©¿é€ï?
+        0         // pierceRemaining = 0ï¼ˆï¿½?è£‚ï¿½?å½ˆï¿½?ç©¿é€ï¿½?
       );
 
-      // æ¨™è??ºå?è£‚æ?å°„ç‰©ï¼Œé˜²æ­¢å?æ¬¡å?è£?
+      // æ¨™ï¿½??ï¿½ï¿½?è£‚ï¿½?å°„ç‰©ï¼Œé˜²æ­¢ï¿½?æ¬¡ï¿½?ï¿½?
       splitProj.isSplitProjectile = true;
       splitProj.splitDepth = 1;
       splitProj.sourceWeaponId = sourceProj.sourceWeaponId;
 
-      // ?¥å??ç•¥?æ?ï¼Œè?è¦ºä??€?¥å?å§‹æ?å°„ç‰©
+      // ?ï¿½ï¿½??ï¿½ç•¥?ï¿½ï¿½?ï¼Œï¿½?è¦ºï¿½??ï¿½?ï¿½ï¿½?å§‹ï¿½?å°„ç‰©
       splitProj.setSize(7, 7);
       splitProj.setAlpha(0.85);
 

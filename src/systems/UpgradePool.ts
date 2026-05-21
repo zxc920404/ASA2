@@ -31,6 +31,12 @@ const WEAPON_EVOLUTION_MAP: Record<string, {
     evolvedId: 'swift_blade_evolved',
     requiredLevel: 8,
   },
+  // 寒冰錐 Lv8 → 霜裂冰錐（assassin 驚鴻派）
+  ice_spike: {
+    evolvedId: 'ice_spike_evolved',
+    requiredLevel: 8,
+    requiredCharacterId: 'assassin',
+  },
 };
 
 /**

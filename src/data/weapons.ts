@@ -242,6 +242,36 @@ export const WEAPONS: WeaponData[] = [
     ],
   },
   {
+    id: 'ice_spike_evolved',
+    name: '霜裂冰錐',
+    form: 'projectile',
+    effects: ['pierce', 'frostCrack'],
+    usesAmountBonus: true,
+    baseDamagePerLevel: [34, 39, 39, 48, 48, 52, 52, 58], // 向下相容保留
+    baseAttackInterval: 0.95,
+    baseAttackRange: 260,
+    projectileSpeed: 360,
+    iconKey: 'weapon_icon_ice_spike_evolved',
+    levelStats: [
+      // Lv1：基礎，pierce 3，霜裂冰痕
+      { damage: 34, count: 1, pierce: 3, interval: 0.95, range: 260, crackDamage: 14, crackRadius: 42, crackDelay: 0.25 },
+      // Lv2：傷害提升，pierce +1
+      { damage: 39, count: 1, pierce: 4, interval: 0.95, range: 270, crackDamage: 16, crackRadius: 44, crackDelay: 0.25 },
+      // Lv3：投射物 +1
+      { damage: 39, count: 2, pierce: 4, interval: 0.95, range: 280, crackDamage: 16, crackRadius: 44, crackDelay: 0.25 },
+      // Lv4：傷害提升，pierce +1，攻擊間隔縮短
+      { damage: 48, count: 2, pierce: 5, interval: 0.9,  range: 290, crackDamage: 20, crackRadius: 48, crackDelay: 0.2 },
+      // Lv5：傷害提升，冰痕傷害提升
+      { damage: 48, count: 2, pierce: 5, interval: 0.9,  range: 300, crackDamage: 22, crackRadius: 50, crackDelay: 0.2 },
+      // Lv6：傷害提升，pierce +1
+      { damage: 52, count: 2, pierce: 6, interval: 0.9,  range: 310, crackDamage: 24, crackRadius: 52, crackDelay: 0.2 },
+      // Lv7：投射物 +1，攻擊間隔縮短
+      { damage: 52, count: 3, pierce: 6, interval: 0.85, range: 320, crackDamage: 24, crackRadius: 54, crackDelay: 0.18 },
+      // Lv8：傷害大幅提升，冰痕爆裂強化（滿級獎勵）
+      { damage: 58, count: 3, pierce: 7, interval: 0.85, range: 330, crackDamage: 30, crackRadius: 58, crackDelay: 0.18 },
+    ],
+  },
+  {
     id: 'swift_blade_evolved',
     name: '流光返刃',
     form: 'projectile',

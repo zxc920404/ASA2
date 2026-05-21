@@ -24,6 +24,7 @@ export type WeaponForm =
  * - autoTarget: 自動追蹤最近敵人
  * - pierce:     穿透多個敵人
  * - returning:  命中或到達最大距離後返還玩家，回程可再次傷敵（流光返刃）
+ * - frostCrack: 命中時在命中位置留下霜裂冰痕，延遲後爆裂造成範圍傷害（霜裂冰錐）
  * - bounce:     彈射到下一個目標（預留）
  * - chain:      鏈式傳遞傷害（預留）
  * - knockback:  擊退效果（預留）
@@ -34,6 +35,7 @@ export type WeaponEffect =
   | 'autoTarget'
   | 'pierce'
   | 'returning'
+  | 'frostCrack'
   | 'bounce'
   | 'chain'
   | 'knockback'
@@ -68,6 +70,12 @@ export interface WeaponLevelStats {
   projectileSpeed?: number; // 投射物速度（px/s），覆蓋 baseProjectileSpeed
   /** 返還傷害倍率（流光返刃用），回程傷害 = 去程傷害 × returnDamageMultiplier */
   returnDamageMultiplier?: number;
+  /** 霜裂冰痕爆裂傷害（霜裂冰錐用），吃 attackPower 倍率 */
+  crackDamage?: number;
+  /** 霜裂冰痕爆裂半徑（px，霜裂冰錐用），吃 areaMultiplier 倍率 */
+  crackRadius?: number;
+  /** 霜裂冰痕爆裂延遲（秒，霜裂冰錐用），不吃倍率 */
+  crackDelay?: number;
 }
 
 // 武器定義

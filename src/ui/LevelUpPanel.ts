@@ -134,6 +134,11 @@ function getEvolvedWeaponDescription(weaponId: string): string[] {
       '飛刃命中或飛至極限後返還',
       '回程再次傷敵（70%傷害）',
     ],
+    ice_spike_evolved: [
+      '寒冰錐突破形態',
+      '冰錐穿透敵人時留下霜裂冰痕',
+      '短暫延遲後爆裂傷敵',
+    ],
   };
   return evolveDesc[weaponId] ?? ['武器突破形態，獲得全新機制'];
 }

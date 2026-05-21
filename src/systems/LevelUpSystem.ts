@@ -14,6 +14,7 @@ const MAX_EQUIPMENT_LEVEL = 8;
  */
 const EVOLVED_TO_SOURCE: Record<string, string> = {
   swift_blade_evolved: 'swift_blade',
+  ice_spike_evolved: 'ice_spike',
 };
 
 /**

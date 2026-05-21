@@ -39,6 +39,7 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'weapon_icon_swift_blade',   'assets/icons/weapons/swift_blade.png');
     AssetLoader.loadImage(scene, 'weapon_icon_flame_seal',    'assets/icons/weapons/flame_seal.png');
     AssetLoader.loadImage(scene, 'weapon_icon_ice_spike',     'assets/icons/weapons/ice_spike.png');
+    AssetLoader.loadImage(scene, 'weapon_icon_ice_spike_evolved', 'assets/icons/weapons/ice_spike_evolved.png');
     AssetLoader.loadImage(scene, 'weapon_icon_thunder_claw',  'assets/icons/weapons/thunder_claw.png');
     AssetLoader.loadImage(scene, 'weapon_icon_poison_mist',   'assets/icons/weapons/poison_mist.png');
 
