@@ -48,6 +48,16 @@ const EVOLVED_WEAPON_IDS: Set<string> = new Set(
 );
 
 /**
+ * 特殊大道黑名單：這些大道永遠不進入一般隨機候選池，
+ * 只能由各自的專屬條件邏輯（checkAndMark*Pending）插入。
+ * 新增特殊大道時，必須在此集合加入對應 id。
+ * 參見 project-conventions.md §5.2
+ */
+const SPECIAL_DAO_IDS: Set<string> = new Set([
+  'jinghong_split',
+]);
+
+/**
  * UpgradePool
  * 依規則篩選合法升級選項，回傳最多 3 個 UpgradeOption
  *
@@ -194,9 +204,7 @@ export class UpgradePool {
     }
 
     // ── 一般宗門大道選項（通用條件迴圈，排除已由特殊邏輯處理的大道）──
-    // jinghong_split 永遠不進入一般候選池，只能由 pending 保證邏輯插入
-    const SPECIAL_DAO_IDS = new Set(['jinghong_split']);
-
+    // SPECIAL_DAO_IDS 中的大道永遠不進入一般候選池，只能由 pending 保證邏輯插入
     for (const dao of DAOS) {
       // 已取得的大道不再顯示
       if (activeDaos.has(dao.id)) continue;

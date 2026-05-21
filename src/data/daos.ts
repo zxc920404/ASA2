@@ -15,7 +15,7 @@ export const DAOS: DaoData[] = [
     name: '驚鴻命中後分裂',
     description: '投射物命中敵人後，生成 2 顆分裂子彈，向左右各偏 25 度飛出。',
     requiredCharacterId: 'assassin', // 驚鴻派
-    requiredPlayerLevel: 1,          // 實際條件由 UpgradePool 特殊邏輯判定
+    requiredPlayerLevel: 999,        // 特殊大道：不由通用迴圈判斷，由 UpgradePool 特殊邏輯控制
   },
 ];
 
