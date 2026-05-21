@@ -4,6 +4,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'guardian_ring',
     name: '守心環',
+    form: 'orbit',
+    effects: [],
+    usesAmountBonus: true,
     baseDamagePerLevel: [10, 13, 13, 16, 16, 20, 20, 25], // 向下相容保留
     baseAttackInterval: 1.2,
     baseAttackRange: 120,
@@ -31,6 +34,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'swift_blade',
     name: '疾風刃',
+    form: 'projectile',
+    effects: ['autoTarget'],
+    usesAmountBonus: true,
     baseDamagePerLevel: [12, 15, 13, 17, 17, 21, 21, 26], // 向下相容保留
     baseAttackInterval: 0.8,
     baseAttackRange: 200,
@@ -58,6 +64,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'flame_seal',
     name: '赤焰印',
+    form: 'strike',
+    effects: [],
+    usesAmountBonus: true,
     baseDamagePerLevel: [18, 21, 25, 25, 31, 38, 38, 50], // 向下相容保留
     baseAttackInterval: 1.8,
     baseAttackRange: 150,
@@ -85,6 +94,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'ice_spike',
     name: '寒冰錐',
+    form: 'projectile',
+    effects: ['pierce'],
+    usesAmountBonus: true,
     baseDamagePerLevel: [16, 19, 22, 24, 30, 30, 38, 50], // 向下相容保留
     baseAttackInterval: 1.0,
     baseAttackRange: 180,
@@ -112,6 +124,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'thunder_claw',
     name: '雷霆爪',
+    form: 'strike',
+    effects: ['autoTarget'],
+    usesAmountBonus: true,
     baseDamagePerLevel: [10, 12, 10, 12, 12, 16, 16, 20], // 向下相容保留
     baseAttackInterval: 0.6,
     baseAttackRange: 160,
@@ -139,6 +154,9 @@ export const WEAPONS: WeaponData[] = [
   {
     id: 'poison_mist',
     name: '毒霧散',
+    form: 'field',
+    effects: ['dot'],
+    usesAmountBonus: false,
     baseDamagePerLevel: [8, 10, 10, 10, 10, 13, 13, 15], // 向下相容保留
     baseAttackInterval: 2.6,
     baseAttackRange: 130,
@@ -161,6 +179,66 @@ export const WEAPONS: WeaponData[] = [
       { damage: 13, range: 180, radius: 55, count: 2, interval: 2.4, duration: 2.8 },
       // Lv8：發射數量 +1（機制提升），傷害提升，冷卻維持
       { damage: 15, range: 190, radius: 55, count: 3, interval: 2.4, duration: 2.8 },
+    ],
+  },
+  {
+    id: 'light_shuttle',
+    name: '流光梭',
+    form: 'projectile',
+    effects: ['pierce'],
+    usesAmountBonus: true,
+    baseDamagePerLevel: [8, 10, 10, 12, 12, 15, 15, 19], // 向下相容保留
+    baseAttackInterval: 0.75,
+    baseAttackRange: 220,
+    projectileSpeed: 520,
+    iconKey: 'weapon_icon_light_shuttle',
+    levelStats: [
+      // Lv1：基礎，pierce 1
+      { damage: 8,  count: 1, pierce: 1, interval: 0.75 },
+      // Lv2：傷害提升
+      { damage: 10, count: 1, pierce: 1, interval: 0.75 },
+      // Lv3：投射物 +1
+      { damage: 10, count: 2, pierce: 1, interval: 0.75 },
+      // Lv4：傷害提升
+      { damage: 12, count: 2, pierce: 1, interval: 0.75 },
+      // Lv5：pierce +1，範圍擴大
+      { damage: 12, count: 2, pierce: 2, interval: 0.75, range: 250 },
+      // Lv6：傷害提升
+      { damage: 15, count: 2, pierce: 2, interval: 0.75, range: 250 },
+      // Lv7：投射物 +1，攻擊間隔縮短
+      { damage: 15, count: 3, pierce: 2, interval: 0.7,  range: 250 },
+      // Lv8：傷害大幅提升（滿級獎勵）
+      { damage: 19, count: 3, pierce: 2, interval: 0.7,  range: 250 },
+    ],
+  },
+  {
+    id: 'soul_chasing_needle',
+    name: '追魂針',
+    form: 'projectile',
+    effects: ['autoTarget'],
+    usesAmountBonus: true,
+    baseDamagePerLevel: [6, 8, 7, 9, 9, 11, 10, 14], // 向下相容保留
+    baseAttackInterval: 0.55,
+    baseAttackRange: 190,
+    projectileSpeed: 460,
+    iconKey: 'weapon_icon_soul_chasing_needle',
+    levelStats: [
+      // Lv1：基礎，單發
+      { damage: 6,  count: 1, interval: 0.55 },
+      // Lv2：傷害提升
+      { damage: 8,  count: 1, interval: 0.55 },
+      // Lv3：投射物 +1，傷害略降
+      { damage: 7,  count: 2, interval: 0.55 },
+      // Lv4：傷害提升
+      { damage: 9,  count: 2, interval: 0.55 },
+      // Lv5：攻擊間隔縮短，範圍擴大
+      { damage: 9,  count: 2, interval: 0.5,  range: 215 },
+      // Lv6：傷害提升
+      { damage: 11, count: 2, interval: 0.5,  range: 215 },
+      // Lv7：投射物 +1，傷害略降
+      { damage: 10, count: 3, interval: 0.5,  range: 215 },
+      // Lv8：傷害大幅提升，攻擊間隔縮短（滿級獎勵）
+      { damage: 14, count: 3, interval: 0.45, range: 215 },
     ],
   },
 ];

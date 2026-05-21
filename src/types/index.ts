@@ -1,6 +1,43 @@
 // 角色特性類型
 export type CharacterTrait = '屬性加成型' | '條件觸發型' | '行為修改型';
 
+// ── 武器分類二元結構 ──────────────────────────────────────────────────────
+/**
+ * WeaponForm：武器在 Phaser 裡的存在方式與運動形態
+ * - orbit:      環繞玩家旋轉（守心環）
+ * - projectile: 發射投射物飛向目標（疾風刃、寒冰錐）
+ * - field:      在場地上生成持續區域（毒霧散）
+ * - melee:      近身揮砍，瞬間判定（預留）
+ * - strike:     瞬間打擊，有目標定位但無飛行物（赤焰印、雷霆爪）
+ * - summon:     召喚擁有獨立 AI、位置、生命週期的實體（劍靈、靈獸、分身、護法、符傀等，預留）
+ */
+export type WeaponForm =
+  | 'orbit'
+  | 'projectile'
+  | 'field'
+  | 'melee'
+  | 'strike'
+  | 'summon';
+
+/**
+ * WeaponEffect：命中後或更新時的特殊戰鬥效果
+ * - autoTarget: 自動追蹤最近敵人
+ * - pierce:     穿透多個敵人
+ * - bounce:     彈射到下一個目標（預留）
+ * - chain:      鏈式傳遞傷害（預留）
+ * - knockback:  擊退效果（預留）
+ * - defense:    提供防禦/護盾效果（預留）
+ * - dot:        持續傷害（Damage over Time）
+ */
+export type WeaponEffect =
+  | 'autoTarget'
+  | 'pierce'
+  | 'bounce'
+  | 'chain'
+  | 'knockback'
+  | 'defense'
+  | 'dot';
+
 // 角色定義
 export interface CharacterData {
   id: string;
@@ -33,6 +70,16 @@ export interface WeaponLevelStats {
 export interface WeaponData {
   id: string;
   name: string;
+  /** 武器的存在方式與運動形態 */
+  form: WeaponForm;
+  /** 命中後或更新時的特殊戰鬥效果（可為空陣列） */
+  effects: WeaponEffect[];
+  /**
+   * 是否吃 amountBonus（玩家屬性中的武器單位數量加成）
+   * - true：finalCount = baseCount + amountBonus（projectile / orbit / summon / strike 類）
+   * - false 或未設定：不吃 amountBonus（field 類如毒霧散，避免數量失控）
+   */
+  usesAmountBonus?: boolean;
   baseDamagePerLevel: number[]; // 保留向下相容，WeaponSystem 優先讀 levelStats
   baseAttackInterval: number;   // 秒（fallback 用）
   baseAttackRange: number;      // px（fallback 用）
@@ -79,8 +126,31 @@ export interface PlayerStats {
   moveSpeed: number;
   attackPower: number;
   pickupRange: number;
-  attackRange: number;    // 由 WeaponSystem 使用
-  attackInterval: number; // 由 WeaponSystem 使用
+  attackRange: number;    // 由 WeaponSystem 使用（舊欄位，保留相容）
+  attackInterval: number; // 由 WeaponSystem 使用（舊欄位，保留相容）
+  /** 武器單位數量加成（+N 個投射物 / 環繞物 / 召喚物 / 打擊次數），預設 0 */
+  amountBonus: number;
+  /**
+   * 武器冷卻倍率，預設 1.0
+   * 例：0.8 = 冷卻縮短 20%（值越小攻擊越快）
+   * 影響：所有武器的攻擊間隔
+   */
+  cooldownMultiplier: number;
+  /**
+   * 範圍倍率，預設 1.0
+   * 影響：爆炸半徑、毒霧大小、火海範圍、環繞半徑
+   */
+  areaMultiplier: number;
+  /**
+   * 持續時間倍率，預設 1.0
+   * 影響：毒霧持續時間、召喚物存在時間、Buff 時間
+   */
+  durationMultiplier: number;
+  /**
+   * 投射物速度倍率，預設 1.0
+   * 影響：飛劍速度、寒冰錐速度、符咒飛行速度
+   */
+  projectileSpeedMultiplier: number;
 }
 
 // 裝備欄

@@ -99,5 +99,10 @@ export function calculateStats(
     pickupRange: Math.min(rawPickupRange, MAX_PICKUP_RANGE),
     attackRange: Math.min(rawAttackRange, MAX_ATTACK_RANGE),
     attackInterval: Math.max(rawAttackInterval, MIN_ATTACK_INTERVAL),
+    amountBonus: 0,              // 底層欄位預留，目前無被動加成此屬性
+    cooldownMultiplier: 1.0,     // 底層欄位預留，目前無被動加成此屬性
+    areaMultiplier: 1.0,         // 底層欄位預留，目前無被動加成此屬性
+    durationMultiplier: 1.0,     // 底層欄位預留，目前無被動加成此屬性
+    projectileSpeedMultiplier: 1.0, // 底層欄位預留，目前無被動加成此屬性
   };
 }

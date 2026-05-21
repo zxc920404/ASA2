@@ -102,10 +102,12 @@ export class WeaponSystem {
         ringOrbs: [],
       };
 
-      // 守心環：預先建立環繞體（數量從 levelStats.count 讀取）
+      // 守心環：預先建立環繞體（數量從 levelStats.count 讀取，套用 amountBonus）
       if (slot.weaponId === 'guardian_ring') {
         const weaponData = getWeaponById(slot.weaponId);
-        const orbCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+        const baseCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+        const amountBonus = weaponData?.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
+        const orbCount = Math.max(1, baseCount + amountBonus);
         this.initRingOrbs(instance, orbCount, player);
       }
 
@@ -128,10 +130,12 @@ export class WeaponSystem {
         // 更新等級
         existing.level = slot.level;
 
-        // 守心環：若等級改變，重建環繞體（數量從 levelStats.count 讀取）
+        // 守心環：若等級改變，重建環繞體（數量從 levelStats.count 讀取，套用 amountBonus）
         if (slot.weaponId === 'guardian_ring') {
           const weaponData = getWeaponById(slot.weaponId);
-          const newCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          const baseCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          const amountBonus = weaponData?.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
+          const newCount = Math.max(1, baseCount + amountBonus);
           if (existing.ringOrbs.length !== newCount) {
             // 移除舊環繞體
             for (const orb of existing.ringOrbs) {
@@ -154,7 +158,9 @@ export class WeaponSystem {
 
         if (slot.weaponId === 'guardian_ring') {
           const weaponData = getWeaponById(slot.weaponId);
-          const orbCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          const baseCount = weaponData?.levelStats[slot.level - 1]?.count ?? 1;
+          const amountBonus = weaponData?.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
+          const orbCount = Math.max(1, baseCount + amountBonus);
           this.initRingOrbs(instance, orbCount, player);
         }
 
@@ -259,20 +265,36 @@ export class WeaponSystem {
           if (target) {
             const projSpeed = stats.projectileSpeed ?? weaponData.projectileSpeed;
 
+            // 計算最終數量：baseCount + amountBonus（僅 usesAmountBonus === true 時套用）
+            const baseCount = stats.count ?? 1;
+            const amountBonus = weaponData.usesAmountBonus ? (player.stats.amountBonus ?? 0) : 0;
+            const finalCount = Math.max(1, baseCount + amountBonus);
+
             if (inst.weaponId === 'swift_blade') {
-              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'swift_blade', 0x00ffff, stats.count ?? 1);
+              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'swift_blade', 0x00ffff, finalCount);
             } else if (inst.weaponId === 'flame_seal') {
               const explosionRadius = stats.radius ?? 80;
-              this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius);
+              this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius, finalCount);
             } else if (inst.weaponId === 'thunder_claw') {
-              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, stats.count ?? 1);
+              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, finalCount);
             } else if (inst.weaponId === 'ice_spike') {
-              // 寒冰錐：啟用穿透，pierce 數從 levelStats 讀取
+              // 寒冰錐：啟用穿透，pierce 數從 levelStats 讀取；finalCount 控制同時發射數
               const pierceCount = stats.pierce ?? 1;
-              this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
+              for (let i = 0; i < finalCount; i++) {
+                this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
+              }
+            } else if (inst.weaponId === 'light_shuttle') {
+              // 流光梭：穿透投射物，沿用寒冰錐邏輯
+              const pierceCount = stats.pierce ?? 1;
+              for (let i = 0; i < finalCount; i++) {
+                this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
+              }
+            } else if (inst.weaponId === 'soul_chasing_needle') {
+              // 追魂針：自動追尾投射物，沿用疾風刃邏輯
+              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'soul_chasing_needle', 0xff88ff, finalCount);
             } else if (inst.weaponId === 'poison_mist') {
-              // 毒霧散：依 count 發射多個毒霧投射物，到達後生成毒霧區域
-              const cloudCount = stats.count ?? 1;
+              // 毒霧散：不吃 amountBonus，直接用 baseCount
+              const cloudCount = baseCount;
               const cloudRadius = stats.radius ?? 45;
               const cloudDuration = (stats.duration ?? 2.2) * 1000; // 秒轉毫秒
               this.firePoisonMist(player, finalDamage, projSpeed, finalRange, cloudCount, cloudRadius, cloudDuration, enemies);
@@ -663,42 +685,51 @@ export class WeaponSystem {
 
   /**
    * 發射赤焰印（飛向目標位置，到達後爆炸）
+   * count > 1 時以小角度偏移發射多發（usesAmountBonus 套用後）
    */
   private fireFlameSeal(
     player: Player,
     target: Enemy,
     damage: number,
     speed: number,
-    explosionRadius: number
+    explosionRadius: number,
+    count: number = 1
   ): void {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1) return;
 
-    const nx = dx / dist;
-    const ny = dy / dist;
+    const baseAngle = Math.atan2(dy, dx);
+    const angleSpread = count > 1 ? 0.18 : 0;
 
-    // 存活時間：足夠飛到目標（加一點餘裕）
-    const lifeTime = (dist / speed) * 1000 + 500;
+    for (let i = 0; i < count; i++) {
+      const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
+      const angle = baseAngle + offset;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
 
-    const proj = new Projectile(
-      this.scene,
-      player.x,
-      player.y,
-      damage,
-      nx * speed,
-      ny * speed,
-      lifeTime,
-      'flame_seal',
-      0xff4400, // 橙紅色
-      true,     // isExplosive
-      explosionRadius,
-      target.x,
-      target.y
-    );
+      // 存活時間：足夠飛到目標（加一點餘裕）
+      const lifeTime = (dist / speed) * 1000 + 500;
 
-    this.addProjectile(proj);
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        'flame_seal',
+        0xff4400, // 橙紅色
+        true,     // isExplosive
+        explosionRadius,
+        target.x,
+        target.y
+      );
+
+      this.addProjectile(proj);
+    }
   }
 
   /**
