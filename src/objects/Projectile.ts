@@ -46,6 +46,16 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
    */
   public cloudDuration: number;
 
+  // ── 驚鴻派大道：分裂投射物狀態 ──────────────────────────────────────
+  /** 是否為分裂投射物（分裂子彈不可再次分裂） */
+  public isSplitProjectile: boolean;
+  /** 分裂深度（0 = 原始投射物，1 = 分裂子彈，防止無限遞迴） */
+  public splitDepth: number;
+  /** 來源武器 ID（分裂子彈繼承原始投射物的武器 ID） */
+  public sourceWeaponId: string;
+  /** 是否已觸發過分裂（每顆原始投射物最多分裂一次） */
+  public hasSplit: boolean;
+
   // ── 返還投射物狀態（流光返刃用）──────────────────────────────────────
   /** 是否啟用返還機制 */
   public canReturn: boolean;
@@ -101,6 +111,12 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.returnDamageMultiplier = 0.7;
     this.outboundHitEnemies = new Set<Enemy>();
     this.returnHitEnemies = new Set<Enemy>();
+
+    // 驚鴻派大道：分裂狀態初始化
+    this.isSplitProjectile = false;
+    this.splitDepth = 0;
+    this.sourceWeaponId = weaponId;
+    this.hasSplit = false;
 
     scene.add.existing(this);
     this.setDepth(6);

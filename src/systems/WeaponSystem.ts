@@ -29,6 +29,18 @@ const MAX_HIT_EFFECTS = 30;
 /** 同時存在的毒霧數量上限 */
 const MAX_POISON_CLOUDS = 8;
 
+// ── 驚鴻派大道：分裂投射物參數 ──────────────────────────────────────────
+/** 驚鴻派宗門 character id */
+const JINGHONG_CHARACTER_ID = 'assassin';
+/** 分裂子彈數量 */
+const SPLIT_COUNT = 2;
+/** 分裂子彈傷害倍率 */
+const SPLIT_DAMAGE_MULTIPLIER = 0.55;
+/** 分裂子彈射程倍率 */
+const SPLIT_RANGE_MULTIPLIER = 0.6;
+/** 分裂角度偏移（弧度），±25 度 */
+const SPLIT_ANGLE_OFFSET = 25 * (Math.PI / 180);
+
 /**
  * 守心環環繞體
  * 繞玩家旋轉，碰到敵人造成傷害
@@ -82,6 +94,9 @@ export class WeaponSystem {
   /** 毒霧區域列表（毒霧散用） */
   private poisonClouds: PoisonCloud[] = [];
 
+  /** 當前玩家宗門 character id（驚鴻派大道判斷用） */
+  private characterId: string = '';
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
@@ -89,8 +104,10 @@ export class WeaponSystem {
   /**
    * 初始化武器系統，依玩家裝備欄建立武器實例
    * @param player 玩家物件
+   * @param characterId 玩家宗門 character id（驚鴻派大道判斷用）
    */
-  public init(player: Player): void {
+  public init(player: Player, characterId: string = ''): void {
+    this.characterId = characterId;
     this.weaponInstances = [];
 
     for (const slot of player.equipment.weapons) {
@@ -290,7 +307,7 @@ export class WeaponSystem {
               // 流光梭：穿透投射物，沿用寒冰錐邏輯
               const pierceCount = stats.pierce ?? 1;
               for (let i = 0; i < finalCount; i++) {
-                this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
+                this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount, 'light_shuttle');
               }
             } else if (inst.weaponId === 'soul_chasing_needle') {
               // 追魂針：自動追尾投射物，沿用疾風刃邏輯
@@ -447,13 +464,47 @@ export class WeaponSystem {
               // 延長存活時間確保能飛回玩家（3 秒足夠）
               proj.lifeTime = 3000;
               // 不設 hit = true，繼續飛行（進入返還模式）
+
+              // 驚鴻派大道：去程第一次命中時分裂（回程不觸發）
+              if (
+                this.characterId === JINGHONG_CHARACTER_ID &&
+                !proj.isSplitProjectile &&
+                proj.splitDepth === 0 &&
+                !proj.hasSplit
+              ) {
+                proj.hasSplit = true;
+                this.spawnSplitProjectiles(proj, proj.x, proj.y);
+              }
             } else if (proj.pierceRemaining > 0) {
               // 穿透模式：記錄已命中敵人，消耗一次穿透次數，繼續飛行
               proj.hitEnemies.add(enemy);
               proj.pierceRemaining -= 1;
               // 不設 hit = true，繼續檢查其他敵人（同幀可穿透多個）
+
+              // 驚鴻派大道：穿透投射物只在第一次命中時分裂一次
+              if (
+                this.characterId === JINGHONG_CHARACTER_ID &&
+                !proj.isSplitProjectile &&
+                proj.splitDepth === 0 &&
+                !proj.hasSplit
+              ) {
+                proj.hasSplit = true;
+                this.spawnSplitProjectiles(proj, proj.x, proj.y);
+              }
             } else {
               // 非穿透模式：命中即銷毀
+
+              // 驚鴻派大道：命中時分裂
+              if (
+                this.characterId === JINGHONG_CHARACTER_ID &&
+                !proj.isSplitProjectile &&
+                proj.splitDepth === 0 &&
+                !proj.hasSplit
+              ) {
+                proj.hasSplit = true;
+                this.spawnSplitProjectiles(proj, proj.x, proj.y);
+              }
+
               hit = true;
               break;
             }
@@ -790,7 +841,7 @@ export class WeaponSystem {
   }
 
   /**
-   * 發射穿透投射物（寒冰錐專用）
+   * 發射穿透投射物（寒冰錐、流光梭用）
    * pierceCount 為可穿透的敵人數量（命中第 pierceCount+1 個時銷毀）
    */
   private firePiercingProjectile(
@@ -799,7 +850,8 @@ export class WeaponSystem {
     damage: number,
     speed: number,
     range: number,
-    pierceCount: number
+    pierceCount: number,
+    weaponId: string = 'ice_spike'
   ): void {
     const dx = target.x - player.x;
     const dy = target.y - player.y;
@@ -822,7 +874,7 @@ export class WeaponSystem {
       nx * speed,
       ny * speed,
       lifeTime,
-      'ice_spike',
+      weaponId,
       0x88ddff, // 淡藍色，區別於其他投射物
       false,    // 非爆炸型
       0,        // explosionRadius
@@ -1075,5 +1127,64 @@ export class WeaponSystem {
         this.activeHitEffects--;
       },
     });
+  }
+
+  /**
+   * 驚鴻派大道：在命中點生成分裂投射物
+   * @param sourceProj 原始投射物
+   * @param hitX 命中點 X
+   * @param hitY 命中點 Y
+   */
+  private spawnSplitProjectiles(sourceProj: Projectile, hitX: number, hitY: number): void {
+    // 計算原始飛行方向角度
+    const speed = Math.sqrt(sourceProj.velocityX * sourceProj.velocityX + sourceProj.velocityY * sourceProj.velocityY);
+    if (speed < 1) return;
+
+    const baseAngle = Math.atan2(sourceProj.velocityY, sourceProj.velocityX);
+
+    // 分裂子彈速度：原速度的 105%（略快一點視覺感）
+    const splitSpeed = speed * 1.05;
+
+    // 分裂子彈傷害
+    const splitDamage = Math.max(1, Math.floor(sourceProj.damage * SPLIT_DAMAGE_MULTIPLIER));
+
+    // 分裂子彈存活時間：以原始投射物剩餘 lifeTime × 射程倍率
+    // 至少 200ms，避免瞬間消失
+    const splitLifeTime = Math.max(200, sourceProj.lifeTime * SPLIT_RANGE_MULTIPLIER);
+
+    const angles = [baseAngle - SPLIT_ANGLE_OFFSET, baseAngle + SPLIT_ANGLE_OFFSET];
+
+    for (const angle of angles) {
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      const splitProj = new Projectile(
+        this.scene,
+        hitX,
+        hitY,
+        splitDamage,
+        nx * splitSpeed,
+        ny * splitSpeed,
+        splitLifeTime,
+        sourceProj.sourceWeaponId,
+        0xaaffee, // 略帶青白色，視覺區別
+        false,    // 非爆炸型
+        0,
+        0,
+        0,
+        0         // pierceRemaining = 0（分裂子彈不穿透）
+      );
+
+      // 標記為分裂投射物，防止再次分裂
+      splitProj.isSplitProjectile = true;
+      splitProj.splitDepth = 1;
+      splitProj.sourceWeaponId = sourceProj.sourceWeaponId;
+
+      // 略小、略透明，視覺上區別原始投射物
+      splitProj.setSize(7, 7);
+      splitProj.setAlpha(0.85);
+
+      this.addProjectile(splitProj);
+    }
   }
 }

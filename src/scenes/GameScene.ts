@@ -310,7 +310,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 建立武器系統並初始化（Requirement 5.1）
     this.weaponSystem = new WeaponSystem(this);
-    this.weaponSystem.init(this.player);
+    this.weaponSystem.init(this.player, this.characterId);
 
     // 建立升級系統（Requirement 10.3）
     this.levelUpSystem = new LevelUpSystem(this);
