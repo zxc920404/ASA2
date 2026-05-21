@@ -168,11 +168,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private separationFrameCount: number = 0;
 
   // ── 精英怪事件 flag（每局各觸發一次）──────────────────────────────────
-  /** 第一波精英怪是否已生成（測試用：15 秒；正式版：150 秒） */
+  /** 第一波精英怪是否已生成（測試用：60 秒 / 1min；正式版：150 秒） */
   private eliteSpawned150: boolean = false;
-  /** 第二波精英怪是否已生成（測試用：30 秒；正式版：300 秒） */
+  /** 第二波精英怪是否已生成（測試用：180 秒 / 3min；正式版：300 秒） */
   private eliteSpawned300: boolean = false;
-  /** 第三波精英怪是否已生成（測試用：45 秒；正式版：450 秒） */
+  /** 第三波精英怪是否已生成（測試用：300 秒 / 5min；正式版：450 秒） */
   private eliteSpawned450: boolean = false;
 
   // ── 精英投射物陣列（shooter 用）──────────────────────────────────────
@@ -596,16 +596,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── 精英怪事件觸發（測試用：15 / 30 / 45 秒；正式版：150 / 300 / 450 秒，即 2:30 / 5:00 / 7:30）──
-    if (!this.eliteSpawned150 && this.elapsedSeconds >= 15) {
+    // ── 精英怪事件觸發（測試用：60 / 180 / 300 秒，即 1:00 / 3:00 / 5:00；正式版：150 / 300 / 450 秒，即 2:30 / 5:00 / 7:30）──
+    if (!this.eliteSpawned150 && this.elapsedSeconds >= 60) {
       this.eliteSpawned150 = true;
       this.spawnEliteEnemy(1);
     }
-    if (!this.eliteSpawned300 && this.elapsedSeconds >= 30) {
+    if (!this.eliteSpawned300 && this.elapsedSeconds >= 180) {
       this.eliteSpawned300 = true;
       this.spawnEliteEnemy(2);
     }
-    if (!this.eliteSpawned450 && this.elapsedSeconds >= 45) {
+    if (!this.eliteSpawned450 && this.elapsedSeconds >= 300) {
       this.eliteSpawned450 = true;
       this.spawnEliteEnemy(3);
     }
@@ -1843,33 +1843,34 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 震罡功：架盾蓄力震波
    * 三當家進入架盾狀態（減傷），蓄力後釋放近距離圓形震波
-   * 修正：預警圈用 setPosition + 相對座標，不做 scale tween 避免漂移
    */
   private spawnShieldBurst(cx: number, cy: number, dmg: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const BURST_RADIUS = 115 + Math.random() * 15; // 115～130px
-    const SHIELD_DUR   = 1000; // 架盾時間（ms）
-    const BURST_DUR    = 250;  // 爆發持續（ms）
+    const BURST_RADIUS = 220;   // 震波半徑（px）
+    const SHIELD_DUR   = 1000;  // 架盾時間（ms）
+    const BURST_DUR    = 300;   // 爆發持續（ms）
 
     // ── 啟動護盾（減傷 70%）──────────────────────────────────────────
     elite.shieldActivate();
 
-    // ── 蓄力預警圈（固定在施放位置，用 setPosition + 相對座標）──────
     // 記錄施放瞬間的位置
     const castX = cx;
     const castY = cy;
 
+    // ── 蓄力預警圈（setPosition + 相對座標，不做 scale tween）──────
     const windupG = this.add.graphics();
     windupG.setPosition(castX, castY);
     windupG.setDepth(18);
-    // 用相對座標 (0,0) 繪製，不用世界座標
     windupG.lineStyle(4, 0xddaa00, 0.85);
+    windupG.strokeCircle(0, 0, BURST_RADIUS);
+    windupG.fillStyle(0xaa8800, 0.12);
+    windupG.fillCircle(0, 0, BURST_RADIUS);
+    // 內圈提示
+    windupG.lineStyle(2, 0xffcc44, 0.5);
     windupG.strokeCircle(0, 0, BURST_RADIUS * 0.5);
-    windupG.fillStyle(0xaa8800, 0.18);
-    windupG.fillCircle(0, 0, BURST_RADIUS * 0.5);
 
-    // 用 alpha 閃爍表示蓄力，不做 scale（避免漂移）
+    // alpha 閃爍表示蓄力，不做 scale（避免漂移）
     this.tweens.add({
       targets: windupG,
       alpha: 0.3,
@@ -1891,25 +1892,25 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      // 使用三當家當前位置（已移動）
+      // 使用三當家當前位置
       const bx = elite.active ? elite.x : castX;
       const by = elite.active ? elite.y : castY;
 
-      // ── 爆發圓圈（土黃色，固定位置，alpha 淡出）──────────────────────
+      // ── 爆發圓圈（setPosition + 相對座標，alpha 淡出，不做 scale）──
       const burstG = this.add.graphics();
       burstG.setPosition(bx, by);
       burstG.setDepth(19);
-      burstG.lineStyle(8, 0xffcc00, 0.9);
-      burstG.strokeCircle(0, 0, BURST_RADIUS * 0.4);
-      burstG.lineStyle(4, 0xffaa00, 0.7);
+      burstG.lineStyle(10, 0xffcc00, 0.95);
+      burstG.strokeCircle(0, 0, BURST_RADIUS * 0.35);
+      burstG.lineStyle(5, 0xffaa00, 0.8);
       burstG.strokeCircle(0, 0, BURST_RADIUS);
-      burstG.fillStyle(0xcc9900, 0.22);
+      burstG.fillStyle(0xcc9900, 0.20);
       burstG.fillCircle(0, 0, BURST_RADIUS);
 
       this.tweens.add({
         targets: burstG,
         alpha: 0,
-        duration: BURST_DUR + 150,
+        duration: BURST_DUR + 200,
         ease: 'Power2',
         onComplete: () => { if (burstG && burstG.active) burstG.destroy(); },
       });
@@ -1922,8 +1923,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         this.player.takeDamage(dmg, this);
         if (dist > 1) {
           this.player.applyExternalMove(
-            (dx / dist) * 80,
-            (dy / dist) * 80
+            (dx / dist) * 90,
+            (dy / dist) * 90
           );
         }
       }
@@ -2006,19 +2007,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         });
       }
 
-      // ── 落地衝擊波（土色，快速擴散）──────────────────────────────────
+      // ── 落地衝擊波（setPosition + 相對座標，alpha 淡出，不做 scale）──
       const impactG = this.add.graphics();
+      impactG.setPosition(landX, landY);
       impactG.setDepth(19);
       impactG.lineStyle(10, 0x885500, 0.95);
-      impactG.strokeCircle(landX, landY, SLAM_RADIUS * 0.3);
+      impactG.strokeCircle(0, 0, SLAM_RADIUS * 0.3);
       impactG.lineStyle(5, 0xcc7700, 0.8);
-      impactG.strokeCircle(landX, landY, SLAM_RADIUS);
+      impactG.strokeCircle(0, 0, SLAM_RADIUS);
       impactG.fillStyle(0x774400, 0.20);
-      impactG.fillCircle(landX, landY, SLAM_RADIUS);
+      impactG.fillCircle(0, 0, SLAM_RADIUS);
 
       this.tweens.add({
         targets: impactG,
-        scaleX: 1.4, scaleY: 1.4,
         alpha: 0,
         duration: 400,
         ease: 'Power2',
@@ -2048,7 +2049,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 震撼咆哮：扇形蓄力咆哮
    * 三當家朝玩家方向蓄力，釋放大範圍扇形咆哮，造成傷害與定身
-   * 修正：施放時鎖定方向與位置，不做 scale tween，用 alpha 閃爍預警
+   * 施放時鎖定方向與位置，不做 scale tween，用 alpha 閃爍預警
    */
   private spawnWarCry(cx: number, cy: number, dirX: number, dirY: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
@@ -2059,17 +2060,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const castDirX = dirX;
     const castDirY = dirY;
 
-    const WARCRY_RADIUS = 190;                          // 扇形距離（px）
-    const WARCRY_ANGLE  = Math.PI * 0.5;                // 扇形角度 90°
-    const WINDUP_DUR    = 800;                          // 蓄力時間（ms）
+    const WARCRY_RADIUS = 380;                          // 扇形距離（px）
+    const WARCRY_ANGLE  = Math.PI * (120 / 180);        // 扇形角度 120°
+    const WINDUP_DUR    = 900;                          // 蓄力時間（ms）
     const STUN_DUR      = 400 + Math.random() * 300;   // 定身 0.4～0.7 秒
     const WARCRY_DMG    = Math.ceil(elite.contactDamage * 0.55);
     const baseAngle     = Math.atan2(castDirY, castDirX);
-
-    // ── 扇形預警（固定在施放位置，用 setPosition + 相對座標）──────────
-    const warnG = this.add.graphics();
-    warnG.setPosition(castX, castY);
-    warnG.setDepth(17);
 
     // 繪製扇形（相對座標，原點 = 三當家位置）
     const drawFan = (g: Phaser.GameObjects.Graphics, radius: number, lineColor: number, lineAlpha: number, fillColor: number, fillAlpha: number) => {
@@ -2077,7 +2073,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(fillColor, fillAlpha);
       g.beginPath();
       g.moveTo(0, 0);
-      const steps = 16;
+      const steps = 20;
       for (let i = 0; i <= steps; i++) {
         const a = baseAngle - WARCRY_ANGLE * 0.5 + WARCRY_ANGLE * (i / steps);
         g.lineTo(Math.cos(a) * radius, Math.sin(a) * radius);
@@ -2087,9 +2083,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.strokePath();
     };
 
+    // ── 扇形預警（setPosition + 相對座標，不做 scale）──────────────────
+    const warnG = this.add.graphics();
+    warnG.setPosition(castX, castY);
+    warnG.setDepth(17);
     drawFan(warnG, WARCRY_RADIUS, 0xdd2200, 0.8, 0xcc1100, 0.12);
+    // 外框線加粗
+    warnG.lineStyle(4, 0xff4400, 0.6);
+    warnG.strokeCircle(0, 0, WARCRY_RADIUS * 0.15); // 中心小圓提示
 
-    // 用 alpha 閃爍表示蓄力，不做 scale
+    // alpha 閃爍表示蓄力，不做 scale
     this.tweens.add({
       targets: warnG,
       alpha: 0.4,
@@ -2108,11 +2111,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      // 使用三當家當前位置（已移動）
+      // 使用三當家當前位置
       const bx = elite.active ? elite.x : castX;
       const by = elite.active ? elite.y : castY;
 
-      // ── 咆哮爆發視覺（固定位置，alpha 淡出）──────────────────────────
+      // ── 咆哮爆發視覺（setPosition + 相對座標，alpha 淡出）────────────
       const burstG = this.add.graphics();
       burstG.setPosition(bx, by);
       burstG.setDepth(19);
@@ -2121,10 +2124,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       burstG.lineStyle(5, 0xffdd00, 0.8);
       burstG.beginPath();
       burstG.moveTo(0, 0);
-      const steps2 = 16;
+      const steps2 = 20;
       for (let i = 0; i <= steps2; i++) {
         const a = baseAngle - WARCRY_ANGLE * 0.5 + WARCRY_ANGLE * (i / steps2);
-        burstG.lineTo(Math.cos(a) * WARCRY_RADIUS * 0.55, Math.sin(a) * WARCRY_RADIUS * 0.55);
+        burstG.lineTo(Math.cos(a) * WARCRY_RADIUS * 0.5, Math.sin(a) * WARCRY_RADIUS * 0.5);
       }
       burstG.closePath();
       burstG.strokePath();
@@ -2132,26 +2135,25 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.tweens.add({
         targets: burstG,
         alpha: 0,
-        duration: 350,
+        duration: 400,
         ease: 'Power2',
         onComplete: () => { if (burstG && burstG.active) burstG.destroy(); },
       });
 
       // ── 傷害與定身判定（以 bx/by 為中心，castDirX/Y 為方向）──────────
+      // 重要：用玩家相對位置做角度判斷，不移動任何物件
       const pdx = this.player.x - bx;
       const pdy = this.player.y - by;
       const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
 
       if (pdist <= WARCRY_RADIUS + 14) {
-        // 角度判定：玩家是否在扇形內
         const playerAngle = Math.atan2(pdy, pdx);
         let angleDiff = playerAngle - baseAngle;
         while (angleDiff >  Math.PI) angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-        if (Math.abs(angleDiff) <= WARCRY_ANGLE * 0.5 + 0.1) {
+        if (Math.abs(angleDiff) <= WARCRY_ANGLE * 0.5 + 0.05) {
           this.player.takeDamage(WARCRY_DMG, this);
-          // 定身（有免疫保護）
           if (this.playerStunImmunityTimer <= 0) {
             this.playerStunTimer = STUN_DUR;
             if (this.player && (this.player as any).visual) {
@@ -2168,37 +2170,37 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
 
       // 技能結束
-      this.time.delayedCall(300, () => { elite.shieldEndCast(); });
+      this.time.delayedCall(350, () => { elite.shieldEndCast(); });
     });
   }
 
   /**
-   * 連續重擊：三當家近距離連續打擊
-   * 站定後朝玩家方向連續打擊 3 次，每次前方小範圍判定
-   * 修正：判定座標基於 enemy.x/y + direction offset，不做漂移
+   * 連續重擊：三當家朝玩家方向前方範圍連續打擊
+   * 站定後朝玩家方向連續打擊 3 次，每次前方矩形範圍判定
    */
   private spawnShieldComboStrike(cx: number, cy: number, dirX: number, dirY: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
 
     const STRIKE_COUNT    = 3;
-    const STRIKE_RANGE    = 80;   // 打擊距離（px）
-    const STRIKE_WIDTH    = 60;   // 攻擊寬度（px）
-    const STRIKE_DMG      = Math.ceil(elite.contactDamage * 0.45);
-    const WINDUP_DUR      = 350;  // 技能前搖（ms）
+    const STRIKE_RANGE    = 260;  // 打擊距離（px）
+    const STRIKE_WIDTH    = 140;  // 攻擊寬度（px）
+    const STRIKE_DMG      = Math.ceil(elite.contactDamage * 0.5);
+    const WINDUP_DUR      = 400;  // 技能前搖（ms）
     const STRIKE_INTERVAL = 300;  // 每次打擊間隔（ms）
 
-    // 施放瞬間鎖定方向
+    // 施放瞬間鎖定方向（朝玩家）
     const castDirX = dirX;
     const castDirY = dirY;
+    const baseAngle = Math.atan2(castDirY, castDirX);
 
     // ── 前搖提示（三當家身上出現橘色光圈）──────────────────────────
     const windupG = this.add.graphics();
     windupG.setPosition(cx, cy);
     windupG.setDepth(17);
     windupG.lineStyle(3, 0xff8800, 0.8);
-    windupG.strokeCircle(0, 0, 38);
+    windupG.strokeCircle(0, 0, 42);
     windupG.fillStyle(0xff6600, 0.12);
-    windupG.fillCircle(0, 0, 38);
+    windupG.fillCircle(0, 0, 42);
     this.tweens.add({
       targets: windupG,
       alpha: 0,
@@ -2221,41 +2223,46 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const bx = elite.x;
       const by = elite.y;
 
-      // 打擊中心點（三當家前方 STRIKE_RANGE * 0.5 處）
-      const hitCX = bx + castDirX * STRIKE_RANGE * 0.5;
-      const hitCY = by + castDirY * STRIKE_RANGE * 0.5;
-
-      // ── 打擊視覺（橘色矩形閃光，固定位置）──────────────────────────
+      // ── 打擊視覺（setPosition + 相對座標，扇形弧線）──────────────────
       const strikeG = this.add.graphics();
-      strikeG.setPosition(hitCX, hitCY);
+      strikeG.setPosition(bx, by);
       strikeG.setDepth(19);
-      // 計算旋轉角度（讓矩形朝向攻擊方向）
-      const angle = Math.atan2(castDirY, castDirX);
-      // 用橢圓形代替旋轉矩形（避免 Graphics 旋轉複雜度）
-      strikeG.fillStyle(0xff8800, 0.55);
-      strikeG.fillEllipse(0, 0, STRIKE_RANGE, STRIKE_WIDTH * 0.7);
-      strikeG.lineStyle(3, 0xffcc00, 0.9);
-      strikeG.strokeEllipse(0, 0, STRIKE_RANGE, STRIKE_WIDTH * 0.7);
+
+      // 繪製前方扇形打擊範圍（相對座標）
+      const STRIKE_ANGLE = Math.PI * (70 / 180); // 70° 扇形
+      strikeG.fillStyle(0xff8800, 0.40);
+      strikeG.lineStyle(4, 0xffcc00, 0.9);
+      strikeG.beginPath();
+      strikeG.moveTo(0, 0);
+      const steps = 14;
+      for (let i = 0; i <= steps; i++) {
+        const a = baseAngle - STRIKE_ANGLE * 0.5 + STRIKE_ANGLE * (i / steps);
+        strikeG.lineTo(Math.cos(a) * STRIKE_RANGE, Math.sin(a) * STRIKE_RANGE);
+      }
+      strikeG.closePath();
+      strikeG.fillPath();
+      strikeG.strokePath();
+      // 中心線
+      strikeG.lineStyle(3, 0xffffff, 0.7);
+      strikeG.lineBetween(0, 0, Math.cos(baseAngle) * STRIKE_RANGE, Math.sin(baseAngle) * STRIKE_RANGE);
 
       this.tweens.add({
         targets: strikeG,
         alpha: 0,
-        duration: 200,
+        duration: 220,
         ease: 'Power2',
         onComplete: () => { if (strikeG && strikeG.active) strikeG.destroy(); },
       });
 
-      // ── 傷害判定（矩形投影）──────────────────────────────────────────
+      // ── 傷害判定（矩形投影，以 bx/by 為起點，castDir 為方向）──────────
       const pdx = this.player.x - bx;
       const pdy = this.player.y - by;
-      // 投影到攻擊方向
       const proj = pdx * castDirX + pdy * castDirY;
-      if (proj >= 0 && proj <= STRIKE_RANGE + 10) {
-        // 垂直距離
+      if (proj >= 0 && proj <= STRIKE_RANGE + 14) {
         const perpX = pdx - castDirX * proj;
         const perpY = pdy - castDirY * proj;
         const perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
-        if (perpDist <= STRIKE_WIDTH * 0.5 + 8) {
+        if (perpDist <= STRIKE_WIDTH * 0.5 + 10) {
           this.player.takeDamage(STRIKE_DMG, this);
         }
       }
