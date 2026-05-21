@@ -23,8 +23,13 @@ export function resetDamageNumberCounter(): void {
 /** 精英怪類型 */
 export type EliteType = 'charger' | 'shooter' | 'shield';
 
-/** charger 衝撞狀態 */
-type ChargerState = 'idle' | 'windup' | 'dashing';
+/**
+ * 大當家（charger）技能狀態
+ * - 'idle'：追擊玩家，等待技能冷卻
+ * - 'casting'：技能施放中（不可移動、不可普攻、不可再放技能）
+ * - 'melee_windup'：霸刀橫斬前搖中（停止移動）
+ */
+type ChargerState = 'idle' | 'casting' | 'melee_windup';
 
 export class Enemy extends Phaser.GameObjects.Rectangle {
   public dataId: string;
@@ -66,21 +71,44 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private knockbackX: number = 0;
   private knockbackY: number = 0;
 
-  // ── charger 狀態 ──────────────────────────────────────────────────────
-  private chargerCooldown: number = 3000;   // 首次衝撞等待（ms）
+  // ── charger（大當家）狀態 ────────────────────────────────────────────
+  /** 目前技能狀態 */
   private chargerState: ChargerState = 'idle';
-  private chargerWindupTimer: number = 0;
-  private chargerDashTimer: number = 0;
-  private chargerDirX: number = 0;
-  private chargerDirY: number = 0;
-  private readonly CHARGER_COOLDOWN   = 6000;  // 每輪間隔
-  private readonly CHARGER_WINDUP     = 400;   // 蓄力時間
-  private readonly CHARGER_DASH_DUR   = 650;   // 每次衝刺持續
-  private readonly CHARGER_DASH_SPEED = 450;   // 衝刺速度
-  private readonly CHARGER_PAUSE_DUR  = 300;   // 每次衝刺後停頓
-  private readonly CHARGER_COMBO      = 3;     // 每輪衝撞次數
-  private chargerComboLeft: number = 0;        // 本輪剩餘次數
-  private chargerPauseTimer: number = 0;       // 停頓計時
+
+  // ── 霸刀橫斬（普通攻擊）──────────────────────────────────────────────
+  /** 普通攻擊冷卻計時（ms） */
+  private chargerMeleeCooldown: number = 2000;
+  /** 普通攻擊前搖計時（ms，> 0 表示前搖中） */
+  private chargerMeleeWindupTimer: number = 0;
+  /** 普通攻擊距離（px） */
+  private readonly CHARGER_MELEE_RANGE = 75;
+  /** 普通攻擊前搖時間（ms） */
+  private readonly CHARGER_MELEE_WINDUP = 380;
+  /** 普通攻擊冷卻最小值（ms） */
+  private readonly CHARGER_MELEE_CD_MIN = 1400;
+  /** 普通攻擊冷卻最大值（ms） */
+  private readonly CHARGER_MELEE_CD_MAX = 2000;
+
+  // ── 技能冷卻 ──────────────────────────────────────────────────────────
+  /** 蠻王衝鋒冷卻（ms） */
+  private chargerSkill1Cooldown: number = 3000;
+  /** 裂寨三斬冷卻（ms） */
+  private chargerSkill2Cooldown: number = 5000;
+  /** 連環破甲刺冷卻（ms） */
+  private chargerSkill3Cooldown: number = 7000;
+  /** 技能結束後的選擇間隔（ms） */
+  private chargerSkillSelectTimer: number = 0;
+  private readonly CHARGER_SKILL_SELECT_INTERVAL = 1200;
+
+  // ── 回呼（由 GameScene 注入）──────────────────────────────────────────
+  /** 霸刀橫斬：普通近戰攻擊 */
+  public onChargerMeleeSlash?: (cx: number, cy: number, dmg: number, dirX: number, dirY: number) => void;
+  /** 蠻王衝鋒：連續衝刺技能 */
+  public onChargerDash?: (fromX: number, fromY: number, targetX: number, targetY: number, charger: Enemy) => void;
+  /** 裂寨三斬：連續扇形斬擊 */
+  public onChargerTripleSlash?: (cx: number, cy: number, dirX: number, dirY: number, charger: Enemy) => void;
+  /** 連環破甲刺：連續直線戳擊 */
+  public onChargerStab?: (cx: number, cy: number, dirX: number, dirY: number, charger: Enemy) => void;
 
   // ── shooter 狀態 ──────────────────────────────────────────────────────
   private shooterCooldown: number = 2000;   // 首次射擊等待（ms）
@@ -103,39 +131,36 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public onShockwave?: (x: number, y: number) => void;
 
   // ── shield 三當家：新技能組 ──────────────────────────────────────────
-  /** 技能施放中（true 時不可平砍、不可再放技能） */
+  /** 技能施放中（true 時不可再放技能） */
   public shieldCasting: boolean = false;
-  /** 震罡功冷卻（ms）：防守反擊震波 */
+  /** 震罡功冷卻（ms）：架盾蓄力震波 */
   private burstCooldown: number = 3000;
-  private readonly BURST_COOLDOWN_MIN = 5000;
-  private readonly BURST_COOLDOWN_MAX = 7000;
+  private readonly BURST_COOLDOWN_MIN = 6000;
+  private readonly BURST_COOLDOWN_MAX = 8000;
   /** 霸山墜冷卻（ms）：跳躍砸地 */
   private leapCooldown: number = 5000;
   private readonly LEAP_COOLDOWN_MIN = 6000;
   private readonly LEAP_COOLDOWN_MAX = 9000;
-  /** 震撼咆哮冷卻（ms）：控場怒吼 */
+  /** 震撼咆哮冷卻（ms）：扇形蓄力咆哮 */
   private warCryCooldown: number = 7000;
   private readonly WARCRY_COOLDOWN_MIN = 7000;
   private readonly WARCRY_COOLDOWN_MAX = 10000;
+  /** 連續重擊冷卻（ms）：近距離連續打擊 */
+  private comboStrikeCooldown: number = 4000;
+  private readonly COMBO_STRIKE_COOLDOWN_MIN = 4000;
+  private readonly COMBO_STRIKE_COOLDOWN_MAX = 6000;
   /** 技能選擇間隔（ms）：技能結束後等待此時間再選下一個 */
   private skillSelectTimer: number = 0;
   private readonly SKILL_SELECT_INTERVAL = 1500;
-  /** 普通平砍冷卻（ms） */
-  private meleeSlashCooldown: number = 1500;
-  private readonly MELEE_SLASH_COOLDOWN_MIN = 1200;
-  private readonly MELEE_SLASH_COOLDOWN_MAX = 1800;
-  /** 平砍前搖計時（ms，> 0 表示前搖中，停止移動） */
-  private meleeWindupTimer: number = 0;
-  private readonly MELEE_WINDUP = 300;
-  /** 平砍攻擊距離（px） */
-  private readonly MELEE_SLASH_RANGE = 65;
-  /** 回呼：震罡功（防守震波） */
-  public onShieldBurst?: (x: number, y: number, dmg: number) => void;
+  /** 回呼：震罡功（架盾蓄力震波） */
+  public onShieldBurst?: (x: number, y: number, dmg: number, elite: Enemy) => void;
   /** 回呼：霸山墜（跳躍砸地） */
   public onLeapSlam?: (fromX: number, fromY: number, targetX: number, targetY: number, dmg: number) => void;
-  /** 回呼：震撼咆哮（控場怒吼） */
-  public onWarCry?: (x: number, y: number) => void;
-  /** 回呼：普通平砍（近戰攻擊） */
+  /** 回呼：震撼咆哮（扇形蓄力咆哮） */
+  public onWarCry?: (cx: number, cy: number, dirX: number, dirY: number, elite: Enemy) => void;
+  /** 回呼：連續重擊（近距離連續打擊） */
+  public onComboStrike?: (cx: number, cy: number, dirX: number, dirY: number, elite: Enemy) => void;
+  /** 回呼：普通平砍（近戰攻擊，保留相容性） */
   public onMeleeSlash?: (x: number, y: number, dmg: number) => void;
 
   // ── shooter 黑洞技能（二當家）──────────────────────────────────────
@@ -220,12 +245,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public takeDamage(damage: number, fromX?: number, fromY?: number): boolean {
     if (this.isDying) return false;
 
-    // shield 護盾期間完全無敵
+    // shield 護盾期間減傷 70%（震罡功蓄力中）
     let actualDamage = damage;
     if (this.shieldActive) {
-      // 顯示 0 傷害提示（讓玩家知道護盾在作用）
-      this.showDamageNumber(0);
-      return false;
+      actualDamage = Math.ceil(damage * 0.3);
+      if (actualDamage <= 0) {
+        this.showDamageNumber(0);
+        return false;
+      }
     }
 
     this.currentHP -= actualDamage;
@@ -280,24 +307,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     separationX: number = 0, separationY: number = 0
   ): void {
     if (this.isDying) return;
-    // charger 衝刺中：沿鎖定方向移動，不追玩家
-    if (this.eliteType === 'charger' && this.chargerState === 'dashing') {
-      const dt = delta / 1000;
-      let nx = this.x + this.chargerDirX * this.CHARGER_DASH_SPEED * dt;
-      let ny = this.y + this.chargerDirY * this.CHARGER_DASH_SPEED * dt;
-      // 邊界 clamp（防止衝出世界）
-      nx = Phaser.Math.Clamp(nx, 32, 3200 - 32);
-      ny = Phaser.Math.Clamp(ny, 32, 3200 - 32);
-      this.setPosition(nx, ny);
-      this.syncVisual();
-      return;
-    }
-    // charger 蓄力或停頓中：停頓（不移動）
+    // charger 技能施放中或前搖中：停止移動
     if (this.eliteType === 'charger' &&
-        (this.chargerState === 'windup' || this.chargerState === 'idle' && this.chargerPauseTimer > 0)) return;
+        (this.chargerState === 'casting' || this.chargerState === 'melee_windup')) return;
 
-    // shield 技能施放中或平砍前搖中：停止移動
-    if (this.eliteType === 'shield' && (this.shieldCasting || this.meleeWindupTimer > 0)) return;
+    // shield 技能施放中：停止移動
+    if (this.eliteType === 'shield' && this.shieldCasting) return;
 
     const dx = playerX - this.x;
     const dy = playerY - this.y;
@@ -411,64 +426,116 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ─────────────────────────────────────────────────────────────────────────
 
   private updateCharger(delta: number, playerX: number, playerY: number): void {
-    switch (this.chargerState) {
-      case 'idle':
-        // 停頓計時（每次衝刺後）
-        if (this.chargerPauseTimer > 0) {
-          this.chargerPauseTimer -= delta;
-          return;
-        }
-        this.chargerCooldown -= delta;
-        if (this.chargerCooldown <= 0) {
-          // 開始新一輪連續衝撞
-          this.chargerComboLeft = this.CHARGER_COMBO;
-          this.startChargerWindup(playerX, playerY);
-        }
-        break;
+    // ── 技能施放中：等待 GameScene 呼叫 chargerEndCast() ──────────────
+    if (this.chargerState === 'casting') return;
 
-      case 'windup':
-        this.chargerWindupTimer -= delta;
-        if (this.chargeWarning && this.chargeWarning.active) {
-          this.chargeWarning.setPosition(this.x, this.y);
+    // ── 霸刀橫斬前搖計時 ──────────────────────────────────────────────
+    if (this.chargerState === 'melee_windup') {
+      this.chargerMeleeWindupTimer -= delta;
+      if (this.chargerMeleeWindupTimer <= 0) {
+        this.chargerMeleeWindupTimer = 0;
+        this.chargerState = 'idle';
+        // 前搖結束，執行霸刀橫斬傷害判定
+        if (this.onChargerMeleeSlash) {
+          const dx = playerX - this.x;
+          const dy = playerY - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const dirX = dist > 0 ? dx / dist : 1;
+          const dirY = dist > 0 ? dy / dist : 0;
+          const dmg = Math.ceil(this.contactDamage * 0.85);
+          this.onChargerMeleeSlash(this.x, this.y, dmg, dirX, dirY);
         }
-        if (this.chargerWindupTimer <= 0) {
-          this.chargerState = 'dashing';
-          this.chargerDashTimer = this.CHARGER_DASH_DUR;
-          if (this.chargeWarning && this.chargeWarning.active) {
-            this.chargeWarning.destroy();
-            this.chargeWarning = undefined;
-          }
-        }
-        break;
+        // 重置普通攻擊冷卻
+        this.chargerMeleeCooldown = this.CHARGER_MELEE_CD_MIN +
+          Math.random() * (this.CHARGER_MELEE_CD_MAX - this.CHARGER_MELEE_CD_MIN);
+      }
+      return;
+    }
 
-      case 'dashing':
-        this.chargerDashTimer -= delta;
-        if (this.chargerDashTimer <= 0) {
-          this.chargerComboLeft--;
-          if (this.chargerComboLeft > 0) {
-            // 還有剩餘次數：短暫停頓後再蓄力
-            this.chargerState = 'idle';
-            this.chargerPauseTimer = this.CHARGER_PAUSE_DUR;
-            this.chargerCooldown = 0; // 停頓結束後立刻蓄力
-          } else {
-            // 本輪結束，回到 idle 等待下一輪
-            this.chargerState = 'idle';
-            this.chargerPauseTimer = 0;
-            this.chargerCooldown = this.CHARGER_COOLDOWN;
+    // ── idle 狀態：技能選擇間隔計時 ──────────────────────────────────
+    if (this.chargerSkillSelectTimer > 0) {
+      this.chargerSkillSelectTimer -= delta;
+      if (this.chargerSkillSelectTimer > 0) {
+        // 間隔中可以嘗試普通攻擊
+        this.tryChargerMeleeSlash(delta, playerX, playerY);
+        return;
+      }
+    }
+
+    // ── 技能冷卻倒計時 ────────────────────────────────────────────────
+    this.chargerSkill1Cooldown -= delta;
+    this.chargerSkill2Cooldown -= delta;
+    this.chargerSkill3Cooldown -= delta;
+
+    // ── 隨機選擇冷卻完成的技能 ────────────────────────────────────────
+    const available: Array<'dash' | 'triple' | 'stab'> = [];
+    if (this.chargerSkill1Cooldown <= 0) available.push('dash');
+    if (this.chargerSkill2Cooldown <= 0) available.push('triple');
+    if (this.chargerSkill3Cooldown <= 0) available.push('stab');
+
+    if (available.length > 0) {
+      const chosen = available[Math.floor(Math.random() * available.length)];
+      this.chargerState = 'casting';
+
+      const dx = playerX - this.x;
+      const dy = playerY - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dirX = dist > 0 ? dx / dist : 1;
+      const dirY = dist > 0 ? dy / dist : 0;
+
+      switch (chosen) {
+        case 'dash':
+          this.chargerSkill1Cooldown = 7000 + Math.random() * 3000; // 7～10 秒
+          if (this.onChargerDash) {
+            this.onChargerDash(this.x, this.y, playerX, playerY, this);
           }
-        }
-        break;
+          break;
+
+        case 'triple':
+          this.chargerSkill2Cooldown = 7000 + Math.random() * 3000; // 7～10 秒
+          if (this.onChargerTripleSlash) {
+            this.onChargerTripleSlash(this.x, this.y, dirX, dirY, this);
+          }
+          break;
+
+        case 'stab':
+          this.chargerSkill3Cooldown = 8000 + Math.random() * 4000; // 8～12 秒
+          if (this.onChargerStab) {
+            this.onChargerStab(this.x, this.y, dirX, dirY, this);
+          }
+          break;
+      }
+    } else {
+      // 沒有技能可放：嘗試普通攻擊
+      this.tryChargerMeleeSlash(delta, playerX, playerY);
     }
   }
 
-  private startChargerWindup(playerX: number, playerY: number): void {
-    this.chargerState = 'windup';
-    this.chargerWindupTimer = this.CHARGER_WINDUP;
+  /**
+   * 結束大當家技能施放狀態（由 GameScene 在技能動畫結束後呼叫）
+   */
+  public chargerEndCast(): void {
+    this.chargerState = 'idle';
+    this.chargerSkillSelectTimer = this.CHARGER_SKILL_SELECT_INTERVAL;
+  }
+
+  /**
+   * 嘗試霸刀橫斬（靠近玩家時觸發前搖）
+   */
+  private tryChargerMeleeSlash(delta: number, playerX: number, playerY: number): void {
+    if (this.chargerState !== 'idle') return;
+    this.chargerMeleeCooldown -= delta;
+    if (this.chargerMeleeCooldown > 0) return;
+
     const dx = playerX - this.x;
     const dy = playerY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 0) { this.chargerDirX = dx / dist; this.chargerDirY = dy / dist; }
-    this.showChargeWarning();
+
+    if (dist <= this.CHARGER_MELEE_RANGE) {
+      // 進入前搖（停止移動）
+      this.chargerState = 'melee_windup';
+      this.chargerMeleeWindupTimer = this.CHARGER_MELEE_WINDUP;
+    }
   }
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
@@ -593,50 +660,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   private updateShield(delta: number, playerX?: number, playerY?: number): void {
-    // ── 護盾邏輯（保留，供 GameScene 消除投射物用）────────────────────
+    // ── 護盾視覺跟隨（shieldActive 由震罡功控制，不再自動觸發）──────
     if (this.shieldActive) {
-      this.shieldTimer -= delta;
       if (this.shieldVisual && this.shieldVisual.active) {
         this.shieldVisual.setPosition(this.x, this.y);
       }
-      if (this.shieldTimer <= 0) {
-        this.shieldActive = false;
-        this.shieldCooldown = this.SHIELD_COOLDOWN;
-        if (this.shieldVisual && this.shieldVisual.active) {
-          this.shieldVisual.destroy();
-          this.shieldVisual = undefined;
-        }
-      }
-    } else {
-      this.shieldCooldown -= delta;
-      if (this.shieldCooldown <= 0) {
-        this.shieldActive = true;
-        this.shieldTimer = this.SHIELD_DURATION;
-        this.showShieldVisual();
-      }
-    }
-
-    // ── 平砍前搖計時 ──────────────────────────────────────────────────
-    if (this.meleeWindupTimer > 0) {
-      this.meleeWindupTimer -= delta;
-      if (this.meleeWindupTimer <= 0) {
-        this.meleeWindupTimer = 0;
-        // 前搖結束，執行平砍傷害判定
-        if (this.onMeleeSlash && playerX !== undefined && playerY !== undefined) {
-          const dx = playerX - this.x;
-          const dy = playerY - this.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist <= this.MELEE_SLASH_RANGE + 20) {
-            // 玩家仍在範圍內才造成傷害
-            const dmg = Math.ceil(this.contactDamage * 0.75);
-            this.onMeleeSlash(this.x, this.y, dmg);
-          }
-        }
-        // 重置平砍冷卻
-        this.meleeSlashCooldown = this.MELEE_SLASH_COOLDOWN_MIN +
-          Math.random() * (this.MELEE_SLASH_COOLDOWN_MAX - this.MELEE_SLASH_COOLDOWN_MIN);
-      }
-      return; // 前搖中不做其他事
     }
 
     // ── 技能施放中：等待 GameScene 呼叫 shieldEndCast() ──────────────
@@ -645,57 +673,66 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // ── 技能選擇間隔計時 ──────────────────────────────────────────────
     if (this.skillSelectTimer > 0) {
       this.skillSelectTimer -= delta;
-      if (this.skillSelectTimer > 0) {
-        // 間隔中可以平砍
-        this.tryMeleeSlash(delta, playerX, playerY);
-        return;
-      }
+      return;
     }
 
     // ── 技能冷卻倒計時 ────────────────────────────────────────────────
-    this.burstCooldown  -= delta;
-    this.leapCooldown   -= delta;
-    this.warCryCooldown -= delta;
+    this.burstCooldown       -= delta;
+    this.leapCooldown        -= delta;
+    this.warCryCooldown      -= delta;
+    this.comboStrikeCooldown -= delta;
 
     // ── 隨機選擇冷卻完成的技能 ────────────────────────────────────────
-    const available: Array<'burst' | 'leap' | 'warcry'> = [];
-    if (this.burstCooldown  <= 0) available.push('burst');
-    if (this.leapCooldown   <= 0) available.push('leap');
-    if (this.warCryCooldown <= 0) available.push('warcry');
+    const available: Array<'burst' | 'leap' | 'warcry' | 'combo'> = [];
+    if (this.burstCooldown       <= 0) available.push('burst');
+    if (this.leapCooldown        <= 0) available.push('leap');
+    if (this.warCryCooldown      <= 0) available.push('warcry');
+    if (this.comboStrikeCooldown <= 0) available.push('combo');
 
-    if (available.length > 0) {
-      const chosen = available[Math.floor(Math.random() * available.length)];
-      this.shieldCasting = true;
+    if (available.length === 0) return;
 
-      switch (chosen) {
-        case 'burst':
-          this.burstCooldown = this.BURST_COOLDOWN_MIN +
-            Math.random() * (this.BURST_COOLDOWN_MAX - this.BURST_COOLDOWN_MIN);
-          if (this.onShieldBurst) {
-            this.onShieldBurst(this.x, this.y, Math.ceil(this.contactDamage * 1.1));
-          }
-          break;
+    const chosen = available[Math.floor(Math.random() * available.length)];
+    this.shieldCasting = true;
 
-        case 'leap':
-          this.leapCooldown = this.LEAP_COOLDOWN_MIN +
-            Math.random() * (this.LEAP_COOLDOWN_MAX - this.LEAP_COOLDOWN_MIN);
-          if (this.onLeapSlam && playerX !== undefined && playerY !== undefined) {
-            this.onLeapSlam(this.x, this.y, playerX, playerY,
-              Math.ceil(this.contactDamage * 1.3));
-          }
-          break;
+    const dx = (playerX ?? this.x + 1) - this.x;
+    const dy = (playerY ?? this.y) - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dirX = dist > 0 ? dx / dist : 1;
+    const dirY = dist > 0 ? dy / dist : 0;
 
-        case 'warcry':
-          this.warCryCooldown = this.WARCRY_COOLDOWN_MIN +
-            Math.random() * (this.WARCRY_COOLDOWN_MAX - this.WARCRY_COOLDOWN_MIN);
-          if (this.onWarCry) {
-            this.onWarCry(this.x, this.y);
-          }
-          break;
-      }
-    } else {
-      // 沒有技能可放：嘗試平砍
-      this.tryMeleeSlash(delta, playerX, playerY);
+    switch (chosen) {
+      case 'burst':
+        this.burstCooldown = this.BURST_COOLDOWN_MIN +
+          Math.random() * (this.BURST_COOLDOWN_MAX - this.BURST_COOLDOWN_MIN);
+        if (this.onShieldBurst) {
+          this.onShieldBurst(this.x, this.y, Math.ceil(this.contactDamage * 1.1), this);
+        }
+        break;
+
+      case 'leap':
+        this.leapCooldown = this.LEAP_COOLDOWN_MIN +
+          Math.random() * (this.LEAP_COOLDOWN_MAX - this.LEAP_COOLDOWN_MIN);
+        if (this.onLeapSlam && playerX !== undefined && playerY !== undefined) {
+          this.onLeapSlam(this.x, this.y, playerX, playerY,
+            Math.ceil(this.contactDamage * 1.3));
+        }
+        break;
+
+      case 'warcry':
+        this.warCryCooldown = this.WARCRY_COOLDOWN_MIN +
+          Math.random() * (this.WARCRY_COOLDOWN_MAX - this.WARCRY_COOLDOWN_MIN);
+        if (this.onWarCry) {
+          this.onWarCry(this.x, this.y, dirX, dirY, this);
+        }
+        break;
+
+      case 'combo':
+        this.comboStrikeCooldown = this.COMBO_STRIKE_COOLDOWN_MIN +
+          Math.random() * (this.COMBO_STRIKE_COOLDOWN_MAX - this.COMBO_STRIKE_COOLDOWN_MIN);
+        if (this.onComboStrike) {
+          this.onComboStrike(this.x, this.y, dirX, dirY, this);
+        }
+        break;
     }
   }
 
@@ -708,42 +745,22 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   /**
-   * 嘗試普通平砍（靠近玩家時觸發前搖）
+   * 啟動護盾視覺（由 GameScene 在震罡功蓄力時呼叫）
    */
-  private tryMeleeSlash(delta: number, playerX?: number, playerY?: number): void {
-    if (this.shieldCasting || this.meleeWindupTimer > 0) return;
-    if (playerX === undefined || playerY === undefined) return;
-
-    this.meleeSlashCooldown -= delta;
-    if (this.meleeSlashCooldown > 0) return;
-
-    const dx = playerX - this.x;
-    const dy = playerY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist <= this.MELEE_SLASH_RANGE) {
-      // 進入前搖（停止移動）
-      this.meleeWindupTimer = this.MELEE_WINDUP;
-    }
+  public shieldActivate(): void {
+    this.shieldActive = true;
+    this.showShieldVisual();
   }
 
-  private showChargeWarning(): void {
-    if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();
-    const g = this.scene.add.graphics();
-    g.setPosition(this.x, this.y);
-    g.setDepth(9);
-    // 紅色方向線（長 200px，更長更明顯）
-    g.lineStyle(4, 0xff0000, 0.9);
-    g.lineBetween(0, 0, this.chargerDirX * 200, this.chargerDirY * 200);
-    // 紅色警示圓圈（雙圈）
-    g.lineStyle(3, 0xff2200, 0.8);
-    g.strokeCircle(0, 0, 36);
-    g.lineStyle(1.5, 0xff6600, 0.5);
-    g.strokeCircle(0, 0, 50);
-    // 填充紅色光暈
-    g.fillStyle(0xff0000, 0.12);
-    g.fillCircle(0, 0, 50);
-    this.chargeWarning = g;
+  /**
+   * 關閉護盾視覺（由 GameScene 在震罡功結束時呼叫）
+   */
+  public shieldDeactivate(): void {
+    this.shieldActive = false;
+    if (this.shieldVisual && this.shieldVisual.active) {
+      this.shieldVisual.destroy();
+      this.shieldVisual = undefined;
+    }
   }
 
   private showShieldVisual(): void {
