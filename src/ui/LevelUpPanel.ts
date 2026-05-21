@@ -257,39 +257,141 @@ export class LevelUpPanel {
     this.container.add(overlay);
 
     // ── 標題 ────────────────────────────────────────────────────────────────
-    const titleShadow = this.scene.add.text(Math.round(cx) + 2, Math.round(H * 0.17) + 2, '升級！選擇強化',
+    const titleY = layout.isPortrait ? Math.round(layout.safeTop + 28) : Math.round(H * 0.17);
+    const titleShadow = this.scene.add.text(Math.round(cx) + 2, titleY + 2, '升級！選擇強化',
       uiTitle(Math.round(28 * s), '#7a4a00')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(titleShadow);
 
-    const title = this.scene.add.text(Math.round(cx), Math.round(H * 0.17), '升級！選擇強化',
+    const title = this.scene.add.text(Math.round(cx), titleY, '升級！選擇強化',
       uiTitle(Math.round(28 * s), '#ffd700')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
     this.container.add(title);
 
     const titleLine = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     titleLine.lineStyle(1.5, 0xd4af37, 0.6);
-    titleLine.lineBetween(W * 0.35, H * 0.22, W * 0.65, H * 0.22);
+    if (layout.isPortrait) {
+      titleLine.lineBetween(W * 0.15, titleY + 18, W * 0.85, titleY + 18);
+    } else {
+      titleLine.lineBetween(W * 0.35, H * 0.22, W * 0.65, H * 0.22);
+    }
     this.container.add(titleLine);
 
     // ── 選項卡片 ─────────────────────────────────────────────────────────────
-    // 超寬手機：卡片略偏左，避免貼右邊
-    const usableW = layout.usableW;
-    const cardSpacing = usableW / 3;
-    const cardXPositions = [
-      layout.usableX + cardSpacing * 0.5,
-      layout.usableX + cardSpacing * 1.5,
-      layout.usableX + cardSpacing * 2.5,
-    ];
-    // 卡片寬度：可用寬度的 28%，最大 200px
-    const cardW = Math.min(usableW * 0.28, 200);
-    // 卡片高度：可用高度的 62%，最大 320px
-    const cardH = Math.min(layout.usableH * 0.62, 320);
-    const cardY = layout.usableY + layout.usableH * 0.56;
+    if (layout.isPortrait) {
+      // 直屏：垂直排列，每張卡片寬 W*0.85，高 H*0.20
+      const cardW = Math.round(Math.min(W * 0.85, W - 24));
+      const cardH = Math.round(Math.min(H * 0.20, 160));
+      const startY = titleY + 30;
+      const cardGap = Math.round((layout.usableH - startY + layout.safeTop - cardH * options.length) / (options.length + 1));
+      const safeGap = Math.max(8, cardGap);
 
-    for (let i = 0; i < options.length; i++) {
-      this.buildCard(options[i], cardXPositions[i], cardY, cardW, cardH, W, H, s);
+      for (let i = 0; i < options.length; i++) {
+        const cardY = startY + safeGap + i * (cardH + safeGap) + cardH / 2;
+        this.buildCardPortrait(options[i], cx, cardY, cardW, cardH, s);
+      }
+    } else {
+      // 橫屏：水平排列（原有設計）
+      const usableW = layout.usableW;
+      const cardSpacing = usableW / 3;
+      const cardXPositions = [
+        layout.usableX + cardSpacing * 0.5,
+        layout.usableX + cardSpacing * 1.5,
+        layout.usableX + cardSpacing * 2.5,
+      ];
+      const cardW = Math.min(usableW * 0.28, 200);
+      const cardH = Math.min(layout.usableH * 0.62, 320);
+      const cardY = layout.usableY + layout.usableH * 0.56;
+
+      for (let i = 0; i < options.length; i++) {
+        this.buildCard(options[i], cardXPositions[i], cardY, cardW, cardH, W, H, s);
+      }
     }
+  }
+
+  /** 直屏卡片（橫向寬卡，垂直排列） */
+  private buildCardPortrait(
+    option: UpgradeOption,
+    cx: number,
+    cy: number,
+    cardW: number,
+    cardH: number,
+    s: number
+  ): void {
+    const cardLeft = cx - cardW / 2;
+    const r = 10;
+    const typeTag = getTypeTag(option);
+
+    // ── 卡片背景 ────────────────────────────────────────────────────────────
+    const cardG = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+    this.drawCardNormal(cardG, cx, cy, cardW, cardH, r);
+    this.container.add(cardG);
+
+    // ── 左側：類型標籤 + 圖示 + 名稱 ────────────────────────────────────
+    const iconSize = Math.round(cardH * 0.55);
+    const iconX = cardLeft + 16 + iconSize / 2;
+    const iconY = cy;
+
+    // 類型標籤（左上角）
+    const tagW = 64;
+    const tagH = 20;
+    const tagG = this.scene.add.graphics().setScrollFactor(0).setDepth(102);
+    tagG.fillStyle(typeTag.color, 0.9);
+    tagG.fillRoundedRect(cardLeft + 8, cy - cardH / 2 + 6, tagW, tagH, 4);
+    this.container.add(tagG);
+
+    const tagText = this.scene.add.text(cardLeft + 8 + tagW / 2, cy - cardH / 2 + 16, typeTag.label,
+      uiText(10, '#ffffff', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(103);
+    this.container.add(tagText);
+
+    // 圖示
+    const iconKey = getOptionIconKey(option);
+    if (iconKey && AssetLoader.hasTexture(this.scene, iconKey)) {
+      const iconImg = this.scene.add.image(iconX, iconY, iconKey)
+        .setDisplaySize(iconSize, iconSize)
+        .setScrollFactor(0).setDepth(102);
+      this.container.add(iconImg);
+    }
+
+    // 名稱（圖示右側）
+    const textX = cardLeft + 16 + iconSize + 10;
+    const textAreaW = cardW - iconSize - 32;
+
+    const nameText = this.scene.add.text(textX, cy - cardH * 0.18, getOptionName(option),
+      uiText(Math.round(16 * s), '#ffffff', { fontStyle: 'bold', wordWrap: { width: textAreaW }, align: 'left' })
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.container.add(nameText);
+
+    const levelText = this.scene.add.text(textX, cy + cardH * 0.06, getLevelLabel(option),
+      uiText(Math.round(12 * s), '#ffd700', { fontStyle: 'bold' })
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.container.add(levelText);
+
+    // 升級描述（最多 2 行）
+    const upgradeLines = getUpgradeLines(option);
+    const descText = upgradeLines.slice(0, 2).map(l => `• ${l}`).join('\n');
+    const descT = this.scene.add.text(textX, cy + cardH * 0.28, descText,
+      uiText(Math.round(11 * s), '#88ffaa', { wordWrap: { width: textAreaW }, align: 'left' })
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.container.add(descT);
+
+    // ── 互動熱區 ────────────────────────────────────────────────────────────
+    const hitW = Math.max(cardW, 88);
+    const hitH = Math.max(cardH, 48);
+    const hitArea = this.scene.add.rectangle(cx, cy, hitW, hitH, 0x000000, 0)
+      .setScrollFactor(0).setDepth(103).setInteractive({ useHandCursor: true });
+    this.container.add(hitArea);
+
+    hitArea.on('pointerover', () => {
+      cardG.clear();
+      this.drawCardHover(cardG, cx, cy, cardW, cardH, r);
+    });
+    hitArea.on('pointerout', () => {
+      cardG.clear();
+      this.drawCardNormal(cardG, cx, cy, cardW, cardH, r);
+    });
+    hitArea.on('pointerdown', () => this.handleSelect(option));
   }
 
   private buildCard(

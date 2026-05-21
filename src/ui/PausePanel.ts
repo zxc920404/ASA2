@@ -52,16 +52,22 @@ export class PausePanel {
     const layout = ResponsiveLayout.compute(W, H);
     const s = layout.uiScale;
     const cx = layout.centerX;
+    const isPortrait = layout.isPortrait;
 
     // ── 遮罩 ──────────────────────────────────────────────────────────────
     this.overlay = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
     this.overlay.fillStyle(0x000000, 0.65);
     this.overlay.fillRect(0, 0, W, H);
-    this.overlay.fillStyle(0x0a0a1a, 0.3);
-    this.overlay.fillRect(W * 0.25, H * 0.20, W * 0.5, H * 0.60);
+    if (isPortrait) {
+      this.overlay.fillStyle(0x0a0a1a, 0.3);
+      this.overlay.fillRect(W * 0.08, H * 0.25, W * 0.84, H * 0.50);
+    } else {
+      this.overlay.fillStyle(0x0a0a1a, 0.3);
+      this.overlay.fillRect(W * 0.25, H * 0.20, W * 0.5, H * 0.60);
+    }
 
     // ── 標題 ──────────────────────────────────────────────────────────────
-    const titleY = Math.round(H * 0.32);
+    const titleY = isPortrait ? Math.round(H * 0.33) : Math.round(H * 0.32);
     this.titleShadow = this.scene.add.text(
       Math.round(cx) + 2, titleY + 2, '已暫停',
       uiTitle(Math.round(36 * s), '#330000')
@@ -73,18 +79,25 @@ export class PausePanel {
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(101);
 
     // ── 裝飾線 ────────────────────────────────────────────────────────────
+    const lineTopY = isPortrait ? H * 0.28 : H * 0.26;
+    const lineBotY = isPortrait ? H * 0.40 : H * 0.40;
+    const lineXL = isPortrait ? W * 0.20 : W * 0.38;
+    const lineXR = isPortrait ? W * 0.80 : W * 0.62;
+
     this.decorLineTop = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.decorLineTop.lineStyle(1.5, 0xd4af37, 0.7);
-    this.decorLineTop.lineBetween(W * 0.38, H * 0.26, W * 0.62, H * 0.26);
+    this.decorLineTop.lineBetween(lineXL, lineTopY, lineXR, lineTopY);
 
     this.decorLineBot = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.decorLineBot.lineStyle(1.5, 0xd4af37, 0.7);
-    this.decorLineBot.lineBetween(W * 0.38, H * 0.40, W * 0.62, H * 0.40);
+    this.decorLineBot.lineBetween(lineXL, lineBotY, lineXR, lineBotY);
 
     // ── 繼續遊戲按鈕 ──────────────────────────────────────────────────────
     const resumeX = Math.round(cx);
-    const resumeY = Math.round(H * 0.52);
-    const btnW = Math.round(Math.min(220, W * 0.28) * s);
+    const resumeY = isPortrait ? Math.round(H * 0.50) : Math.round(H * 0.52);
+    const btnW = isPortrait
+      ? Math.round(Math.min(W * 0.60, 280))
+      : Math.round(Math.min(220, W * 0.28) * s);
     const btnH = layout.btnH;
 
     this.resumeBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
@@ -109,7 +122,10 @@ export class PausePanel {
 
     // ── 返回主選單按鈕 ────────────────────────────────────────────────────
     const menuX = Math.round(cx);
-    const menuY = Math.round(H * 0.66);
+    // 直屏：繼續按鈕下方 btnH + 16px；橫屏：原有位置
+    const menuY = isPortrait
+      ? Math.round(resumeY + btnH + 16)
+      : Math.round(H * 0.66);
 
     this.mainMenuBtnGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.drawBtn(this.mainMenuBtnGraphics, menuX, menuY, btnW, btnH, false, 0x0f1828, 0x556677);

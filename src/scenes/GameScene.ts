@@ -755,7 +755,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 建立直向警告 UI 元素（任務 11）
-   * 初始隱藏，偵測到直向時顯示
+   * 直屏模式已支援，此方法保留但不顯示警告
+   * 元素建立後立即隱藏，不影響直屏遊戲
    */
   private createPortraitWarning(): void {
     const W = this.scale.width;
@@ -767,7 +768,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.portraitBg.setDepth(200);
     this.portraitBg.setVisible(false);
 
-    // 旋轉圖示文字（x: W×0.5, y: H×0.38）
+    // 旋轉圖示文字（保留但不顯示）
     this.portraitIcon = this.add.text(W * 0.5, H * 0.38, '⟳', {
       fontSize: '48px',
       color: '#ffffff',
@@ -777,7 +778,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.portraitIcon.setDepth(201);
     this.portraitIcon.setVisible(false);
 
-    // 提示文字（x: W×0.5, y: H×0.55）
+    // 提示文字（保留但不顯示）
     this.portraitText = this.add.text(W * 0.5, H * 0.55, '請旋轉手機至橫向\n繼續遊戲', {
       fontSize: '22px',
       color: '#ffffff',
@@ -811,7 +812,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 檢查當前螢幕方向，更新直向警告顯示狀態
+   * 檢查當前螢幕方向
+   * 直屏模式已完整支援，不再顯示警告或暫停遊戲
+   * 僅更新 isPortrait 狀態供其他邏輯使用
    */
   private checkOrientation(): void {
     const isPortrait = window.innerWidth < window.innerHeight;
@@ -820,29 +823,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     this.isPortrait = isPortrait;
 
-    if (isPortrait) {
-      this.portraitBg.setVisible(true);
-      this.portraitIcon.setVisible(true);
-      this.portraitText.setVisible(true);
-
-      // 直向暫停：只在目前未暫停時才暫停，使用獨立的 'portrait' 狀態
-      if (this.pauseReason === 'none' && !this.isGameOver) {
-        this.setPauseReason('portrait');
-        if (this.spawnTimer) this.spawnTimer.paused = true;
-        this.weaponSystem.pause();
-      }
-    } else {
-      this.portraitBg.setVisible(false);
-      this.portraitIcon.setVisible(false);
-      this.portraitText.setVisible(false);
-
-      // 恢復：只在 portrait 暫停時恢復，不影響 manual / levelup / gameover
-      if (this.pauseReason === 'portrait' && !this.isGameOver) {
-        this.setPauseReason('none');
-        if (this.spawnTimer) this.spawnTimer.paused = false;
-        this.weaponSystem.resume();
-        this.weaponSystem.syncWeapons(this.player);
-      }
+    // 直屏與橫屏均支援，不顯示警告，不暫停遊戲
+    // 若有 portrait 暫停殘留（舊版邏輯），恢復遊戲
+    if (this.pauseReason === 'portrait' && !this.isGameOver) {
+      this.setPauseReason('none');
+      if (this.spawnTimer) this.spawnTimer.paused = false;
+      this.weaponSystem.resume();
+      this.weaponSystem.syncWeapons(this.player);
     }
   }
 

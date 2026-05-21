@@ -39,12 +39,13 @@ export class PlayerStatusPanel {
   private createElements(): void {
     const W = this.scene.scale.width;
     const H = this.scene.scale.height;
+    const isPortrait = H > W;
 
-    // 面板尺寸：寬度 44%，高度 50%（比前版更緊湊）
-    const panelW = Math.min(W * 0.44, 280);
-    const panelH = H * 0.50;
+    // 直屏：寬 W*0.88，高 H*0.72；橫屏：原有設計
+    const panelW = isPortrait ? Math.min(W * 0.88, W - 16) : Math.min(W * 0.44, 280);
+    const panelH = isPortrait ? Math.min(H * 0.72, H - 80) : H * 0.50;
     const panelX = (W - panelW) / 2;
-    const panelY = (H - panelH) / 2;
+    const panelY = isPortrait ? (H - panelH) / 2 : (H - panelH) / 2;
 
     // ── 半透明遮罩（點擊關閉）──────────────────────────────────────────
     this.overlay = this.scene.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.38)
@@ -84,20 +85,20 @@ export class PlayerStatusPanel {
 
     // ── 左欄文字（6 行，每行同一行顯示標籤+值）────────────────────────
     const leftX = panelX + 12;
-    const rightX = panelX + panelW / 2 + 6;
-    const rowH = 24;
+    const rightX = isPortrait ? panelX + panelW / 2 + 6 : panelX + panelW / 2 + 6;
+    const rowH = isPortrait ? 28 : 24;
     const startY = panelY + 42;
 
     for (let i = 0; i < 6; i++) {
       const t = this.scene.add.text(leftX, Math.round(startY + i * rowH), '',
-        uiText(12, '#cccccc')
+        uiText(isPortrait ? 14 : 12, '#cccccc')
       ).setScrollFactor(0).setDepth(52);
       this.leftTexts.push(t);
     }
 
     for (let i = 0; i < 6; i++) {
       const t = this.scene.add.text(rightX, Math.round(startY + i * rowH), '',
-        uiText(12, '#cccccc')
+        uiText(isPortrait ? 14 : 12, '#cccccc')
       ).setScrollFactor(0).setDepth(52);
       this.rightTexts.push(t);
     }
