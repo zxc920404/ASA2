@@ -241,6 +241,36 @@ export const WEAPONS: WeaponData[] = [
       { damage: 14, count: 3, interval: 0.45, range: 215 },
     ],
   },
+  {
+    id: 'swift_blade_evolved',
+    name: '流光返刃',
+    form: 'projectile',
+    effects: ['autoTarget', 'returning'],
+    usesAmountBonus: true,
+    baseDamagePerLevel: [22, 26, 26, 31, 31, 36, 36, 42], // 向下相容保留
+    baseAttackInterval: 0.65,
+    baseAttackRange: 260,
+    projectileSpeed: 450,
+    iconKey: 'weapon_icon_swift_blade_evolved',
+    levelStats: [
+      // Lv1：基礎，2 發，返還傷害 70%
+      { damage: 22, count: 2, interval: 0.65, range: 260, returnDamageMultiplier: 0.7 },
+      // Lv2：傷害提升，返還傷害 75%
+      { damage: 26, count: 2, interval: 0.65, range: 260, returnDamageMultiplier: 0.75 },
+      // Lv3：投射物 +1，返還傷害 75%
+      { damage: 26, count: 3, interval: 0.65, range: 280, returnDamageMultiplier: 0.75 },
+      // Lv4：傷害提升，攻擊間隔縮短，返還傷害 80%
+      { damage: 31, count: 3, interval: 0.6,  range: 280, returnDamageMultiplier: 0.8 },
+      // Lv5：傷害提升，返還傷害 80%
+      { damage: 31, count: 3, interval: 0.6,  range: 300, returnDamageMultiplier: 0.8 },
+      // Lv6：傷害提升，返還傷害 85%
+      { damage: 36, count: 3, interval: 0.6,  range: 300, returnDamageMultiplier: 0.85 },
+      // Lv7：投射物 +1，攻擊間隔縮短，返還傷害 85%
+      { damage: 36, count: 4, interval: 0.55, range: 300, returnDamageMultiplier: 0.85 },
+      // Lv8：傷害大幅提升，返還傷害 90%（滿級獎勵）
+      { damage: 42, count: 4, interval: 0.55, range: 320, returnDamageMultiplier: 0.9 },
+    ],
+  },
 ];
 
 export const getWeaponById = (id: string): WeaponData | undefined => {

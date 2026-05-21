@@ -15,6 +15,24 @@ const MAX_EQUIPMENT_LEVEL = 8;
 const OPTIONS_COUNT = 3;
 
 /**
+ * 武器進化條件表
+ * key: 原武器 id，value: { evolvedId, requiredLevel, requiredCharacterId? }
+ * requiredCharacterId 為 undefined 時表示任何角色均可進化
+ */
+const WEAPON_EVOLUTION_MAP: Record<string, {
+  evolvedId: string;
+  requiredLevel: number;
+  requiredCharacterId?: string;
+}> = {
+  // 疾風刃 Lv8 → 流光返刃（assassin 宗門，或任何角色均可）
+  // TODO: 確認驚鴻派角色 id 後可改為 requiredCharacterId: 'assassin'
+  swift_blade: {
+    evolvedId: 'swift_blade_evolved',
+    requiredLevel: 8,
+  },
+};
+
+/**
  * UpgradePool
  * 依規則篩選合法升級選項，回傳最多 3 個 UpgradeOption
  *
@@ -31,11 +49,13 @@ export class UpgradePool {
    * 取得升級選項
    * @param equipment   玩家當前裝備欄
    * @param startingWeaponId 玩家角色的初始武器 ID
+   * @param characterId 玩家角色 ID（用於判斷進化條件）
    * @returns 最多 3 個合法升級選項（隨機抽取）
    */
   public getOptions(
     equipment: EquipmentSlot,
-    startingWeaponId: string
+    startingWeaponId: string,
+    characterId?: string
   ): UpgradeOption[] {
     const candidates: UpgradeOption[] = [];
 
@@ -45,12 +65,33 @@ export class UpgradePool {
     const weaponsFull = equipment.weapons.length >= MAX_WEAPON_SLOTS;
     const passivesFull = equipment.passives.length >= MAX_PASSIVE_SLOTS;
 
+    // ── 武器進化選項（優先加入，不受武器欄滿限制，因為是取代而非新增）──
+    for (const slot of equipment.weapons) {
+      const evo = WEAPON_EVOLUTION_MAP[slot.weaponId];
+      if (!evo) continue;
+      if (slot.level < evo.requiredLevel) continue;
+      // 若有角色限制，檢查是否符合
+      if (evo.requiredCharacterId && characterId !== evo.requiredCharacterId) continue;
+      // 若已持有進化武器，不再顯示
+      if (ownedWeaponIds.has(evo.evolvedId)) continue;
+
+      candidates.push({
+        type: 'evolveWeapon' as UpgradeOption['type'],
+        id: evo.evolvedId,
+        currentLevel: slot.level,
+        nextLevel: 1,
+      });
+    }
+
     // 武器欄未滿：加入所有未持有且非初始武器的武器（作為新武器）
     // Requirement 11.2, 11.3, 11.5
     if (!weaponsFull) {
       for (const weapon of WEAPONS) {
         if (weapon.id === startingWeaponId) continue;   // 排除初始武器
         if (ownedWeaponIds.has(weapon.id)) continue;    // 排除已持有武器
+        // 排除進化武器（不能直接取得，只能透過進化）
+        const isEvolvedWeapon = Object.values(WEAPON_EVOLUTION_MAP).some(e => e.evolvedId === weapon.id);
+        if (isEvolvedWeapon) continue;
         candidates.push({
           type: 'newWeapon',
           id: weapon.id,

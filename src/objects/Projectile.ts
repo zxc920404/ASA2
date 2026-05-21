@@ -46,6 +46,20 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
    */
   public cloudDuration: number;
 
+  // ── 返還投射物狀態（流光返刃用）──────────────────────────────────────
+  /** 是否啟用返還機制 */
+  public canReturn: boolean;
+  /** 是否正在返還（回程中） */
+  public isReturning: boolean;
+  /** 是否已完成返還（防止重複返還） */
+  public hasReturned: boolean;
+  /** 返還傷害倍率（回程傷害 = 去程傷害 × returnDamageMultiplier） */
+  public returnDamageMultiplier: number;
+  /** 去程命中的敵人集合（防止回程對同一敵人重複傷害） */
+  public outboundHitEnemies: Set<Enemy>;
+  /** 回程命中的敵人集合（防止回程對同一敵人重複傷害） */
+  public returnHitEnemies: Set<Enemy>;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -79,6 +93,14 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.pierceRemaining = pierceRemaining;
     this.hitEnemies = new Set<Enemy>();
     this.cloudDuration = 0;
+
+    // 返還狀態初始化
+    this.canReturn = false;
+    this.isReturning = false;
+    this.hasReturned = false;
+    this.returnDamageMultiplier = 0.7;
+    this.outboundHitEnemies = new Set<Enemy>();
+    this.returnHitEnemies = new Set<Enemy>();
 
     scene.add.existing(this);
     this.setDepth(6);

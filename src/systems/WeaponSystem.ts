@@ -292,6 +292,10 @@ export class WeaponSystem {
             } else if (inst.weaponId === 'soul_chasing_needle') {
               // 追魂針：自動追尾投射物，沿用疾風刃邏輯
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'soul_chasing_needle', 0xff88ff, finalCount);
+            } else if (inst.weaponId === 'swift_blade_evolved') {
+              // 流光返刃：發射後命中或到達最大距離時返還，回程再次傷敵
+              const returnMult = stats.returnDamageMultiplier ?? 0.7;
+              this.fireReturningProjectile(player, target, finalDamage, projSpeed, finalRange, finalCount, returnMult);
             } else if (inst.weaponId === 'poison_mist') {
               // 毒霧散：不吃 amountBonus，直接用 baseCount
               const cloudCount = baseCount;
@@ -324,6 +328,12 @@ export class WeaponSystem {
         // 毒霧散到期時，在當前位置生成毒霧（防止飛過頭導致毒霧不生成）
         if (proj.weaponId === 'poison_mist') {
           this.spawnPoisonCloud(proj.x, proj.y, proj.damage, proj.explosionRadius, proj.cloudDuration);
+        }
+        // 流光返刃：去程到期時進入返還狀態，不立刻銷毀
+        if (proj.canReturn && !proj.isReturning && !proj.hasReturned) {
+          proj.isReturning = true;
+          proj.lifeTime = 3000; // 給 3 秒飛回玩家
+          continue; // 不加入 toRemove，繼續存活
         }
         toRemove.push(proj);
         continue;
@@ -364,6 +374,50 @@ export class WeaponSystem {
       // 非爆炸型投射物：檢測命中敵人（Requirement 5.3）
       // 毒霧散投射物不直接命中敵人，由毒霧區域負責傷害
       if (!proj.isExplosive && proj.weaponId !== 'poison_mist') {
+
+        // ── 流光返刃：返還中的投射物朝玩家飛回 ──────────────────────
+        if (proj.canReturn && proj.isReturning && !proj.hasReturned) {
+          // 更新速度方向，朝玩家當前位置
+          const rdx = player.x - proj.x;
+          const rdy = player.y - proj.y;
+          const rdist = Math.sqrt(rdx * rdx + rdy * rdy);
+
+          if (rdist < 20) {
+            // 到達玩家附近，銷毀
+            proj.hasReturned = true;
+            toRemove.push(proj);
+            continue;
+          }
+
+          const speed = Math.sqrt(proj.velocityX * proj.velocityX + proj.velocityY * proj.velocityY);
+          proj.velocityX = (rdx / rdist) * speed;
+          proj.velocityY = (rdy / rdist) * speed;
+
+          // 回程命中敵人
+          for (const enemy of enemies) {
+            if (deadEnemies.includes(enemy)) continue;
+            if (enemy.isDying) continue;
+            if (proj.returnHitEnemies.has(enemy)) continue; // 回程已命中過
+
+            const dx = proj.x - enemy.x;
+            const dy = proj.y - enemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= enemy.collisionRadius + 8) {
+              // 回程傷害 = finalDamage（已含 attackPower × passiveMultiplier）× returnDamageMultiplier
+              // proj.damage 在發射時已套用 levelDamage × attackPower × passiveMultiplier
+              const returnDamage = Math.max(1, Math.floor(proj.damage * proj.returnDamageMultiplier));
+              const died = enemy.takeDamage(returnDamage, proj.x, proj.y);
+              if (died && !deadEnemies.includes(enemy)) {
+                deadEnemies.push(enemy);
+              }
+              this.spawnHitEffect(proj.x, proj.y);
+              proj.returnHitEnemies.add(enemy);
+            }
+          }
+          continue; // 返還中的投射物不走一般命中邏輯
+        }
+
         let hit = false;
         for (const enemy of enemies) {
           if (deadEnemies.includes(enemy)) continue;
@@ -384,7 +438,14 @@ export class WeaponSystem {
             // 命中特效（小光圈）
             this.spawnHitEffect(proj.x, proj.y);
 
-            if (proj.pierceRemaining > 0) {
+            if (proj.canReturn && !proj.isReturning) {
+              // 流光返刃：命中後進入返還狀態，不銷毀
+              proj.outboundHitEnemies.add(enemy);
+              proj.isReturning = true;
+              // 延長存活時間確保能飛回玩家（3 秒足夠）
+              proj.lifeTime = 3000;
+              // 不設 hit = true，繼續飛行（進入返還模式）
+            } else if (proj.pierceRemaining > 0) {
               // 穿透模式：記錄已命中敵人，消耗一次穿透次數，繼續飛行
               proj.hitEnemies.add(enemy);
               proj.pierceRemaining -= 1;
@@ -811,6 +872,55 @@ export class WeaponSystem {
     );
 
     this.addProjectile(proj);
+  }
+
+  /**
+   * 發射流光返刃投射物（命中或到達最大距離後返還玩家，回程再次傷敵）
+   * count > 1 時加入小角度偏移，避免完全重疊
+   *
+   * @param damage             去程傷害（已套用 levelDamage × attackPower × passiveMultiplier）
+   * @param returnDamageMultiplier 回程傷害倍率（回程傷害 = damage × returnDamageMultiplier）
+   */
+  private fireReturningProjectile(
+    player: Player,
+    target: Enemy,
+    damage: number,
+    speed: number,
+    range: number,
+    count: number,
+    returnDamageMultiplier: number
+  ): void {
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const baseAngle = Math.atan2(dy, dx);
+    const lifeTime = (range / speed) * 1000;
+    const angleSpread = count > 1 ? 0.15 : 0;
+
+    for (let i = 0; i < count; i++) {
+      const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
+      const angle = baseAngle + offset;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        'swift_blade_evolved',
+        0x88ffee // 青白色，區別於疾風刃的青色
+      );
+      proj.canReturn = true;
+      proj.returnDamageMultiplier = returnDamageMultiplier;
+
+      this.addProjectile(proj);
+    }
   }
 
   /**

@@ -23,6 +23,7 @@ export type WeaponForm =
  * WeaponEffect：命中後或更新時的特殊戰鬥效果
  * - autoTarget: 自動追蹤最近敵人
  * - pierce:     穿透多個敵人
+ * - returning:  命中或到達最大距離後返還玩家，回程可再次傷敵（流光返刃）
  * - bounce:     彈射到下一個目標（預留）
  * - chain:      鏈式傳遞傷害（預留）
  * - knockback:  擊退效果（預留）
@@ -32,6 +33,7 @@ export type WeaponForm =
 export type WeaponEffect =
   | 'autoTarget'
   | 'pierce'
+  | 'returning'
   | 'bounce'
   | 'chain'
   | 'knockback'
@@ -64,6 +66,8 @@ export interface WeaponLevelStats {
   pierce?: number;       // 穿透數（寒冰錐用，資料保留但暫未啟用）
   duration?: number;     // 持續時間（秒），未來擴充用
   projectileSpeed?: number; // 投射物速度（px/s），覆蓋 baseProjectileSpeed
+  /** 返還傷害倍率（流光返刃用），回程傷害 = 去程傷害 × returnDamageMultiplier */
+  returnDamageMultiplier?: number;
 }
 
 // 武器定義
@@ -161,7 +165,7 @@ export interface EquipmentSlot {
 
 // 升級選項
 export interface UpgradeOption {
-  type: 'newWeapon' | 'upgradeWeapon' | 'newPassive' | 'upgradePassive' | 'healHp';
+  type: 'newWeapon' | 'upgradeWeapon' | 'evolveWeapon' | 'newPassive' | 'upgradePassive' | 'healHp';
   id: string;
   currentLevel: number; // 0 表示新裝備
   nextLevel: number;

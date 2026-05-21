@@ -123,6 +123,20 @@ function getNewWeaponDescription(weaponId: string): string[] {
   return lines.slice(0, 3);
 }
 
+/**
+ * 取得進化武器描述（固定說明進化機制）
+ */
+function getEvolvedWeaponDescription(weaponId: string): string[] {
+  const evolveDesc: Record<string, string[]> = {
+    swift_blade_evolved: [
+      '疾風刃突破形態',
+      '飛刃命中或飛至極限後返還',
+      '回程再次傷敵（70%傷害）',
+    ],
+  };
+  return evolveDesc[weaponId] ?? ['武器突破形態，獲得全新機制'];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper：被動升級差異描述
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,7 +166,7 @@ function getPassiveDeltaLines(passiveId: string, isNew: boolean): string[] {
 /** 取得升級選項的顯示名稱 */
 function getOptionName(option: UpgradeOption): string {
   if (option.type === 'healHp') return '氣血回復';
-  if (option.type === 'newWeapon' || option.type === 'upgradeWeapon') {
+  if (option.type === 'newWeapon' || option.type === 'upgradeWeapon' || option.type === 'evolveWeapon') {
     return getWeaponById(option.id)?.name ?? option.id;
   }
   return getPassiveById(option.id)?.name ?? option.id;
@@ -162,6 +176,7 @@ function getOptionName(option: UpgradeOption): string {
 function getLevelLabel(option: UpgradeOption): string {
   if (option.type === 'healHp') return '✦ 回復生命';
   if (option.type === 'newWeapon' || option.type === 'newPassive') return '✦ 新裝備';
+  if (option.type === 'evolveWeapon') return '✦ 武器進化';
   return `Lv.${option.currentLevel} → Lv.${option.nextLevel}`;
 }
 
@@ -173,6 +188,7 @@ function getUpgradeTitle(option: UpgradeOption): string {
     case 'healHp':        return '效果：';
     case 'newWeapon':     return '新武器效果：';
     case 'upgradeWeapon': return '本次提升：';
+    case 'evolveWeapon':  return '進化效果：';
     case 'newPassive':    return '新被動效果：';
     case 'upgradePassive':return '本次提升：';
   }
@@ -192,6 +208,9 @@ function getUpgradeLines(option: UpgradeOption): string[] {
     case 'upgradeWeapon':
       return getWeaponUpgradeDeltaDescription(option.id, option.currentLevel, option.nextLevel);
 
+    case 'evolveWeapon':
+      return getEvolvedWeaponDescription(option.id);
+
     case 'newPassive':
       return getPassiveDeltaLines(option.id, true);
 
@@ -205,6 +224,7 @@ function getTypeTag(option: UpgradeOption): { label: string; color: number } {
   if (option.type === 'healHp')         return { label: '氣血回復', color: 0x22aa44 };
   if (option.type === 'newWeapon')      return { label: '新武器', color: 0xaa2222 };
   if (option.type === 'upgradeWeapon')  return { label: '武器升級', color: 0xcc4444 };
+  if (option.type === 'evolveWeapon')   return { label: '★ 武器進化', color: 0xcc8800 };
   if (option.type === 'newPassive')     return { label: '新被動', color: 0x2244aa };
   return { label: '被動升級', color: 0x4466cc };
 }
@@ -212,7 +232,7 @@ function getTypeTag(option: UpgradeOption): { label: string; color: number } {
 /** 取得升級選項的圖示 key（用於升級卡顯示） */
 function getOptionIconKey(option: UpgradeOption): string | undefined {
   if (option.type === 'healHp') return undefined;
-  if (option.type === 'newWeapon' || option.type === 'upgradeWeapon') {
+  if (option.type === 'newWeapon' || option.type === 'upgradeWeapon' || option.type === 'evolveWeapon') {
     return getWeaponById(option.id)?.iconKey;
   }
   return getPassiveById(option.id)?.iconKey;

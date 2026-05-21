@@ -9,6 +9,14 @@ import { getPassiveById } from '../data/passives';
 const MAX_EQUIPMENT_LEVEL = 8;
 
 /**
+ * 武器進化反查表（進化武器 id → 原武器 id）
+ * 與 UpgradePool 的 WEAPON_EVOLUTION_MAP 保持同步
+ */
+const EVOLVED_TO_SOURCE: Record<string, string> = {
+  swift_blade_evolved: 'swift_blade',
+};
+
+/**
  * GameScene 需要提供給 LevelUpSystem 的介面
  * 避免循環依賴，使用介面而非直接引用 GameScene
  */
@@ -46,9 +54,10 @@ export class LevelUpSystem {
    * @param player 玩家物件
    */
   public triggerLevelUp(player: Player): void {
-    // 取得升級選項
+    // 取得升級選項（傳入 characterId 供進化條件判斷）
     const options = this.upgradePool.getOptions(
       player.equipment,
+      player.characterId,
       player.characterId
     );
 
@@ -126,6 +135,25 @@ export class LevelUpSystem {
         break;
       }
 
+      case 'evolveWeapon': {
+        // 武器進化：找到原武器，用進化武器取代（等級從 Lv1 開始）
+        // option.id 是進化後武器的 id；需要找到對應的原武器
+        const weaponData = getWeaponById(option.id);
+        if (!weaponData) break;
+
+        // 找到原武器（進化前的武器）
+        // 透過 WEAPON_EVOLUTION_MAP 反查原武器 id
+        const sourceWeaponId = this.findSourceWeaponId(option.id);
+        if (!sourceWeaponId) break;
+
+        const sourceIdx = player.equipment.weapons.findIndex(w => w.weaponId === sourceWeaponId);
+        if (sourceIdx !== -1) {
+          // 原地取代：保留欄位位置，換成進化武器 Lv1
+          player.equipment.weapons[sourceIdx] = { weaponId: option.id, level: 1 };
+        }
+        break;
+      }
+
       case 'newPassive': {
         // 確認被動存在
         const passiveData = getPassiveById(option.id);
@@ -156,5 +184,14 @@ export class LevelUpSystem {
         break;
       }
     }
+  }
+
+  /**
+   * 反查進化武器對應的原武器 id
+   * @param evolvedId 進化後武器 id
+   * @returns 原武器 id，找不到時回傳 undefined
+   */
+  private findSourceWeaponId(evolvedId: string): string | undefined {
+    return EVOLVED_TO_SOURCE[evolvedId];
   }
 }
