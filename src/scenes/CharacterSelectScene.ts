@@ -82,6 +82,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   private infoHpVal!: Phaser.GameObjects.Text;
   private infoAtkVal!: Phaser.GameObjects.Text;
   private infoSpdVal!: Phaser.GameObjects.Text;
+  // 左側資訊面板 icon 容器（切換時重建）
+  private infoIconContainer!: Phaser.GameObjects.Container;
 
   // 確認按鈕
   private confirmGraphics!: Phaser.GameObjects.Graphics;
@@ -224,17 +226,17 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     // 副標題（上方小字）
     this.add.text(contentX, ty - Math.round(18 * s), '選擇你的修行之路',
-      uiText(Math.round(11 * s), '#7799bb')
+      uiText(Math.round(13 * s), '#99bbcc')
     ).setOrigin(0.5, 0.5).setDepth(10);
 
     // 裝飾線（副標題兩側）
     const lineY = ty - Math.round(18 * s);
     const lineLen = Math.round(60 * s);
     const lineG = this.add.graphics().setDepth(10);
-    lineG.lineStyle(1, 0x4477aa, 0.45);
+    lineG.lineStyle(1, 0x5588aa, 0.55);
     lineG.lineBetween(contentX - lineLen - 8, lineY, contentX - 8, lineY);
     lineG.lineBetween(contentX + 8, lineY, contentX + lineLen + 8, lineY);
-    lineG.fillStyle(0x4477aa, 0.5);
+    lineG.fillStyle(0x5588aa, 0.65);
     lineG.fillCircle(contentX - lineLen - 8, lineY, 2);
     lineG.fillCircle(contentX + lineLen + 8, lineY, 2);
   }
@@ -263,7 +265,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     // 「宗門資訊」小標籤
     this.add.text(panelX, py + Math.round(18 * s), '宗門資訊',
-      uiText(Math.round(10 * s), '#4488aa')
+      uiText(Math.round(12 * s), '#66aacc')
     ).setOrigin(0.5, 0.5).setDepth(9);
 
     // 分隔線
@@ -271,23 +273,24 @@ export class CharacterSelectScene extends Phaser.Scene {
     sepG.lineStyle(1, 0x2a4466, 0.50);
     sepG.lineBetween(px + 12, py + Math.round(30 * s), px + panelW - 12, py + Math.round(30 * s));
 
-    // icon 區（佔頂部空間）
+    // icon 區（佔頂部空間）—— 建立可重建的 Container
     const iconY = py + Math.round(panelH * 0.16);
-    this.buildInfoIcon(panelX, iconY, panelW, s);
+    this.infoIconContainer = this.add.container(0, 0).setDepth(9);
+    this.buildInfoIconContent(panelX, iconY, panelW, s);
 
     // 宗門名稱
     this.infoSectName = this.add.text(panelX, py + Math.round(panelH * 0.30),
-      '', uiTitle(Math.round(18 * s), '#e8d4a0', { fontStyle: 'bold' })
+      '', uiTitle(Math.round(22 * s), '#f0dfa8', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setDepth(9);
 
     // 定位
     this.infoRole = this.add.text(panelX, py + Math.round(panelH * 0.38),
-      '', uiText(Math.round(10 * s), '#88aabb')
+      '', uiText(Math.round(12 * s), '#99ccdd')
     ).setOrigin(0.5, 0.5).setDepth(9);
 
     // 描述
     this.infoDesc = this.add.text(panelX, py + Math.round(panelH * 0.46),
-      '', uiText(Math.round(9 * s), '#667788', {
+      '', uiText(Math.round(11 * s), '#8899aa', {
         wordWrap: { width: panelW - 20 }, align: 'center'
       })
     ).setOrigin(0.5, 0.5).setDepth(9);
@@ -299,30 +302,30 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     // 「基礎屬性」小標
     this.add.text(px + 14, py + Math.round(panelH * 0.55),
-      '基礎屬性', uiText(Math.round(9 * s), '#4488aa')
+      '基礎屬性', uiText(Math.round(11 * s), '#66aacc')
     ).setOrigin(0, 0.5).setDepth(9);
 
     // 屬性列（HP / ATK / SPD）
     const barX = px + 14;
     const barW = panelW - 28;
-    const barH = Math.round(5 * s);
+    const barH = Math.round(6 * s);
     const row1Y = py + Math.round(panelH * 0.61);
     const row2Y = py + Math.round(panelH * 0.68);
     const row3Y = py + Math.round(panelH * 0.75);
 
     // HP 標籤
-    this.add.text(barX, row1Y, '♥ HP', uiText(Math.round(9 * s), '#ff8888')).setOrigin(0, 0.5).setDepth(9);
-    this.infoHpVal = this.add.text(px + panelW - 14, row1Y, '', uiText(Math.round(9 * s), '#ff8888')).setOrigin(1, 0.5).setDepth(9);
+    this.add.text(barX, row1Y, '♥ HP', uiText(Math.round(11 * s), '#ff9999')).setOrigin(0, 0.5).setDepth(9);
+    this.infoHpVal = this.add.text(px + panelW - 14, row1Y, '', uiText(Math.round(11 * s), '#ff9999')).setOrigin(1, 0.5).setDepth(9);
     this.infoHpBar = this.add.graphics().setDepth(9);
 
     // ATK 標籤
-    this.add.text(barX, row2Y, '⚔ ATK', uiText(Math.round(9 * s), '#ffcc66')).setOrigin(0, 0.5).setDepth(9);
-    this.infoAtkVal = this.add.text(px + panelW - 14, row2Y, '', uiText(Math.round(9 * s), '#ffcc66')).setOrigin(1, 0.5).setDepth(9);
+    this.add.text(barX, row2Y, '⚔ ATK', uiText(Math.round(11 * s), '#ffcc66')).setOrigin(0, 0.5).setDepth(9);
+    this.infoAtkVal = this.add.text(px + panelW - 14, row2Y, '', uiText(Math.round(11 * s), '#ffcc66')).setOrigin(1, 0.5).setDepth(9);
     this.infoAtkBar = this.add.graphics().setDepth(9);
 
     // SPD 標籤
-    this.add.text(barX, row3Y, '✦ SPD', uiText(Math.round(9 * s), '#88ddff')).setOrigin(0, 0.5).setDepth(9);
-    this.infoSpdVal = this.add.text(px + panelW - 14, row3Y, '', uiText(Math.round(9 * s), '#88ddff')).setOrigin(1, 0.5).setDepth(9);
+    this.add.text(barX, row3Y, '✦ SPD', uiText(Math.round(11 * s), '#88ddff')).setOrigin(0, 0.5).setDepth(9);
+    this.infoSpdVal = this.add.text(px + panelW - 14, row3Y, '', uiText(Math.round(11 * s), '#88ddff')).setOrigin(1, 0.5).setDepth(9);
     this.infoSpdBar = this.add.graphics().setDepth(9);
 
     // 分隔線 3
@@ -332,18 +335,18 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     // 起始武器
     this.add.text(px + 14, py + Math.round(panelH * 0.83),
-      '起始武器', uiText(Math.round(9 * s), '#4488aa')
+      '起始武器', uiText(Math.round(11 * s), '#66aacc')
     ).setOrigin(0, 0.5).setDepth(9);
     this.infoWeapon = this.add.text(panelX, py + Math.round(panelH * 0.88),
-      '', uiText(Math.round(10 * s), '#d4af37')
+      '', uiText(Math.round(13 * s), '#e8c060')
     ).setOrigin(0.5, 0.5).setDepth(9);
 
     // 宗門特性
     this.add.text(px + 14, py + Math.round(panelH * 0.93),
-      '宗門特性', uiText(Math.round(9 * s), '#4488aa')
+      '宗門特性', uiText(Math.round(11 * s), '#66aacc')
     ).setOrigin(0, 0.5).setDepth(9);
     this.infoTrait = this.add.text(panelX, py + Math.round(panelH * 0.97),
-      '', uiText(Math.round(9 * s), '#aabbcc')
+      '', uiText(Math.round(11 * s), '#bbccdd')
     ).setOrigin(0.5, 0.5).setDepth(9);
 
     // 儲存 bar 位置供 refresh 使用
@@ -356,18 +359,69 @@ export class CharacterSelectScene extends Phaser.Scene {
     (this as any)._labelOffX = Math.round(30 * s);
   }
 
-  private buildInfoIcon(cx: number, cy: number, panelW: number, s: number): void {
-    // icon 光暈底圓（靜態，refresh 時不重建）
-    const iconGlow = this.add.graphics().setDepth(9);
-    iconGlow.fillStyle(0x2266cc, 0.12);
-    iconGlow.fillCircle(cx, cy, Math.round(32 * s));
-    iconGlow.fillStyle(0x2266cc, 0.07);
-    iconGlow.fillCircle(cx, cy, Math.round(42 * s));
-    // 儲存 icon 容器位置供 refreshInfoPanel 使用
+  private buildInfoIconContent(cx: number, cy: number, panelW: number, s: number): void {
+    // 儲存位置供 refreshInfoPanel 使用
     (this as any)._iconCX = cx;
     (this as any)._iconCY = cy;
     (this as any)._iconPanelW = panelW;
     (this as any)._iconS = s;
+    this.refreshInfoIcon();
+  }
+
+  private refreshInfoIcon(): void {
+    // 清空舊 icon 內容
+    this.infoIconContainer.removeAll(true);
+
+    const cx: number = (this as any)._iconCX;
+    const cy: number = (this as any)._iconCY;
+    const panelW: number = (this as any)._iconPanelW;
+    const s: number = (this as any)._iconS;
+    const char = CHARACTERS[this.centerIndex];
+    const sect = SECT_INFO[char.id] ?? { glowColor: 0x2266cc, accent: 0x6688aa, primary: 0x0d1e3a };
+
+    // icon 光暈底圓
+    const iconGlow = this.add.graphics().setDepth(9);
+    iconGlow.fillStyle(sect.glowColor, 0.20);
+    iconGlow.fillCircle(cx, cy, Math.round(34 * s));
+    iconGlow.fillStyle(sect.glowColor, 0.10);
+    iconGlow.fillCircle(cx, cy, Math.round(46 * s));
+    this.infoIconContainer.add(iconGlow);
+
+    if (char.iconKey && AssetLoader.hasTexture(this, char.iconKey)) {
+      const img = this.add.image(cx, cy, char.iconKey).setDepth(9);
+      const maxSize = Math.round(Math.min(panelW * 0.46, 72));
+      img.setDisplaySize(maxSize, maxSize);
+      this.infoIconContainer.add(img);
+      return;
+    }
+
+    if (char.portraitKey && AssetLoader.hasTexture(this, char.portraitKey)) {
+      const img = this.add.image(cx, cy, char.portraitKey).setDepth(9);
+      const maxW = Math.round(panelW * 0.52);
+      img.setDisplaySize(maxW, Math.round(maxW * 1.2));
+      this.infoIconContainer.add(img);
+      return;
+    }
+
+    // Fallback 程式繪製
+    const g = this.add.graphics().setDepth(9);
+    g.fillStyle(sect.accent, 0.15); g.fillCircle(cx, cy, Math.round(24 * s));
+    g.fillStyle(sect.accent, 1);    g.fillCircle(cx, cy - Math.round(14 * s), Math.round(10 * s));
+    g.fillStyle(sect.primary, 1);   g.fillRect(cx - Math.round(9 * s), cy - Math.round(4 * s), Math.round(18 * s), Math.round(20 * s));
+    if (char.id === 'swordsman') {
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(cx + Math.round(8 * s), cy - Math.round(18 * s), Math.round(3 * s), Math.round(28 * s));
+      g.fillRect(cx + Math.round(5 * s), cy - Math.round(6 * s), Math.round(10 * s), Math.round(3 * s));
+    } else if (char.id === 'assassin') {
+      g.fillStyle(0xcc88ff, 1);
+      g.fillRect(cx - Math.round(14 * s), cy - Math.round(10 * s), Math.round(3 * s), Math.round(18 * s));
+      g.fillRect(cx + Math.round(11 * s), cy - Math.round(10 * s), Math.round(3 * s), Math.round(18 * s));
+    } else if (char.id === 'taoist') {
+      g.fillStyle(0xff8844, 1);
+      g.fillRect(cx + Math.round(9 * s), cy - Math.round(22 * s), Math.round(3 * s), Math.round(30 * s));
+      g.fillCircle(cx + Math.round(10 * s), cy - Math.round(24 * s), Math.round(5 * s));
+    }
+    this.infoIconContainer.add(g);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -380,6 +434,9 @@ export class CharacterSelectScene extends Phaser.Scene {
       accent: 0x6688aa, glowColor: 0x334466,
     };
     const weaponData = getWeaponById(char.startingWeaponId);
+
+    // 同步更新 icon
+    this.refreshInfoIcon();
 
     this.infoSectName.setText(sect.sectName);
     this.infoRole.setText(sect.role);
@@ -467,26 +524,14 @@ export class CharacterSelectScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(8);
     this.cardGraphics.push(g);
 
-    // 卡片內容 Container
+    // 卡片內容 Container（存 slotIndex 供 refresh 使用）
     const container = this.add.container(0, 0).setDepth(9);
+    container.setData('slotIndex', index);
+    container.setData('s', s);
     this.cardContainers.push(container);
 
-    // icon
-    const iconY = cy - Math.round(cardH * 0.22);
-    this.buildCardIcon(container, cx, iconY, sect, char.id, cardW, s);
-
-    // 宗門名稱（卡片上只顯示名稱 + 定位，資訊移到左側面板）
-    const nameText = this.add.text(cx, cy + Math.round(cardH * 0.08),
-      sect.sectName,
-      uiTitle(Math.round(16 * s), '#e8d4a0', { fontStyle: 'bold' })
-    ).setOrigin(0.5, 0.5).setDepth(9);
-    container.add(nameText);
-
-    const roleText = this.add.text(cx, cy + Math.round(cardH * 0.20),
-      sect.role,
-      uiText(Math.round(9 * s), '#7799aa', { wordWrap: { width: cardW - 12 }, align: 'center' })
-    ).setOrigin(0.5, 0.5).setDepth(9);
-    container.add(roleText);
+    // 填充卡片內容（icon + 文字）
+    this.fillCardContainer(container, index, s);
 
     // 漂浮動畫
     const floatTween = this.tweens.add({
@@ -505,17 +550,52 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     hitArea.on('pointerdown', () => this.navigateTo(index));
     hitArea.on('pointerover', () => {
-      if (this.centerIndex !== index) {
+      if (index !== 1) {
         this.drawCardFrame(this.cardGraphics[index], index, true);
         container.setAlpha(0.75);
       }
     });
     hitArea.on('pointerout', () => {
-      if (this.centerIndex !== index) {
+      if (index !== 1) {
         this.drawCardFrame(this.cardGraphics[index], index, false);
         container.setAlpha(0.38);
       }
     });
+  }
+
+  // 填充卡片 container 內容（icon + 名稱 + 定位）
+  private fillCardContainer(container: Phaser.GameObjects.Container, slotIndex: number, s: number): void {
+    container.removeAll(true);
+    const charIndex = this.getDisplayIndex(slotIndex);
+    const char = CHARACTERS[charIndex];
+    const sect = SECT_INFO[char.id] ?? {
+      sectName: char.id, role: '',
+      primary: 0x0d1e3a, accent: 0x6688aa, borderColor: 0x6688aa, glowColor: 0x334466,
+    };
+    const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
+    const isCenter = slotIndex === 1;
+
+    // icon
+    const iconY = cy - Math.round(cardH * 0.22);
+    this.buildCardIcon(container, cx, iconY, sect, char.id, cardW, s);
+
+    // 宗門名稱
+    const nameSize = isCenter ? Math.round(18 * s) : Math.round(13 * s);
+    const nameColor = isCenter ? '#f0dfa8' : '#c8b888';
+    const nameText = this.add.text(cx, cy + Math.round(cardH * 0.08),
+      sect.sectName,
+      uiTitle(nameSize, nameColor, { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5).setDepth(9);
+    container.add(nameText);
+
+    // 定位（中央卡才顯示）
+    if (isCenter) {
+      const roleText = this.add.text(cx, cy + Math.round(cardH * 0.22),
+        sect.role,
+        uiText(Math.round(11 * s), '#99bbcc', { wordWrap: { width: cardW - 12 }, align: 'center' })
+      ).setOrigin(0.5, 0.5).setDepth(9);
+      container.add(roleText);
+    }
   }
 
   private buildCardIcon(
@@ -635,6 +715,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       const sect = SECT_INFO[char.id] ?? { borderColor: 0x6688aa, glowColor: 0x334466 };
       const isCenter = slotIndex === 1;
       const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
+      const s: number = this.cardContainers[slotIndex].getData('s') ?? 1;
 
       // 重繪邊框
       this.drawCardFrame(this.cardGraphics[slotIndex], slotIndex, false);
@@ -651,33 +732,13 @@ export class CharacterSelectScene extends Phaser.Scene {
         glowG.strokeRoundedRect(x - 3, y - 3, cardW + 6, cardH + 6, 12);
       }
 
-      // Container alpha + scale
-      const container = this.cardContainers[slotIndex];
-      if (isCenter) {
-        container.setAlpha(1.0);
-        this.floatTweens[slotIndex]?.resume();
-      } else {
-        container.setAlpha(0.35);
-        this.floatTweens[slotIndex]?.resume();
-      }
+      // 重建 container 內容（icon + 文字同步更新）
+      this.fillCardContainer(this.cardContainers[slotIndex], slotIndex, s);
 
-      // 更新卡片文字（重建 container 內容太複雜，改用 setData 標記後在 container 子物件更新）
-      // 由於 container 子物件是靜態建立的，這裡透過直接更新 Text 物件
-      // 找到 container 中的 Text 物件並更新
-      container.list.forEach((child) => {
-        if (child instanceof Phaser.GameObjects.Text) {
-          const sect2 = SECT_INFO[char.id];
-          if (!sect2) return;
-          // 判斷是名稱還是定位（用字型大小區分）
-          const style = child.style as any;
-          const fs = parseInt(style.fontSize ?? '0');
-          if (fs >= 14) {
-            child.setText(sect2.sectName);
-          } else {
-            child.setText(sect2.role);
-          }
-        }
-      });
+      // Container alpha
+      const container = this.cardContainers[slotIndex];
+      container.setAlpha(isCenter ? 1.0 : 0.35);
+      this.floatTweens[slotIndex]?.resume();
     });
 
     // 更新分頁點
@@ -742,7 +803,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     leftG.strokeCircle(leftX, arrowY, Math.round(18 * s));
 
     this.arrowLeft = this.add.text(leftX, arrowY, '‹',
-      uiText(Math.round(22 * s), '#88aabb')
+      uiText(Math.round(28 * s), '#99bbcc')
     ).setOrigin(0.5, 0.5).setDepth(14);
 
     const leftHit = this.add.rectangle(leftX, arrowY, Math.round(44 * s), Math.round(44 * s), 0, 0)
@@ -760,7 +821,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     rightG.strokeCircle(rightX, arrowY, Math.round(18 * s));
 
     this.arrowRight = this.add.text(rightX, arrowY, '›',
-      uiText(Math.round(22 * s), '#88aabb')
+      uiText(Math.round(28 * s), '#99bbcc')
     ).setOrigin(0.5, 0.5).setDepth(14);
 
     const rightHit = this.add.rectangle(rightX, arrowY, Math.round(44 * s), Math.round(44 * s), 0, 0)
@@ -820,12 +881,12 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.drawConfirmBtn(false, btnX, btnY, btnW, btnH);
 
     this.confirmText = this.add.text(btnX, btnY, '踏入修行',
-      uiText(Math.round(16 * s), '#d4af37', { fontStyle: 'bold' })
+      uiText(Math.round(18 * s), '#e8c060', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setDepth(12);
 
     // 副文字
     this.add.text(btnX, btnY + Math.round(btnH * 0.75), '可隨時在遊戲內更換宗門',
-      uiText(Math.round(8 * s), '#445566')
+      uiText(Math.round(9 * s), '#556677')
     ).setOrigin(0.5, 0.5).setDepth(12);
 
     this.confirmHitArea = this.add.rectangle(
@@ -891,7 +952,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     g.strokeRoundedRect(btnX - 4, btnY - 13, 68, 26, 6);
 
     const backText = this.add.text(btnX + 28, btnY, '← 返回',
-      uiText(Math.round(11 * s), '#6688aa')
+      uiText(Math.round(13 * s), '#88aacc')
     ).setOrigin(0.5, 0.5).setDepth(12);
 
     const hitArea = this.add.rectangle(btnX + 28, btnY, 76, 36, 0, 0)
