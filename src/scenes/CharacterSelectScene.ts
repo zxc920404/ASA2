@@ -6,6 +6,7 @@ import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 import { BGMManager } from '../systems/BGMManager';
+import { SFXManager } from '../systems/SFXManager';
 
 // ── 宗門資料（UI 顯示用）────────────────────────────────────────────────────
 const SECT_INFO: Record<string, {
@@ -259,7 +260,10 @@ export class CharacterSelectScene extends Phaser.Scene {
     const hitArea = this.add.rectangle(cx, cy, Math.max(cardW, 60), Math.max(cardH, 60), 0, 0)
       .setDepth(12).setInteractive({ useHandCursor: true });
 
-    hitArea.on('pointerdown', () => this.navigateTo(slotIndex));
+    hitArea.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.navigateTo(slotIndex);
+    });
     hitArea.on('pointerover', () => {
       if (slotIndex !== 1) {
         this.drawCardFrame(this.cardGraphics[slotIndex], slotIndex, true);
@@ -580,6 +584,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       .setDepth(13).setInteractive({ useHandCursor: true });
 
     hitArea.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
       const characterId = CHARACTERS[this.centerIndex].id;
       this.scene.start('MapSelectScene', { characterId });
     });
@@ -640,7 +645,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       g.strokeRoundedRect(btnX - 4, btnY - 14, 72, 28, 6);
       backText.setColor('#88aacc');
     });
-    hitArea.on('pointerdown', () => this.scene.start('MainMenuScene'));
+    hitArea.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.scene.start('MainMenuScene');
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -667,7 +675,10 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     const leftHit = this.add.rectangle(leftX, arrowY, Math.round(48 * s), Math.round(48 * s), 0, 0)
       .setDepth(15).setInteractive({ useHandCursor: true });
-    leftHit.on('pointerdown', () => this.navigateLeft());
+    leftHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.navigateLeft();
+    });
     leftHit.on('pointerover', () => this.arrowLeft.setColor('#ffd700'));
     leftHit.on('pointerout',  () => this.arrowLeft.setColor('#99bbcc'));
 
@@ -679,7 +690,10 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     const rightHit = this.add.rectangle(rightX, arrowY, Math.round(48 * s), Math.round(48 * s), 0, 0)
       .setDepth(15).setInteractive({ useHandCursor: true });
-    rightHit.on('pointerdown', () => this.navigateRight());
+    rightHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.navigateRight();
+    });
     rightHit.on('pointerover', () => this.arrowRight.setColor('#ffd700'));
     rightHit.on('pointerout',  () => this.arrowRight.setColor('#99bbcc'));
   }

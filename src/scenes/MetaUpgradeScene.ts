@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { MetaProgression, META_UPGRADES, MetaUpgradeDef, MetaUpgradeId } from '../systems/MetaProgression';
 import { uiText, uiTitle } from '../ui/UIStyles';
+import { SFXManager } from '../systems/SFXManager';
 
 /**
  * MetaUpgradeScene — 天命修煉局外升級頁面
@@ -187,6 +188,7 @@ export class MetaUpgradeScene extends Phaser.Scene {
 
           // 點擊：升級一次
           hitArea.on('pointerdown', () => {
+            SFXManager.playButtonClick(this);
             this.doUpgrade(def.id);
 
             // 長按 500ms 後開始連續購買（每 160ms 一次）
@@ -292,6 +294,7 @@ export class MetaUpgradeScene extends Phaser.Scene {
       btnText.setColor('#ffffff');
     });
     hitArea.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
       this.clearHoldTimers();
       this.scene.start('MainMenuScene');
     });

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 import { BGMManager } from '../systems/BGMManager';
+import { SFXManager } from '../systems/SFXManager';
 
 // ── 地圖資料定義 ──────────────────────────────────────────────────────────
 interface MapData {
@@ -189,6 +190,7 @@ export class MapSelectScene extends Phaser.Scene {
         cardG.strokeRoundedRect(x, y, cardW, cardH, r);
       });
       hitArea.on('pointerdown', () => {
+        SFXManager.playButtonClick(this);
         this.scene.start('GameScene', {
           characterId: this.characterId,
           selectedMapId: map.id,
@@ -254,6 +256,9 @@ export class MapSelectScene extends Phaser.Scene {
       .setDepth(13).setInteractive({ useHandCursor: true });
     hitArea.on('pointerover', () => drawBtn(true));
     hitArea.on('pointerout',  () => drawBtn(false));
-    hitArea.on('pointerdown', () => this.scene.start('CharacterSelectScene'));
+    hitArea.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.scene.start('CharacterSelectScene');
+    });
   }
 }

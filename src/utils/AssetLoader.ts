@@ -59,10 +59,16 @@ export class AssetLoader {
     // ── BGM 音頻 ──────────────────────────────────────────────────────────
     // 主選單 BGM（Chenxi Village.mp3）
     AssetLoader.loadAudio(scene, 'bgm_main_menu',   'assets/audio/bgm/Chenxi Village.mp3');
+    // 戰鬥 BGM（Bandits.mp3）
+    AssetLoader.loadAudio(scene, 'bgm_battle',      'assets/audio/bgm/Bandits.mp3');
     // 宗門選擇 BGM（檔案不存在時靜默跳過）
     AssetLoader.loadAudio(scene, 'bgm_char_select', 'assets/audio/bgm/char_select.mp3');
     // 關卡選擇 BGM（檔案不存在時靜默跳過）
     AssetLoader.loadAudio(scene, 'bgm_map_select',  'assets/audio/bgm/map_select.mp3');
+
+    // ── UI SFX ────────────────────────────────────────────────────────────
+    // 按鈕點擊音效
+    AssetLoader.loadAudio(scene, 'sfx_button_click', 'assets/audio/UI/button.aiff');
   }
 
   /**

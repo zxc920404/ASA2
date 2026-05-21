@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { BGMManager } from '../systems/BGMManager';
+import { SFXManager } from '../systems/SFXManager';
 
 // ── 設定面板資料 ──────────────────────────────────────────────────────────
 interface SettingsState {
@@ -326,7 +327,10 @@ export class MainMenuScene extends Phaser.Scene {
       txt.setColor(textColor);
       this.tweens.add({ targets: txt, scaleX: 1.0, scaleY: 1.0, duration: 80, ease: 'Power1' });
     });
-    hit.on('pointerdown', () => action());
+    hit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      action();
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -470,7 +474,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.settingsContainer.add(closeTxt);
 
     const closeHit = this.add.rectangle(closeX, closeY, 32, 32, 0, 0).setInteractive({ useHandCursor: true });
-    closeHit.on('pointerdown', () => this.closeSettings());
+    closeHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.closeSettings();
+    });
     this.settingsContainer.add(closeHit);
   }
 
@@ -521,6 +528,11 @@ export class MainMenuScene extends Phaser.Scene {
       if (key === 'bgmVolume') {
         BGMManager.setVolume(rel);
       }
+      // SFX 音量滑桿：即時套用到 SFXManager
+      if (key === 'sfxVolume') {
+        SFXManager.setVolume(rel);
+        SFXManager.playButtonClick(this);
+      }
     });
     this.settingsContainer.add(hitZone);
   }
@@ -552,6 +564,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const hit = this.add.rectangle(cx + rowW / 2 - 22, cy, 60, 32, 0, 0).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
       this.settings[key] = !this.settings[key];
       redraw();
     });
@@ -611,7 +624,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.exitContainer.add(okTxt);
 
     const okHit = this.add.rectangle(okX, okY, 140, 44, 0, 0).setInteractive({ useHandCursor: true });
-    okHit.on('pointerdown', () => this.closeExit());
+    okHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.closeExit();
+    });
     this.exitContainer.add(okHit);
   }
 }

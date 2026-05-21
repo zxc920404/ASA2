@@ -19,6 +19,7 @@ import { BlackHoleTrap } from '../objects/BlackHoleTrap';
 import { DropItem, DropItemType } from '../objects/DropItem';
 import { MetaProgression } from '../systems/MetaProgression';
 import { EliteLineAttack } from '../objects/EliteLineAttack';
+import { BGMManager } from '../systems/BGMManager';
 
 interface GameSceneData {
   characterId: string;
@@ -402,10 +403,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
       // 清理所有動態物件陣列，防止 scene restart 後殘留
       this.cleanupDynamicObjects();
+      // 停止戰鬥 BGM（淡出後切換到下一場景的 BGM）
+      BGMManager.stop(this);
     });
 
     // ── Phaser RESIZE 模式：螢幕旋轉時重建 HUD 與搖桿 ──────────────────
     this.scale.on('resize', this.onScaleResize, this);
+
+    // ── 戰鬥 BGM（音量 0.22，不壓過武器 SFX）────────────────────────────
+    BGMManager.play(this, 'bgm_battle');
   }
 
   /**
