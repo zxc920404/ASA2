@@ -70,8 +70,8 @@ export const ENEMIES: EnemyData[] = [
   {
     id: 'elite_charger',
     category: 'elite',
-    name: '衝撞型精英',
-    // 衝撞型：高速、中等血量、高接觸傷害
+    name: '大當家',
+    // 衝撞型：高速、中等血量、高接觸傷害（第三波出場，最終頭目）
     baseHP: 1400,
     baseMoveSpeed: 70,   // 由 spawnEliteEnemy 直接設定，此值作備查
     baseDamage: 28,
@@ -81,20 +81,21 @@ export const ENEMIES: EnemyData[] = [
   {
     id: 'elite_shooter',
     category: 'elite',
-    name: '遠程型精英',
-    // 遠程型：低速、高血量、投射物傷害為主
+    name: '二當家',
+    // 遠程控場型：低速、高血量、投射物彈幕 + 黑洞 + 直線攻擊（第二波出場）
     baseHP: 2200,
     baseMoveSpeed: 45,
-    baseDamage: 12,      // 接觸傷害（低，主要靠投射物）
+    baseDamage: 12,      // 接觸傷害（低，主要靠投射物與控場技能）
     expDrop: 0,
     collisionRadius: 28,
     // 投射物參數由 Enemy.ts 的 SHOOTER_* 常數控制
+    // 黑洞與直線攻擊由 Enemy.ts 的 blackholeCooldown / lineAttackCooldown 控制
   },
   {
     id: 'elite_shield',
     category: 'elite',
-    name: '護盾型精英',
-    // 護盾型：中速、最高血量、護盾 + 黑洞 + 直線攻擊
+    name: '三當家',
+    // 護盾型：中速、最高血量、護盾 + 衝擊波（第一波出場）
     baseHP: 3200,
     baseMoveSpeed: 50,
     baseDamage: 22,

@@ -198,6 +198,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private readonly SPEED_BOOST_DURATION = 5000;
   private readonly SPEED_BOOST_MULT = 1.3;
 
+  // ── 玩家定身計時（ms，> 0 表示定身中，由震撼咆哮觸發）──────────────
+  private playerStunTimer: number = 0;
+  /** 控場免疫計時（ms，> 0 時不可被再次定身） */
+  private playerStunImmunityTimer: number = 0;
+  private readonly STUN_IMMUNITY_DURATION = 4000; // 定身結束後 4 秒免疫
+
   // ── 天命點（局外貨幣）────────────────────────────────────────────────
   /** 本局獲得的天命點（死亡或勝利後加入永久存檔） */
   private runDestinyPoints: number = 0;
@@ -272,6 +278,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.dropItems = [];
     this.rangedProjectiles = [];
     this.speedBoostTimer = 0;
+
+    // 重置定身計時
+    this.playerStunTimer = 0;
+    this.playerStunImmunityTimer = 0;
 
     // 重置本局天命點
     this.runDestinyPoints = 0;
@@ -517,19 +527,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 讀取 WASD 輸入並移動玩家（Requirement 2.1、2.2、2.3、2.4）
     // 合併鍵盤與虛擬搖桿輸入（任務 11）
+    // 定身中（震撼咆哮效果）：跳過移動
     const joystickVec = this.virtualJoystick.getVector();
-    this.player.moveWithVector(
-      {
-        up: this.keyW,
-        down: this.keyS,
-        left: this.keyA,
-        right: this.keyD,
-      },
-      joystickVec,
-      delta,
-      WORLD_WIDTH,
-      WORLD_HEIGHT
-    );
+    if (this.playerStunTimer <= 0) {
+      this.player.moveWithVector(
+        {
+          up: this.keyW,
+          down: this.keyS,
+          left: this.keyA,
+          right: this.keyD,
+        },
+        joystickVec,
+        delta,
+        WORLD_WIDTH,
+        WORLD_HEIGHT
+      );
+    }
 
     // 更新所有敵人：追蹤玩家 + 接觸傷害 + 死亡檢測
     const enemies = this.enemyGroup.getChildren() as Enemy[];
@@ -704,6 +717,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         // 恢復正常速度（重新計算 stats）
         this.player.recalculateStats();
       }
+    }
+
+    // ── 玩家定身計時（震撼咆哮效果）────────────────────────────────────
+    if (this.playerStunTimer > 0) {
+      this.playerStunTimer -= delta;
+      if (this.playerStunTimer <= 0) {
+        this.playerStunTimer = 0;
+        // 定身結束，啟動免疫計時
+        this.playerStunImmunityTimer = this.STUN_IMMUNITY_DURATION;
+      }
+    }
+    if (this.playerStunImmunityTimer > 0) {
+      this.playerStunImmunityTimer -= delta;
+      if (this.playerStunImmunityTimer < 0) this.playerStunImmunityTimer = 0;
     }
 
     // ── 直線攻擊更新（shield Boss 技能）──────────────────────────────
@@ -1427,9 +1454,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 生成精英怪（正式版：150/300/450 秒，即 2:30 / 5:00 / 7:30，各一隻）
-   * wave 1 → elite_charger（衝撞型）
-   * wave 2 → elite_shooter（遠程型）
-   * wave 3 → elite_shield（護盾型）
+   * wave 1 → elite_shield（三當家，護盾型）
+   * wave 2 → elite_shooter（二當家，遠程型）
+   * wave 3 → elite_charger（大當家，衝撞型）
    *
    * 精英怪使用獨立 baseData（category: 'elite'），不借用普通小怪資料。
    * 難度倍率（hpMultiplier / damageMultiplier）仍套用，但不再額外乘以 hpScales。
@@ -1439,13 +1466,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const state = this.difficultyScaler.getState(this.elapsedSeconds, 'elite');
 
     // 各波次對應的精英怪 id（category: 'elite'）
-    const eliteIds = ['elite_charger', 'elite_shooter', 'elite_shield'];
-    const eliteId = eliteIds[wave - 1] ?? 'elite_charger';
+    // 出場順序：三當家（shield）→ 二當家（shooter）→ 大當家（charger）
+    const eliteIds = ['elite_shield', 'elite_shooter', 'elite_charger'];
+    const eliteId = eliteIds[wave - 1] ?? 'elite_shield';
     const baseData = getEnemyById(eliteId);
     if (!baseData) return;
 
-    // 各波次移動速度（直接覆蓋 baseData.baseMoveSpeed）
-    const speeds = [70, 45, 50];
+    // 各波次移動速度（與 eliteIds 順序對應：shield=50, shooter=45, charger=70）
+    const speeds = [50, 45, 70];
     const eliteSpeed = speeds[wave - 1] ?? 60;
 
     const { x, y } = this.calcEliteSpawnPosition();
@@ -1460,13 +1488,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     elite.moveSpeed = eliteSpeed;
     elite.collisionRadius = baseData.collisionRadius;
 
-    // 指定類型並套用外觀
-    const types: Array<'charger' | 'shooter' | 'shield'> = ['charger', 'shooter', 'shield'];
-    const eliteType = types[wave - 1] ?? 'charger';
+    // 指定類型並套用外觀（與 eliteIds 順序對應：shield, shooter, charger）
+    const types: Array<'charger' | 'shooter' | 'shield'> = ['shield', 'shooter', 'charger'];
+    const eliteType = types[wave - 1] ?? 'shield';
     elite.applyEliteVisual(eliteType);
 
-    // shooter 注入投射物生成回呼（加入上限保護）
+    // shooter（二當家）注入：投射物 + 黑洞 + 直線攻擊
     if (eliteType === 'shooter') {
+      // 投射物生成回呼（加入上限保護）
       elite.onShootProjectile = (px, py, vx, vy, dmg) => {
         // 精英投射物上限：超過時移除最舊
         if (this.eliteProjectiles.length >= 40) {
@@ -1476,11 +1505,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
         this.eliteProjectiles.push(proj);
       };
-    }
 
-    // shield 注入黑洞生成回呼
-    if (eliteType === 'shield') {
-      elite.onSpawnBlackHole = (bossX, bossY) => {
+      // 黑洞生成回呼（干擾玩家走位）
+      elite.onSpawnBlackHole = (_bossX, _bossY) => {
         // 每輪生成 2～3 個移動小黑洞，以玩家位置為中心（干擾走位）
         const count = 2 + Math.floor(Math.random() * 2); // 2 或 3
         for (let i = 0; i < count; i++) {
@@ -1502,16 +1529,50 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         }
       };
 
-      // 注入外圍直線射擊回呼
+      // 外圍直線射擊回呼（主要壓迫技能）
       elite.onLineAttack = (targetX: number, targetY: number, count: number) => {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
         this.spawnLineAttacks(targetX, targetY, count);
       };
     }
 
+    // shield（三當家）注入：護盾 + 震罡功 + 霸山墜 + 震撼咆哮 + 平砍
+    if (eliteType === 'shield') {
+      // 舊版衝擊波回呼（保留相容性）
+      elite.onShockwave = (cx: number, cy: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.spawnShockwave(cx, cy, elite.contactDamage);
+        elite.shieldEndCast();
+      };
+
+      // 震罡功：防守震波
+      elite.onShieldBurst = (cx: number, cy: number, dmg: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.spawnShieldBurst(cx, cy, dmg, elite);
+      };
+
+      // 霸山墜：跳躍砸地
+      elite.onLeapSlam = (fromX: number, fromY: number, targetX: number, targetY: number, dmg: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.spawnLeapSlam(fromX, fromY, targetX, targetY, dmg, elite);
+      };
+
+      // 震撼咆哮：控場怒吼
+      elite.onWarCry = (cx: number, cy: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.spawnWarCry(cx, cy, elite);
+      };
+
+      // 普通平砍
+      elite.onMeleeSlash = (cx: number, cy: number, dmg: number) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.doMeleeSlash(cx, cy, dmg);
+      };
+    }
+
     this.enemyGroup.add(elite);
 
-    const typeNames = ['衝撞型精英', '遠程型精英', '護盾型精英'];
+    const typeNames = ['三當家', '二當家', '大當家'];
     console.log(`[Elite] spawn wave ${wave} (${eliteType})`, Math.round(x), Math.round(y));
 
     const W = this.scale.width;
@@ -1628,7 +1689,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成外圍直線射擊（shield Boss 技能）
+   * 生成外圍直線射擊（shooter 二當家技能）
    * 攻擊從玩家周圍外側射向玩家施法瞬間位置
    * @param targetX 施法瞬間玩家 X（鎖定，不追蹤）
    * @param targetY 施法瞬間玩家 Y
@@ -1671,6 +1732,390 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       this.lineAttacks.push(la);
       la.showWarning();
+    }
+  }
+
+  /**
+   * 生成衝擊波（shield 三當家近戰強化技能）
+   * 以三當家為中心，向外擴散圓形衝擊波，對範圍內玩家造成傷害
+   * @param cx     三當家中心 X
+   * @param cy     三當家中心 Y
+   * @param baseDmg 三當家接觸傷害（衝擊波傷害 = baseDmg × 0.8）
+   */
+  private spawnShockwave(cx: number, cy: number, baseDmg: number): void {
+    if (this.isPaused || this.isGameOver || this.isVictory) return;
+    if (!this.scene.isActive()) return;
+
+    const SHOCKWAVE_RADIUS = 160;   // 最終半徑（px）
+    const SHOCKWAVE_DAMAGE = Math.ceil(baseDmg * 0.8);
+    const WARNING_DURATION = 600;   // 預警時間（ms）
+    const ACTIVE_DURATION  = 200;   // 傷害判定時間（ms）
+
+    // ── 預警圓圈（靜態，只畫一次）──────────────────────────────────────
+    const warnG = this.add.graphics();
+    warnG.setDepth(18);
+    warnG.lineStyle(3, 0xff6600, 0.75);
+    warnG.strokeCircle(cx, cy, SHOCKWAVE_RADIUS);
+    warnG.fillStyle(0xff4400, 0.10);
+    warnG.fillCircle(cx, cy, SHOCKWAVE_RADIUS);
+
+    // 預警閃爍
+    this.tweens.add({
+      targets: warnG,
+      alpha: 0.35,
+      duration: 150,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // 預警結束後啟動傷害判定
+    this.time.delayedCall(WARNING_DURATION, () => {
+      if (this.isPaused || this.isGameOver || this.isVictory) {
+        this.tweens.killTweensOf(warnG);
+        if (warnG && warnG.active) warnG.destroy();
+        return;
+      }
+
+      // 移除預警
+      this.tweens.killTweensOf(warnG);
+      if (warnG && warnG.active) warnG.destroy();
+
+      // ── 攻擊圓圈（亮橘白，快速淡出）──────────────────────────────────
+      const atkG = this.add.graphics();
+      atkG.setDepth(19);
+      atkG.lineStyle(SHOCKWAVE_RADIUS * 0.15, 0xffffff, 0.85);
+      atkG.strokeCircle(cx, cy, SHOCKWAVE_RADIUS * 0.6);
+      atkG.lineStyle(6, 0xff8800, 0.95);
+      atkG.strokeCircle(cx, cy, SHOCKWAVE_RADIUS);
+      atkG.fillStyle(0xff6600, 0.18);
+      atkG.fillCircle(cx, cy, SHOCKWAVE_RADIUS);
+
+      this.tweens.add({
+        targets: atkG,
+        alpha: 0,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        duration: ACTIVE_DURATION + 100,
+        ease: 'Power2',
+        onComplete: () => {
+          if (atkG && atkG.active) atkG.destroy();
+        },
+      });
+
+      // ── 傷害判定：玩家在半徑內則扣血 ──────────────────────────────────
+      const dx = this.player.x - cx;
+      const dy = this.player.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= SHOCKWAVE_RADIUS + 16) {
+        this.player.takeDamage(SHOCKWAVE_DAMAGE, this);
+      }
+    });
+  }
+
+  /**
+   * 震罡功：防守反擊震波
+   * 三當家短暫蓄力後爆發護體震波，對近距離玩家造成傷害與擊退
+   */
+  private spawnShieldBurst(cx: number, cy: number, dmg: number, elite: Enemy): void {
+    if (!this.scene.isActive()) return;
+
+    const BURST_RADIUS = 110 + Math.random() * 20; // 110～130px
+    const WINDUP_DUR   = 900;  // 蓄力時間（ms）
+    const BURST_DUR    = 250;  // 爆發持續（ms）
+
+    // ── 蓄力光圈（暗黃色，逐漸擴大）──────────────────────────────────
+    const windupG = this.add.graphics();
+    windupG.setDepth(18);
+    windupG.fillStyle(0xaa8800, 0.18);
+    windupG.fillCircle(cx, cy, BURST_RADIUS * 0.5);
+    windupG.lineStyle(4, 0xddaa00, 0.85);
+    windupG.strokeCircle(cx, cy, BURST_RADIUS * 0.5);
+
+    this.tweens.add({
+      targets: windupG,
+      scaleX: 2.0, scaleY: 2.0,
+      alpha: 0.6,
+      duration: WINDUP_DUR,
+      ease: 'Power1',
+    });
+
+    this.time.delayedCall(WINDUP_DUR, () => {
+      this.tweens.killTweensOf(windupG);
+      if (windupG && windupG.active) windupG.destroy();
+
+      if (this.isPaused || this.isGameOver || this.isVictory) {
+        elite.shieldEndCast();
+        return;
+      }
+
+      // 使用三當家當前位置（已移動）
+      const bx = elite.active ? elite.x : cx;
+      const by = elite.active ? elite.y : cy;
+
+      // ── 爆發圓圈（土黃色，快速擴散）──────────────────────────────────
+      const burstG = this.add.graphics();
+      burstG.setDepth(19);
+      burstG.lineStyle(8, 0xffcc00, 0.9);
+      burstG.strokeCircle(bx, by, BURST_RADIUS * 0.4);
+      burstG.fillStyle(0xcc9900, 0.22);
+      burstG.fillCircle(bx, by, BURST_RADIUS);
+
+      this.tweens.add({
+        targets: burstG,
+        scaleX: 1.3, scaleY: 1.3,
+        alpha: 0,
+        duration: BURST_DUR + 150,
+        ease: 'Power2',
+        onComplete: () => { if (burstG && burstG.active) burstG.destroy(); },
+      });
+
+      // ── 傷害與擊退判定 ────────────────────────────────────────────────
+      const dx = this.player.x - bx;
+      const dy = this.player.y - by;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= BURST_RADIUS + 14) {
+        this.player.takeDamage(dmg, this);
+        // 擊退：中等距離
+        if (dist > 1) {
+          const knockDist = 80;
+          this.player.applyExternalMove(
+            (dx / dist) * knockDist,
+            (dy / dist) * knockDist
+          );
+        }
+      }
+
+      // 技能結束
+      this.time.delayedCall(BURST_DUR, () => { elite.shieldEndCast(); });
+    });
+  }
+
+  /**
+   * 霸山墜：跳躍砸地
+   * 三當家跳起後朝玩家位置砸落，落地前有預警圈，落地造成範圍傷害與擊退
+   */
+  private spawnLeapSlam(fromX: number, fromY: number, targetX: number, targetY: number, dmg: number, elite: Enemy): void {
+    if (!this.scene.isActive()) return;
+
+    const SLAM_RADIUS  = 130 + Math.random() * 30; // 130～160px
+    const WINDUP_DUR   = 400;  // 起跳前搖（ms）
+    const LEAP_DUR     = 700;  // 飛行時間（ms）
+    const WARN_DUR     = WINDUP_DUR + LEAP_DUR; // 預警圈顯示時間
+
+    // 落點：玩家當前位置（鎖定）
+    const landX = Phaser.Math.Clamp(targetX, 32, WORLD_WIDTH  - 32);
+    const landY = Phaser.Math.Clamp(targetY, 32, WORLD_HEIGHT - 32);
+
+    // ── 落點預警圈（橘紅色，持續到落地）──────────────────────────────
+    const warnG = this.add.graphics();
+    warnG.setDepth(17);
+    warnG.lineStyle(3, 0xff4400, 0.8);
+    warnG.strokeCircle(landX, landY, SLAM_RADIUS);
+    warnG.fillStyle(0xff2200, 0.10);
+    warnG.fillCircle(landX, landY, SLAM_RADIUS);
+
+    this.tweens.add({
+      targets: warnG,
+      alpha: 0.4,
+      duration: 200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // ── 起跳：三當家視覺縮小（模擬跳起）──────────────────────────────
+    const eliteVisual = (elite as any).visual as Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
+    if (eliteVisual && eliteVisual.active) {
+      this.tweens.add({
+        targets: eliteVisual,
+        scaleX: 0.7, scaleY: 0.7,
+        duration: WINDUP_DUR,
+        ease: 'Power1',
+      });
+    }
+
+    // ── 落地 ──────────────────────────────────────────────────────────
+    this.time.delayedCall(WARN_DUR, () => {
+      this.tweens.killTweensOf(warnG);
+      if (warnG && warnG.active) warnG.destroy();
+
+      if (this.isPaused || this.isGameOver || this.isVictory) {
+        if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1);
+        elite.shieldEndCast();
+        return;
+      }
+
+      // 三當家瞬移到落點
+      if (elite.active && !elite.isDying) {
+        elite.setPosition(landX, landY);
+        (elite as any).syncVisual?.();
+      }
+
+      // 恢復視覺縮放
+      if (eliteVisual && eliteVisual.active) {
+        this.tweens.add({
+          targets: eliteVisual,
+          scaleX: 1.3, scaleY: 1.3,
+          duration: 80,
+          ease: 'Back.Out',
+          yoyo: true,
+          onComplete: () => { if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1); },
+        });
+      }
+
+      // ── 落地衝擊波（土色，快速擴散）──────────────────────────────────
+      const impactG = this.add.graphics();
+      impactG.setDepth(19);
+      impactG.lineStyle(10, 0x885500, 0.95);
+      impactG.strokeCircle(landX, landY, SLAM_RADIUS * 0.3);
+      impactG.lineStyle(5, 0xcc7700, 0.8);
+      impactG.strokeCircle(landX, landY, SLAM_RADIUS);
+      impactG.fillStyle(0x774400, 0.20);
+      impactG.fillCircle(landX, landY, SLAM_RADIUS);
+
+      this.tweens.add({
+        targets: impactG,
+        scaleX: 1.4, scaleY: 1.4,
+        alpha: 0,
+        duration: 400,
+        ease: 'Power2',
+        onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
+      });
+
+      // ── 傷害與擊退判定 ────────────────────────────────────────────────
+      const dx = this.player.x - landX;
+      const dy = this.player.y - landY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= SLAM_RADIUS + 14) {
+        this.player.takeDamage(dmg, this);
+        if (dist > 1) {
+          const knockDist = 110;
+          this.player.applyExternalMove(
+            (dx / dist) * knockDist,
+            (dy / dist) * knockDist
+          );
+        }
+      }
+
+      // 技能結束
+      this.time.delayedCall(300, () => { elite.shieldEndCast(); });
+    });
+  }
+
+  /**
+   * 震撼咆哮：控場怒吼
+   * 以三當家為中心，範圍內玩家受到短暫定身（有控場免疫保護）
+   */
+  private spawnWarCry(cx: number, cy: number, elite: Enemy): void {
+    if (!this.scene.isActive()) return;
+
+    const WARCRY_RADIUS = 140 + Math.random() * 30; // 140～170px
+    const WARCRY_DUR    = 600;  // 怒吼動畫時間（ms）
+    const STUN_DUR      = 400 + Math.random() * 400; // 定身 0.4～0.8 秒
+
+    // ── 怒吼衝擊圈（暗紅/黃色，向外擴散）────────────────────────────
+    const cryG = this.add.graphics();
+    cryG.setDepth(18);
+    cryG.lineStyle(6, 0xdd2200, 0.9);
+    cryG.strokeCircle(cx, cy, WARCRY_RADIUS * 0.3);
+    cryG.lineStyle(3, 0xffaa00, 0.7);
+    cryG.strokeCircle(cx, cy, WARCRY_RADIUS * 0.6);
+    cryG.fillStyle(0xcc1100, 0.12);
+    cryG.fillCircle(cx, cy, WARCRY_RADIUS);
+
+    this.tweens.add({
+      targets: cryG,
+      scaleX: 1.5, scaleY: 1.5,
+      alpha: 0,
+      duration: WARCRY_DUR,
+      ease: 'Power2',
+      onComplete: () => { if (cryG && cryG.active) cryG.destroy(); },
+    });
+
+    // ── 第二波衝擊圈（延遲 150ms，音波感）────────────────────────────
+    this.time.delayedCall(150, () => {
+      if (this.isPaused || this.isGameOver || this.isVictory) return;
+      const bx = elite.active ? elite.x : cx;
+      const by = elite.active ? elite.y : cy;
+      const cryG2 = this.add.graphics();
+      cryG2.setDepth(18);
+      cryG2.lineStyle(4, 0xff6600, 0.75);
+      cryG2.strokeCircle(bx, by, WARCRY_RADIUS * 0.5);
+      cryG2.lineStyle(2, 0xffdd00, 0.5);
+      cryG2.strokeCircle(bx, by, WARCRY_RADIUS);
+      this.tweens.add({
+        targets: cryG2,
+        scaleX: 1.3, scaleY: 1.3,
+        alpha: 0,
+        duration: WARCRY_DUR - 100,
+        ease: 'Power2',
+        onComplete: () => { if (cryG2 && cryG2.active) cryG2.destroy(); },
+      });
+    });
+
+    // ── 定身判定（有免疫保護）────────────────────────────────────────
+    const dx = this.player.x - cx;
+    const dy = this.player.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= WARCRY_RADIUS && this.playerStunImmunityTimer <= 0) {
+      this.playerStunTimer = STUN_DUR;
+      // 定身視覺提示（玩家閃黃）
+      if (this.player && (this.player as any).visual) {
+        const pv = (this.player as any).visual as Phaser.GameObjects.Image;
+        if (pv && pv.active) {
+          pv.setTint(0xffff00);
+          this.time.delayedCall(STUN_DUR, () => {
+            if (pv && pv.active) pv.clearTint();
+          });
+        }
+      }
+    }
+
+    // 技能結束
+    this.time.delayedCall(WARCRY_DUR, () => { elite.shieldEndCast(); });
+  }
+
+  /**
+   * 普通平砍：三當家近戰攻擊視覺效果
+   */
+  private doMeleeSlash(cx: number, cy: number, dmg: number): void {
+    if (!this.scene.isActive()) return;
+
+    // ── 揮砍弧線視覺（暗黃/土色）──────────────────────────────────────
+    const slashG = this.add.graphics();
+    slashG.setDepth(19);
+    slashG.lineStyle(8, 0xcc8800, 0.9);
+    // 以三當家為中心，朝玩家方向畫弧
+    const dx = this.player.x - cx;
+    const dy = this.player.y - cy;
+    const baseAngle = Math.atan2(dy, dx);
+    const arcSpread = Math.PI * 0.5; // 90° 弧
+    slashG.beginPath();
+    const arcR = 55;
+    for (let i = 0; i <= 12; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 12);
+      const px = cx + Math.cos(a) * arcR;
+      const py = cy + Math.sin(a) * arcR;
+      if (i === 0) slashG.moveTo(px, py);
+      else slashG.lineTo(px, py);
+    }
+    slashG.strokePath();
+
+    this.tweens.add({
+      targets: slashG,
+      alpha: 0,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
+    });
+
+    // ── 傷害判定 ──────────────────────────────────────────────────────
+    const pdx = this.player.x - cx;
+    const pdy = this.player.y - cy;
+    const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+    if (pdist <= 85) {
+      this.player.takeDamage(dmg, this);
     }
   }
 
