@@ -24,12 +24,14 @@ function clampMultiplier(value: number): number {
  * 依公式計算玩家六項最終屬性（Requirement 3.2）
  *
  * 公式：
- *   maxHP        = baseHP + Σ(hp 被動加成)
- *   moveSpeed    = baseMoveSpeed × Π(moveSpeed 倍率)
- *   attackPower  = baseAttackPower × Π(attackPower 倍率)
- *   pickupRange  = basePickupRange + Σ(pickupRange 加成)
- *   attackRange  = weapon.baseAttackRange × Π(attackRange 倍率)
- *   attackInterval = weapon.baseAttackInterval ÷ Π(attackSpeed 倍率)
+ *   maxHP             = baseHP + Σ(hp 被動加成)
+ *   moveSpeed         = baseMoveSpeed × Π(moveSpeed 倍率)
+ *   attackPower       = baseAttackPower × Π(attackPower 倍率)
+ *   pickupRange       = basePickupRange + Σ(pickupRange 加成)
+ *   areaMultiplier    = 1.0 × Π(areaMultiplier 倍率)（擴脈符）
+ *   cooldownMultiplier = 1.0 × Π(cooldownMultiplier 倍率)（急攻令）
+ *   attackRange       = weapon.baseAttackRange（舊欄位，保留相容）
+ *   attackInterval    = weapon.baseAttackInterval（舊欄位，保留相容）
  */
 export function calculateStats(
   char: CharacterData,
@@ -51,8 +53,8 @@ export function calculateStats(
   let moveSpeedMultiplier = 1.0;
   let attackPowerMultiplier = 1.0;
   let pickupRangeBonus = 0;
-  let attackRangeMultiplier = 1.0;
-  let attackSpeedMultiplier = 1.0;
+  let areaMultiplier = 1.0;
+  let cooldownMultiplier = 1.0;
 
   for (const slot of equipment.passives) {
     const passive = PASSIVES.find(p => p.id === slot.passiveId);
@@ -74,11 +76,13 @@ export function calculateStats(
       case 'pickupRange':
         pickupRangeBonus += totalBonus;
         break;
-      case 'attackRange':
-        attackRangeMultiplier *= clampMultiplier(1 + totalBonus);
+      case 'areaMultiplier':
+        // 範圍倍率：1 + bonusPerLevel * level（例：Lv1 → 1.12，Lv8 → 1.96）
+        areaMultiplier *= clampMultiplier(1 + totalBonus);
         break;
-      case 'attackSpeed':
-        attackSpeedMultiplier *= clampMultiplier(1 + totalBonus);
+      case 'cooldownMultiplier':
+        // 冷卻倍率：1 + bonusPerLevel * level（bonusPerLevel 為負值，例：Lv1 → 0.94，Lv8 → 0.52）
+        cooldownMultiplier *= clampMultiplier(1 + totalBonus);
         break;
     }
   }
@@ -88,8 +92,9 @@ export function calculateStats(
   const rawMoveSpeed = char.baseMoveSpeed * moveSpeedMultiplier;
   const rawAttackPower = char.baseAttackPower * attackPowerMultiplier;
   const rawPickupRange = char.basePickupRange + pickupRangeBonus;
-  const rawAttackRange = baseAttackRange * attackRangeMultiplier;
-  const rawAttackInterval = baseAttackInterval / clampMultiplier(attackSpeedMultiplier);
+  // attackRange / attackInterval 保留舊欄位相容，WeaponSystem 直接讀 player.stats.areaMultiplier / cooldownMultiplier
+  const rawAttackRange = baseAttackRange;
+  const rawAttackInterval = baseAttackInterval;
 
   // 套用上限 / 下限（Requirement 3.5）
   return {
@@ -99,10 +104,10 @@ export function calculateStats(
     pickupRange: Math.min(rawPickupRange, MAX_PICKUP_RANGE),
     attackRange: Math.min(rawAttackRange, MAX_ATTACK_RANGE),
     attackInterval: Math.max(rawAttackInterval, MIN_ATTACK_INTERVAL),
-    amountBonus: 0,              // 底層欄位預留，目前無被動加成此屬性
-    cooldownMultiplier: 1.0,     // 底層欄位預留，目前無被動加成此屬性
-    areaMultiplier: 1.0,         // 底層欄位預留，目前無被動加成此屬性
-    durationMultiplier: 1.0,     // 底層欄位預留，目前無被動加成此屬性
-    projectileSpeedMultiplier: 1.0, // 底層欄位預留，目前無被動加成此屬性
+    amountBonus: 0,
+    cooldownMultiplier: Math.max(0.1, cooldownMultiplier), // 最低 0.1，避免冷卻歸零
+    areaMultiplier: Math.max(0.1, areaMultiplier),
+    durationMultiplier: 1.0,
+    projectileSpeedMultiplier: 1.0,
   };
 }

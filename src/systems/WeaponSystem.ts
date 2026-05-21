@@ -4,7 +4,6 @@ import { Enemy } from '../objects/Enemy';
 import { Projectile } from '../objects/Projectile';
 import { PoisonCloud } from '../objects/PoisonCloud';
 import { getWeaponById } from '../data/weapons';
-import { PASSIVES } from '../data/passives';
 
 /** 投射物群組上限（Requirement 效能限制） */
 const MAX_PROJECTILES = 100;
@@ -239,17 +238,20 @@ export class WeaponSystem {
       // 攻擊間隔：優先讀 stats.interval，fallback 到 baseAttackInterval
       const baseInterval = stats.interval ?? weaponData.baseAttackInterval;
 
-      // 計算最終攻擊間隔（毫秒），套用攻擊速度被動
-      const finalInterval = (baseInterval / this.getAttackSpeedMultiplier(player)) * 1000;
+      // 計算最終攻擊間隔（毫秒），套用冷卻倍率被動（急攻令）
+      // cooldownMultiplier < 1 表示冷卻縮短（例：0.94 = 縮短 6%）
+      const finalInterval = baseInterval * player.stats.cooldownMultiplier * 1000;
 
-      // 攻擊範圍：優先讀 stats.range，fallback 到 baseAttackRange，再套用被動倍率
+      // 攻擊範圍：優先讀 stats.range，fallback 到 baseAttackRange
+      // 注意：攻擊範圍（索敵距離）不再受擴脈符影響，擴脈符改為影響爆炸/毒霧半徑
       const baseRange = stats.range ?? weaponData.baseAttackRange;
-      const finalRange = baseRange * this.getAttackRangeMultiplier(player);
+      const finalRange = baseRange;
 
-      // 傷害：從 stats.damage 讀取，套用攻擊力與被動倍率
+      // 傷害：從 stats.damage 讀取，套用攻擊力
+      // player.stats.attackPower 已由 StatCalculator 套用所有被動倍率（含破勢印）
+      // 不再額外呼叫 getPassiveAttackMultiplier，避免雙重計算
       const levelDamage = stats.damage;
-      const passiveMultiplier = this.getPassiveAttackMultiplier(player);
-      const finalDamage = Math.max(1, Math.floor(levelDamage * player.stats.attackPower * passiveMultiplier));
+      const finalDamage = Math.max(1, Math.floor(levelDamage * player.stats.attackPower));
 
       if (inst.weaponId === 'guardian_ring') {
         // 守心環：更新旋轉位置，檢測碰撞
@@ -263,7 +265,8 @@ export class WeaponSystem {
           const target = this.findNearestEnemyInRange(player, finalRange);
 
           if (target) {
-            const projSpeed = stats.projectileSpeed ?? weaponData.projectileSpeed;
+            // 投射物速度：套用 projectileSpeedMultiplier（TODO: 目前無被動加成此屬性，預設 1.0）
+            const projSpeed = (stats.projectileSpeed ?? weaponData.projectileSpeed) * player.stats.projectileSpeedMultiplier;
 
             // 計算最終數量：baseCount + amountBonus（僅 usesAmountBonus === true 時套用）
             const baseCount = stats.count ?? 1;
@@ -273,7 +276,7 @@ export class WeaponSystem {
             if (inst.weaponId === 'swift_blade') {
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'swift_blade', 0x00ffff, finalCount);
             } else if (inst.weaponId === 'flame_seal') {
-              const explosionRadius = stats.radius ?? 80;
+              const explosionRadius = (stats.radius ?? 80) * player.stats.areaMultiplier;
               this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius, finalCount);
             } else if (inst.weaponId === 'thunder_claw') {
               this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, finalCount);
@@ -299,8 +302,9 @@ export class WeaponSystem {
             } else if (inst.weaponId === 'poison_mist') {
               // 毒霧散：不吃 amountBonus，直接用 baseCount
               const cloudCount = baseCount;
-              const cloudRadius = stats.radius ?? 45;
-              const cloudDuration = (stats.duration ?? 2.2) * 1000; // 秒轉毫秒
+              const cloudRadius = (stats.radius ?? 45) * player.stats.areaMultiplier;
+              // 持續時間套用 durationMultiplier（TODO: 目前無被動加成此屬性，預設 1.0）
+              const cloudDuration = (stats.duration ?? 2.2) * player.stats.durationMultiplier * 1000;
               this.firePoisonMist(player, finalDamage, projSpeed, finalRange, cloudCount, cloudRadius, cloudDuration, enemies);
             } else {
               // 其他武器：預設直線投射
@@ -536,48 +540,6 @@ export class WeaponSystem {
   // ─────────────────────────────────────────────────────────────────────────
   // 私有方法
   // ─────────────────────────────────────────────────────────────────────────
-
-  /**
-   * 計算被動攻擊倍率（破勢印）
-   */
-  private getPassiveAttackMultiplier(player: Player): number {
-    let multiplier = 1.0;
-    for (const slot of player.equipment.passives) {
-      const passive = PASSIVES.find(p => p.id === slot.passiveId);
-      if (passive && passive.stat === 'attackPower') {
-        multiplier *= (1 + passive.bonusPerLevel * slot.level);
-      }
-    }
-    return multiplier;
-  }
-
-  /**
-   * 計算被動攻擊速度倍率（急攻令）
-   */
-  private getAttackSpeedMultiplier(player: Player): number {
-    let multiplier = 1.0;
-    for (const slot of player.equipment.passives) {
-      const passive = PASSIVES.find(p => p.id === slot.passiveId);
-      if (passive && passive.stat === 'attackSpeed') {
-        multiplier *= (1 + passive.bonusPerLevel * slot.level);
-      }
-    }
-    return Math.max(0.01, multiplier);
-  }
-
-  /**
-   * 計算被動攻擊範圍倍率（擴脈符）
-   */
-  private getAttackRangeMultiplier(player: Player): number {
-    let multiplier = 1.0;
-    for (const slot of player.equipment.passives) {
-      const passive = PASSIVES.find(p => p.id === slot.passiveId);
-      if (passive && passive.stat === 'attackRange') {
-        multiplier *= (1 + passive.bonusPerLevel * slot.level);
-      }
-    }
-    return Math.max(0.01, multiplier);
-  }
 
   /**
    * 更新最近敵人快取（依距離排序）

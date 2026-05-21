@@ -97,7 +97,7 @@ export interface WeaponData {
 export interface PassiveData {
   id: string;
   name: string;
-  stat: 'moveSpeed' | 'hp' | 'attackPower' | 'pickupRange' | 'attackRange' | 'attackSpeed';
+  stat: 'moveSpeed' | 'hp' | 'attackPower' | 'pickupRange' | 'areaMultiplier' | 'cooldownMultiplier';
   bonusPerLevel: number; // 每級加成量
   /** HUD / 升級卡 / 被動欄圖示 key（對應 public/assets/icons/passives/<id>.png） */
   iconKey?: string;

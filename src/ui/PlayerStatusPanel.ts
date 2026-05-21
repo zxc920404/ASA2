@@ -135,13 +135,13 @@ export class PlayerStatusPanel {
       ``,
     ];
 
-    // ── 右欄：武器/被動數量、攻擊力、攻擊範圍、攻擊速度 ──────────────
+    // ── 右欄：武器/被動數量、攻擊力、範圍倍率、冷卻倍率 ──────────────
     const rightLines = [
-      `武器：${weaponCount}/6`,
-      `被動：${passiveCount}/6`,
+      `武器：${weaponCount}/4`,
+      `被動：${passiveCount}/4`,
       `攻擊力：×${stats.attackPower.toFixed(2)}`,
-      `攻擊範圍：×${(stats.attackRange / 120).toFixed(2)}`,
-      `攻擊速度：×${(1 / stats.attackInterval).toFixed(2)}`,
+      `範圍倍率：×${stats.areaMultiplier.toFixed(2)}`,
+      `冷卻倍率：×${stats.cooldownMultiplier.toFixed(2)}`,
       ``,
     ];
 

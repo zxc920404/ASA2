@@ -32,15 +32,15 @@ export const PASSIVES: PassiveData[] = [
   {
     id: 'vein_talisman',
     name: '擴脈符',
-    stat: 'attackRange',
-    bonusPerLevel: 0.10, // 每級攻擊範圍倍率 +0.10，Lv1 倍率 1.10、Lv8 倍率 1.80
+    stat: 'areaMultiplier',
+    bonusPerLevel: 0.12, // 每級範圍倍率 +0.12，Lv1 倍率 1.12、Lv8 倍率 1.96
     iconKey: 'passive_icon_vein_talisman',
   },
   {
     id: 'swift_strike',
     name: '急攻令',
-    stat: 'attackSpeed',
-    bonusPerLevel: 0.15, // 每級攻擊速度倍率 +0.15，Lv1 倍率 1.15、Lv8 倍率 2.05
+    stat: 'cooldownMultiplier',
+    bonusPerLevel: -0.06, // 每級冷卻倍率 -0.06，Lv1 倍率 0.94、Lv8 倍率 0.52
     iconKey: 'passive_icon_swift_strike',
   },
 ];

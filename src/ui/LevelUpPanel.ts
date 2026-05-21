@@ -152,8 +152,8 @@ function getPassiveDeltaLines(passiveId: string, isNew: boolean): string[] {
     case 'hp':          line = `最大生命 +${bonus}`; break;
     case 'attackPower': line = `攻擊力 +${(bonus * 100).toFixed(0)}%`; break;
     case 'pickupRange': line = `拾取範圍 +${bonus}`; break;
-    case 'attackRange': line = `攻擊範圍 +${(bonus * 100).toFixed(0)}%`; break;
-    case 'attackSpeed': line = `攻擊速度 +${(bonus * 100).toFixed(0)}%`; break;
+    case 'areaMultiplier': line = `範圍倍率 +${(bonus * 100).toFixed(0)}%`; break;
+    case 'cooldownMultiplier': line = `冷卻縮短 ${(Math.abs(bonus) * 100).toFixed(0)}%`; break;
     default:            line = '屬性提升';
   }
   return [line];
