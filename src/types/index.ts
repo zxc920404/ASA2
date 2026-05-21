@@ -115,6 +115,13 @@ export interface PassiveData {
 export interface EnemyData {
   id: string;
   name: string;
+  /**
+   * 敵人分類：
+   * - 'normal'：普通小怪，由 spawnEnemy() 生成
+   * - 'elite'：精英怪，由 spawnEliteEnemy() 生成
+   * - 'boss'：Boss，由 spawnBossEnemy() 生成（預留）
+   */
+  category: 'normal' | 'elite' | 'boss';
   baseHP: number;
   baseMoveSpeed: number;
   baseDamage: number;
@@ -185,6 +192,10 @@ export interface DifficultyState {
   damageMultiplier: number;
   spawnInterval: number;   // 毫秒
   spawnRatio: { basic: number; fast: number; tank: number }; // 總和 = 1.0
+  /** 場上敵人上限（公式曲線計算） */
+  maxEnemies: number;
+  /** 每次生成批次數量（公式曲線計算） */
+  spawnBatchSize: number;
 }
 
 // 宗門大道定義
@@ -212,4 +223,39 @@ export interface GameResult {
   score: number;           // kills*10 + seconds*2 + maxLevel*50
   destinyPoints: number;   // 本局獲得天命點
   totalDestinyPoints: number; // 結算後總天命點
+}
+
+// ── 遊戲難度 ──────────────────────────────────────────────────────────────────
+
+/**
+ * 遊戲難度 ID
+ * - 'easy':   簡單
+ * - 'normal': 普通（預設）
+ * - 'hard':   困難
+ */
+export type DifficultyId = 'easy' | 'normal' | 'hard';
+
+/**
+ * 難度設定：各 category 的倍率
+ * 由 DifficultyScaler 依 category 套用至 hpMultiplier / damageMultiplier
+ */
+export interface DifficultyConfig {
+  id: DifficultyId;
+  name: string;
+  /** 普通小怪（normal）HP 倍率 */
+  enemyHpMultiplier: number;
+  /** 普通小怪（normal）傷害倍率 */
+  enemyDamageMultiplier: number;
+  /** 生成速度倍率（值越小生成越快，套用於 spawnInterval） */
+  spawnRateMultiplier: number;
+  /** 場上敵人數量上限倍率 */
+  maxEnemyMultiplier: number;
+  /** 精英怪（elite）HP 倍率 */
+  eliteHpMultiplier: number;
+  /** 精英怪（elite）傷害倍率 */
+  eliteDamageMultiplier: number;
+  /** Boss HP 倍率 */
+  bossHpMultiplier: number;
+  /** Boss 傷害倍率 */
+  bossDamageMultiplier: number;
 }

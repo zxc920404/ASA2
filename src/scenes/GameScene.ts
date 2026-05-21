@@ -31,8 +31,9 @@ interface GameSceneData {
 const WORLD_WIDTH = 3200;
 const WORLD_HEIGHT = 3200;
 
-/** 場上敵人上限（設計層面 80，Requirement 6.5 / design.md） */
-const MAX_ENEMIES = 80;
+/** 場上敵人上限（設計層面 80，Requirement 6.5 / design.md）
+ * @deprecated 已由 DifficultyScaler 的公式曲線動態計算，此常數僅作保底上限 */
+const MAX_ENEMIES = 200;
 
 /** 場上 XPGem 上限（design.md 效能限制） */
 const MAX_XP_GEMS = 80;
@@ -64,9 +65,6 @@ const VICTORY_TIME_MS = 10 * 60 * 1000;
 
 /** 最後怪潮開始時間（秒）：9 分鐘，與 DifficultyScaler 一致 */
 const FINAL_WAVE_START_SEC = 9 * 60;
-
-/** 最後怪潮敵人上限（比平時多，但仍保守）*/
-const MAX_ENEMIES_FINAL_WAVE = 100;
 
 // ── Enemy Recycle 機制（模仿 Vampire Survivors 怪物重新定位）──────────────
 /** 超過此距離的普通小怪會被重新定位（px） */
@@ -1146,7 +1144,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 排程下一次敵人生成（依當前難度計算間隔）
    */
   private scheduleNextSpawn(): void {
-    const state = this.difficultyScaler.getState(this.elapsedSeconds);
+    // spawnInterval 屬於 normal 類別的生成節奏，使用 'normal' category
+    const state = this.difficultyScaler.getState(this.elapsedSeconds, 'normal');
     const interval = Math.max(100, state.spawnInterval); // 最短 100ms
 
     this.spawnTimer = this.time.addEvent({
@@ -1166,54 +1165,60 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成一隻敵人（Requirement 6.4、6.5、7.2）
-   * - 場上敵人達上限時跳過生成
+   * 生成一批普通小怪（category: 'normal'）
+   * - 場上敵人達 state.maxEnemies 上限時跳過生成
+   * - 每次生成 state.spawnBatchSize 隻，但不超過上限
    * - 在距玩家 150～200px 且位於畫面外的位置生成
-   * - 最後怪潮（9 分鐘後）敵人上限提高至 100
+   * - 只使用 category: 'normal' 的敵人資料，不混用 elite / boss
    */
   private spawnEnemy(): void {
-    // 場上敵人上限檢查（最後怪潮時提高上限）
-    const currentMax = this.elapsedSeconds >= FINAL_WAVE_START_SEC
-      ? MAX_ENEMIES_FINAL_WAVE
-      : MAX_ENEMIES;
-    if (this.enemyGroup.getLength() >= currentMax) {
+    // 取得普通小怪難度狀態（category: 'normal'，套用 enemyHp/Damage/spawnRate/maxEnemy 倍率）
+    const state = this.difficultyScaler.getState(this.elapsedSeconds, 'normal');
+
+    // 場上敵人上限：使用公式曲線值，並以 MAX_ENEMIES 作為絕對上限保底
+    const currentMax = Math.min(state.maxEnemies, MAX_ENEMIES);
+    const currentCount = this.enemyGroup.getLength();
+    if (currentCount >= currentMax) {
       return;
     }
 
-    // 取得當前難度狀態
-    const state = this.difficultyScaler.getState(this.elapsedSeconds);
+    // 本次批次生成數量：不超過剩餘空位
+    const remaining = currentMax - currentCount;
+    const batchSize = Math.min(state.spawnBatchSize, remaining);
 
-    // 依比例隨機選擇敵人種類（Requirement 7.2）
-    const enemyId = this.pickEnemyType(state.spawnRatio);
-    const enemyData = getEnemyById(enemyId);
-    if (!enemyData) return;
+    for (let i = 0; i < batchSize; i++) {
+      // 依比例隨機選擇普通小怪種類（只從 category: 'normal' 取資料）
+      const enemyId = this.pickEnemyType(state.spawnRatio);
+      const enemyData = getEnemyById(enemyId);
+      if (!enemyData || enemyData.category !== 'normal') continue;
 
-    // 計算生成位置（Requirement 6.4）
-    const { x, y } = this.calcSpawnPosition();
+      // 計算生成位置（Requirement 6.4）
+      const { x, y } = this.calcSpawnPosition();
 
-    // 建立敵人實例
-    const enemy = new Enemy(
-      this,
-      x,
-      y,
-      enemyData,
-      state.hpMultiplier,
-      state.damageMultiplier
-    );
+      // 建立敵人實例
+      const enemy = new Enemy(
+        this,
+        x,
+        y,
+        enemyData,
+        state.hpMultiplier,
+        state.damageMultiplier
+      );
 
-    // 遠程小怪注入射擊回呼
-    if (enemy.isRanged) {
-      enemy.onRangedShoot = (px, py, vx, vy, dmg) => {
-        if (this.rangedProjectiles.length >= this.MAX_RANGED_PROJECTILES) {
-          const oldest = this.rangedProjectiles.shift();
-          if (oldest && !oldest.isDead) oldest.destroy();
-        }
-        const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
-        this.rangedProjectiles.push(proj);
-      };
+      // 遠程小怪注入射擊回呼
+      if (enemy.isRanged) {
+        enemy.onRangedShoot = (px, py, vx, vy, dmg) => {
+          if (this.rangedProjectiles.length >= this.MAX_RANGED_PROJECTILES) {
+            const oldest = this.rangedProjectiles.shift();
+            if (oldest && !oldest.isDead) oldest.destroy();
+          }
+          const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
+          this.rangedProjectiles.push(proj);
+        };
+      }
+
+      this.enemyGroup.add(enemy);
     }
-
-    this.enemyGroup.add(enemy);
   }
 
   /**
@@ -1410,32 +1415,38 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 生成精英怪（正式版：150/300/450 秒，即 2:30 / 5:00 / 7:30，各一隻）
-   * wave 1 → charger（衝撞型）
-   * wave 2 → shooter（遠程型）
-   * wave 3 → shield（護盾型）
+   * wave 1 → elite_charger（衝撞型）
+   * wave 2 → elite_shooter（遠程型）
+   * wave 3 → elite_shield（護盾型）
+   *
+   * 精英怪使用獨立 baseData（category: 'elite'），不借用普通小怪資料。
+   * 難度倍率（hpMultiplier / damageMultiplier）仍套用，但不再額外乘以 hpScales。
    */
   private spawnEliteEnemy(wave: number): void {
-    const state = this.difficultyScaler.getState(this.elapsedSeconds);
-    const baseData = getEnemyById('tank');
+    // 精英怪使用 category: 'elite'，套用 eliteHp/Damage 倍率
+    const state = this.difficultyScaler.getState(this.elapsedSeconds, 'elite');
+
+    // 各波次對應的精英怪 id（category: 'elite'）
+    const eliteIds = ['elite_charger', 'elite_shooter', 'elite_shield'];
+    const eliteId = eliteIds[wave - 1] ?? 'elite_charger';
+    const baseData = getEnemyById(eliteId);
     if (!baseData) return;
 
-    const hpScales  = [8,   12,  18 ];
-    const dmgScales = [1.5, 1.8, 2.2];
-    const speeds    = [70,  45,  50 ];   // charger 快一點，shooter/shield 慢
-    const hpScale  = hpScales [wave - 1] ?? 8;
-    const dmgScale = dmgScales[wave - 1] ?? 1.5;
-    const eliteSpeed = speeds[wave - 1] ?? 55;
+    // 各波次移動速度（直接覆蓋 baseData.baseMoveSpeed）
+    const speeds = [70, 45, 50];
+    const eliteSpeed = speeds[wave - 1] ?? 60;
 
     const { x, y } = this.calcEliteSpawnPosition();
 
+    // 精英怪套用難度倍率，但不再額外乘以 hpScales（數值已內建於 baseData）
     const elite = new Enemy(this, x, y, baseData,
-      state.hpMultiplier * hpScale,
-      state.damageMultiplier * dmgScale
+      state.hpMultiplier,
+      state.damageMultiplier
     );
 
     elite.isElite = true;
     elite.moveSpeed = eliteSpeed;
-    elite.collisionRadius = 28;
+    elite.collisionRadius = baseData.collisionRadius;
 
     // 指定類型並套用外觀
     const types: Array<'charger' | 'shooter' | 'shield'> = ['charger', 'shooter', 'shield'];

@@ -1,8 +1,22 @@
 import { EnemyData } from '../types/index';
 
+/**
+ * 敵人資料表
+ *
+ * 分類規則：
+ * - category: 'normal' → 普通小怪，由 spawnEnemy() 生成
+ * - category: 'elite'  → 精英怪，由 spawnEliteEnemy() 生成，有獨立基礎數值
+ * - category: 'boss'   → Boss，由 spawnBossEnemy() 生成（預留），有獨立基礎數值
+ *
+ * 不同 category 之間不共用 baseData。
+ * 新增敵人時必須明確指定 category。
+ */
 export const ENEMIES: EnemyData[] = [
+
+  // ── 普通小怪（normal）────────────────────────────────────────────────────
   {
     id: 'basic',
+    category: 'normal',
     name: '基礎小怪',
     baseHP: 50,
     baseMoveSpeed: 80,
@@ -13,6 +27,7 @@ export const ENEMIES: EnemyData[] = [
   },
   {
     id: 'fast',
+    category: 'normal',
     name: '快速小怪',
     baseHP: 35,
     baseMoveSpeed: 140,
@@ -23,6 +38,7 @@ export const ENEMIES: EnemyData[] = [
   },
   {
     id: 'tank',
+    category: 'normal',
     name: '厚血小怪',
     baseHP: 180,
     baseMoveSpeed: 50,
@@ -33,6 +49,7 @@ export const ENEMIES: EnemyData[] = [
   },
   {
     id: 'ranged',
+    category: 'normal',
     name: '邪修射手',
     baseHP: 45,
     baseMoveSpeed: 55,
@@ -45,8 +62,88 @@ export const ENEMIES: EnemyData[] = [
     projectileDamage: 7,
     spriteKey: 'enemy_img_ranged',
   },
+
+  // ── 精英怪（elite）───────────────────────────────────────────────────────
+  // 精英怪有獨立基礎數值，不借用普通小怪資料。
+  // DifficultyScaler 的 hpMultiplier / damageMultiplier 仍會套用，
+  // 但不再額外乘以 hpScales / dmgScales 倍率（數值已內建於此）。
+  {
+    id: 'elite_charger',
+    category: 'elite',
+    name: '衝撞型精英',
+    // 衝撞型：高速、中等血量、高接觸傷害
+    baseHP: 1400,
+    baseMoveSpeed: 70,   // 由 spawnEliteEnemy 直接設定，此值作備查
+    baseDamage: 28,
+    expDrop: 0,          // 精英怪 expDrop 由 GameScene 統一處理（掉 gem）
+    collisionRadius: 28,
+  },
+  {
+    id: 'elite_shooter',
+    category: 'elite',
+    name: '遠程型精英',
+    // 遠程型：低速、高血量、投射物傷害為主
+    baseHP: 2200,
+    baseMoveSpeed: 45,
+    baseDamage: 12,      // 接觸傷害（低，主要靠投射物）
+    expDrop: 0,
+    collisionRadius: 28,
+    // 投射物參數由 Enemy.ts 的 SHOOTER_* 常數控制
+  },
+  {
+    id: 'elite_shield',
+    category: 'elite',
+    name: '護盾型精英',
+    // 護盾型：中速、最高血量、護盾 + 黑洞 + 直線攻擊
+    baseHP: 3200,
+    baseMoveSpeed: 50,
+    baseDamage: 22,
+    expDrop: 0,
+    collisionRadius: 28,
+  },
+
+  // ── Boss（boss）──────────────────────────────────────────────────────────
+  // Boss 預留，目前尚未實作 spawnBossEnemy()。
+  // 數值為設計草稿，可依需求調整。
+  {
+    id: 'boss_1',
+    category: 'boss',
+    name: '第一階段 Boss',
+    baseHP: 8000,
+    baseMoveSpeed: 60,
+    baseDamage: 35,
+    expDrop: 0,
+    collisionRadius: 40,
+  },
+  {
+    id: 'boss_2',
+    category: 'boss',
+    name: '第二階段 Boss',
+    baseHP: 14000,
+    baseMoveSpeed: 65,
+    baseDamage: 45,
+    expDrop: 0,
+    collisionRadius: 44,
+  },
+  {
+    id: 'boss_3',
+    category: 'boss',
+    name: '最終 Boss',
+    baseHP: 22000,
+    baseMoveSpeed: 70,
+    baseDamage: 60,
+    expDrop: 0,
+    collisionRadius: 48,
+  },
 ];
 
 export const getEnemyById = (id: string): EnemyData | undefined => {
   return ENEMIES.find(e => e.id === id);
+};
+
+/** 取得指定分類的所有敵人資料 */
+export const getEnemiesByCategory = (
+  category: 'normal' | 'elite' | 'boss'
+): EnemyData[] => {
+  return ENEMIES.filter(e => e.category === category);
 };
