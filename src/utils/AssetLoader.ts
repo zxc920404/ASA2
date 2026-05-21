@@ -68,7 +68,7 @@ export class AssetLoader {
 
     // ── UI SFX ────────────────────────────────────────────────────────────
     // 按鈕點擊音效
-    AssetLoader.loadAudio(scene, 'sfx_button_click', 'assets/audio/UI/button.aiff');
+    AssetLoader.loadAudio(scene, 'sfx_button_click', 'assets/audio/UI/UIbutton.mp3');
   }
 
   /**
