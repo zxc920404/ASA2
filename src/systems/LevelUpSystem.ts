@@ -54,11 +54,13 @@ export class LevelUpSystem {
    * @param player 玩家物件
    */
   public triggerLevelUp(player: Player): void {
-    // 取得升級選項（傳入 characterId 供進化條件判斷）
+    // 取得升級選項（傳入 characterId、playerLevel、activeDaos 供條件判斷）
     const options = this.upgradePool.getOptions(
       player.equipment,
       player.characterId,
-      player.characterId
+      player.characterId,
+      player.level,
+      player.activeDaos
     );
 
     // 防呆：選項為空時不暫停，直接跳過
@@ -181,6 +183,13 @@ export class LevelUpSystem {
         // 所有裝備滿級時的 fallback：恢復 30% 最大 HP
         const healAmount = Math.floor(player.stats.maxHP * 0.3);
         player.currentHP = Math.min(player.stats.maxHP, player.currentHP + healAmount);
+        break;
+      }
+
+      case 'activateDao': {
+        // 宗門大道：加入玩家的已啟用大道集合
+        // WeaponSystem 會在每幀從 player.activeDaos 讀取，不需要額外通知
+        player.activeDaos.add(option.id);
         break;
       }
     }

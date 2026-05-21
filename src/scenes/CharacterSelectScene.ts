@@ -5,6 +5,7 @@ import { getWeaponById } from '../data/weapons';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
+import { BGMManager } from '../systems/BGMManager';
 
 // ── 宗門資料（UI 顯示用）────────────────────────────────────────────────────
 const SECT_INFO: Record<string, {
@@ -119,6 +120,9 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.refreshInfoPanel();
     this.refreshCards();
+
+    // ── BGM（有專屬 BGM 則播放，否則 fallback 到主選單 BGM）────────────
+    BGMManager.play(this, 'bgm_char_select');
   }
 
   update(_time: number, delta: number): void {

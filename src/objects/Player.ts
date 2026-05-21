@@ -18,6 +18,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
   public currentExp: number;
   public equipment: EquipmentSlot;
   public stats: PlayerStats;
+  /** 已啟用的宗門大道 id 集合（透過升級選項取得） */
+  public activeDaos: Set<string> = new Set();
 
   private charData: CharacterData;
 

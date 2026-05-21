@@ -55,6 +55,14 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'ui_bg_char_select',  'assets/ui/classback.png');
     AssetLoader.loadImage(scene, 'ui_panel_levelup',   'assets/ui/panel_levelup.png');
     AssetLoader.loadImage(scene, 'ui_panel_hud',       'assets/ui/panel_hud.png');
+
+    // ── BGM 音頻 ──────────────────────────────────────────────────────────
+    // 主選單 BGM（Chenxi Village.mp3）
+    AssetLoader.loadAudio(scene, 'bgm_main_menu',   'assets/audio/bgm/Chenxi Village.mp3');
+    // 宗門選擇 BGM（檔案不存在時靜默跳過）
+    AssetLoader.loadAudio(scene, 'bgm_char_select', 'assets/audio/bgm/char_select.mp3');
+    // 關卡選擇 BGM（檔案不存在時靜默跳過）
+    AssetLoader.loadAudio(scene, 'bgm_map_select',  'assets/audio/bgm/map_select.mp3');
   }
 
   /**
@@ -65,6 +73,17 @@ export class AssetLoader {
     // 若 texture 已存在（scene restart 情況），跳過重複載入
     if (scene.textures.exists(key)) return;
     scene.load.image(key, path);
+  }
+
+  /**
+   * 安全載入音頻檔案。
+   * 若路徑不存在，load error 事件會觸發但不會讓遊戲崩潰。
+   * BGMManager 在播放前會再次確認 key 是否存在，不存在則靜默跳過。
+   */
+  static loadAudio(scene: Phaser.Scene, key: string, path: string): void {
+    // 若 audio cache 已存在（scene restart 情況），跳過重複載入
+    if (scene.cache.audio.exists(key)) return;
+    scene.load.audio(key, path);
   }
 
   /**

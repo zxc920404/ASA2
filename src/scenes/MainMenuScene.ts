@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
+import { BGMManager } from '../systems/BGMManager';
 
 // ── 設定面板資料 ──────────────────────────────────────────────────────────
 interface SettingsState {
@@ -92,6 +93,9 @@ export class MainMenuScene extends Phaser.Scene {
     // ── 離開確認面板（初始隱藏）──────────────────────────────────────────
     this.exitContainer = this.add.container(0, 0).setDepth(50).setVisible(false);
     this.buildExitPanel(W, H);
+
+    // ── BGM ───────────────────────────────────────────────────────────────
+    BGMManager.play(this, 'bgm_main_menu');
   }
 
   update(_time: number, delta: number): void {
@@ -513,6 +517,10 @@ export class MainMenuScene extends Phaser.Scene {
       const rel = Phaser.Math.Clamp((ptr.x - trackX) / trackW, 0, 1);
       (this.settings as unknown as Record<string, number | boolean>)[key] = rel;
       redraw();
+      // BGM 音量滑桿：即時套用到 BGMManager
+      if (key === 'bgmVolume') {
+        BGMManager.setVolume(rel);
+      }
     });
     this.settingsContainer.add(hitZone);
   }

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
+import { BGMManager } from '../systems/BGMManager';
 
 // ── 地圖資料定義 ──────────────────────────────────────────────────────────
 interface MapData {
@@ -68,6 +69,9 @@ export class MapSelectScene extends Phaser.Scene {
     });
 
     this.buildBackButton(W, H, layout);
+
+    // ── BGM（有專屬 BGM 則播放，否則 fallback 到主選單 BGM）────────────
+    BGMManager.play(this, 'bgm_map_select');
   }
 
   private drawBackground(W: number, H: number): void {

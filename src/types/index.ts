@@ -165,7 +165,7 @@ export interface EquipmentSlot {
 
 // 升級選項
 export interface UpgradeOption {
-  type: 'newWeapon' | 'upgradeWeapon' | 'evolveWeapon' | 'newPassive' | 'upgradePassive' | 'healHp';
+  type: 'newWeapon' | 'upgradeWeapon' | 'evolveWeapon' | 'newPassive' | 'upgradePassive' | 'healHp' | 'activateDao';
   id: string;
   currentLevel: number; // 0 表示新裝備
   nextLevel: number;
@@ -177,6 +177,23 @@ export interface DifficultyState {
   damageMultiplier: number;
   spawnInterval: number;   // 毫秒
   spawnRatio: { basic: number; fast: number; tank: number }; // 總和 = 1.0
+}
+
+// 宗門大道定義
+export interface DaoData {
+  id: string;
+  name: string;
+  description: string;
+  /** 適用宗門 character id（undefined 表示任何宗門均可） */
+  requiredCharacterId?: string;
+  /** 解鎖條件：玩家等級門檻 */
+  requiredPlayerLevel: number;
+  /** 解鎖條件：需持有的 projectile 類武器數量（最少） */
+  requiredProjectileWeaponCount?: number;
+  /** 解鎖條件：至少 1 把 projectile 類武器達到此等級以上 */
+  requiredProjectileWeaponLevel?: number;
+  /** HUD / 升級卡圖示 key */
+  iconKey?: string;
 }
 
 // 結算資料

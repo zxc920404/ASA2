@@ -1,6 +1,7 @@
 import { EquipmentSlot, UpgradeOption } from '../types/index';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
+import { DAOS } from '../data/daos';
 
 /** 武器欄上限 */
 const MAX_WEAPON_SLOTS = 4;
@@ -49,13 +50,17 @@ export class UpgradePool {
    * 取得升級選項
    * @param equipment   玩家當前裝備欄
    * @param startingWeaponId 玩家角色的初始武器 ID
-   * @param characterId 玩家角色 ID（用於判斷進化條件）
+   * @param characterId 玩家角色 ID（用於判斷進化條件與大道條件）
+   * @param playerLevel 玩家當前等級（用於大道解鎖條件）
+   * @param activeDaos  已啟用的大道 id 集合（排除已取得的大道）
    * @returns 最多 3 個合法升級選項（隨機抽取）
    */
   public getOptions(
     equipment: EquipmentSlot,
     startingWeaponId: string,
-    characterId?: string
+    characterId?: string,
+    playerLevel: number = 1,
+    activeDaos: Set<string> = new Set()
   ): UpgradeOption[] {
     const candidates: UpgradeOption[] = [];
 
@@ -139,6 +144,36 @@ export class UpgradePool {
           nextLevel: slot.level + 1,
         });
       }
+    }
+
+    // ── 宗門大道選項（條件達成且尚未取得時加入）──────────────────────────
+    // 大道是 global modifier，必須透過升級選項取得，不會開局自動啟用
+    for (const dao of DAOS) {
+      // 已取得的大道不再顯示
+      if (activeDaos.has(dao.id)) continue;
+      // 宗門限制
+      if (dao.requiredCharacterId && characterId !== dao.requiredCharacterId) continue;
+      // 玩家等級門檻
+      if (playerLevel < dao.requiredPlayerLevel) continue;
+      // projectile 類武器數量條件
+      if (dao.requiredProjectileWeaponCount !== undefined) {
+        const projWeapons = equipment.weapons.filter(slot => {
+          const w = WEAPONS.find(wd => wd.id === slot.weaponId);
+          return w?.form === 'projectile';
+        });
+        if (projWeapons.length < dao.requiredProjectileWeaponCount) continue;
+        // 至少 1 把 projectile 類武器達到指定等級
+        if (dao.requiredProjectileWeaponLevel !== undefined) {
+          const hasHighLevel = projWeapons.some(slot => slot.level >= dao.requiredProjectileWeaponLevel!);
+          if (!hasHighLevel) continue;
+        }
+      }
+      candidates.push({
+        type: 'activateDao',
+        id: dao.id,
+        currentLevel: 0,
+        nextLevel: 1,
+      });
     }
 
     // 從候選池隨機抽取 min(3, 候選池長度) 個選項（Requirement 11.1, 11.7）

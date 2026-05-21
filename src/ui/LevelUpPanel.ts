@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UpgradeOption } from '../types/index';
 import { getWeaponById, WEAPONS } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
+import { getDaoById } from '../data/daos';
 import { uiText, uiTitle } from './UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
@@ -166,6 +167,7 @@ function getPassiveDeltaLines(passiveId: string, isNew: boolean): string[] {
 /** 取得升級選項的顯示名稱 */
 function getOptionName(option: UpgradeOption): string {
   if (option.type === 'healHp') return '氣血回復';
+  if (option.type === 'activateDao') return getDaoById(option.id)?.name ?? option.id;
   if (option.type === 'newWeapon' || option.type === 'upgradeWeapon' || option.type === 'evolveWeapon') {
     return getWeaponById(option.id)?.name ?? option.id;
   }
@@ -177,6 +179,7 @@ function getLevelLabel(option: UpgradeOption): string {
   if (option.type === 'healHp') return '✦ 回復生命';
   if (option.type === 'newWeapon' || option.type === 'newPassive') return '✦ 新裝備';
   if (option.type === 'evolveWeapon') return '✦ 武器進化';
+  if (option.type === 'activateDao') return '✦ 宗門大道';
   return `Lv.${option.currentLevel} → Lv.${option.nextLevel}`;
 }
 
@@ -191,6 +194,7 @@ function getUpgradeTitle(option: UpgradeOption): string {
     case 'evolveWeapon':  return '進化效果：';
     case 'newPassive':    return '新被動效果：';
     case 'upgradePassive':return '本次提升：';
+    case 'activateDao':   return '大道效果：';
   }
 }
 
@@ -216,6 +220,12 @@ function getUpgradeLines(option: UpgradeOption): string[] {
 
     case 'upgradePassive':
       return getPassiveDeltaLines(option.id, false);
+
+    case 'activateDao': {
+      const dao = getDaoById(option.id);
+      if (!dao) return ['全域規則增強'];
+      return [dao.description];
+    }
   }
 }
 
@@ -226,12 +236,14 @@ function getTypeTag(option: UpgradeOption): { label: string; color: number } {
   if (option.type === 'upgradeWeapon')  return { label: '武器升級', color: 0xcc4444 };
   if (option.type === 'evolveWeapon')   return { label: '★ 武器進化', color: 0xcc8800 };
   if (option.type === 'newPassive')     return { label: '新被動', color: 0x2244aa };
+  if (option.type === 'activateDao')    return { label: '◈ 宗門大道', color: 0x8800cc };
   return { label: '被動升級', color: 0x4466cc };
 }
 
 /** 取得升級選項的圖示 key（用於升級卡顯示） */
 function getOptionIconKey(option: UpgradeOption): string | undefined {
   if (option.type === 'healHp') return undefined;
+  if (option.type === 'activateDao') return getDaoById(option.id)?.iconKey;
   if (option.type === 'newWeapon' || option.type === 'upgradeWeapon' || option.type === 'evolveWeapon') {
     return getWeaponById(option.id)?.iconKey;
   }
