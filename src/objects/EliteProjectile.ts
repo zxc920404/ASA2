@@ -23,6 +23,15 @@ export function evictOldestIfNeeded(): boolean {
 }
 
 /**
+ * 重置全域精英投射物狀態（場景重啟 / 新局開始時呼叫）
+ * 清除跨場景殘留的計數與引用，確保新局投射物上限判斷正確
+ */
+export function resetEliteProjectileGlobals(): void {
+  activeEliteProjectiles = 0;
+  allEliteProjectiles.length = 0;
+}
+
+/**
  * EliteProjectile — 精英怪（shooter）發射的敵方投射物
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，12×12）
  * 視覺為紫色光球

@@ -14,7 +14,7 @@ import { VirtualJoystick } from '../ui/VirtualJoystick';
 import { getCharacterById } from '../data/characters';
 import { getEnemyById } from '../data/enemies';
 import { resetDamageNumberCounter } from '../objects/Enemy';
-import { EliteProjectile } from '../objects/EliteProjectile';
+import { EliteProjectile, resetEliteProjectileGlobals } from '../objects/EliteProjectile';
 import { BlackHoleTrap } from '../objects/BlackHoleTrap';
 import { DropItem, DropItemType } from '../objects/DropItem';
 import { MetaProgression } from '../systems/MetaProgression';
@@ -293,6 +293,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 重置傷害數字計數器（防止跨場景殘留）
     resetDamageNumberCounter();
+
+    // 重置精英投射物全域狀態（防止跨場景計數殘留，BUG-1 修正）
+    resetEliteProjectileGlobals();
 
     // ── 預先生成 Sprite Texture（用 Graphics 繪製後快取）────────────────
     this.generateSpriteTextures();
@@ -2698,6 +2701,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           duration: DASH_DUR,
           ease: 'Power2.In',
           onUpdate: () => {
+            // RISK-B1 修正：charger 死亡後不再繼續 syncVisual
+            if (!charger.active || charger.isDying) return;
             (charger as any).syncVisual?.();
           },
           onComplete: () => {
