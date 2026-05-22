@@ -4,7 +4,7 @@ import { getWeaponById } from '../data/weapons';
 import { getPassiveById } from '../data/passives';
 import { uiText } from './UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
-import { ResponsiveLayout, LayoutMetrics } from '../utils/ResponsiveLayout';
+import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 
 /**
  * HUD — 遊戲內抬頭顯示器

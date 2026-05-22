@@ -149,10 +149,6 @@ export class ResponsiveLayout {
     };
   }
 
-  static fontSize(basePx: number, uiScale: number): string {
-    return `${Math.round(basePx * uiScale)}px`;
-  }
-
   static panelSize(
     W: number, H: number,
     maxWRatio: number, maxHRatio: number,

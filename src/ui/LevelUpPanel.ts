@@ -558,8 +558,3 @@ export class LevelUpPanel {
     this.container.destroy(true);
   }
 }
-
-/** 向下相容：保留舊的 getOptionDescription export（供外部可能的引用） */
-export function getOptionDescription(option: UpgradeOption): string {
-  return getUpgradeLines(option).join('\n');
-}

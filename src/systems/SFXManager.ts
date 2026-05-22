@@ -14,11 +14,6 @@ export class SFXManager {
     SFXManager.sfxVolume = Phaser.Math.Clamp(volume, 0, 1);
   }
 
-  /** 取得目前 SFX 音量 */
-  static getVolume(): number {
-    return SFXManager.sfxVolume;
-  }
-
   /**
    * 播放按鈕點擊音效。
    * 若音效未載入則靜默跳過，不影響遊戲流程。
