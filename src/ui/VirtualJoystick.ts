@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 
 /**
- * VirtualJoystick — 觸控虛擬搖桿
+ * VirtualJoystick — 全螢幕浮動虛擬搖桿
  *
- * 規格（tasks.md MVP UI 設計規格）：
- * - 底座：x: W×0.14, y: H×0.75，半徑 60px，觸控區 120×120px
- * - 旋鈕：跟隨觸控偏移，最大偏移 60px，半徑 28px
- * - 偏移量 < 搖桿半徑 × 20%（< 12px）時視為無輸入，回傳 {x:0, y:0}
- * - 偏移量 ≥ 12px 時，正規化偏移向量作為移動方向
+ * 行為：
+ * - 預設隱藏，玩家按下螢幕任意空白位置時以按下點為中心顯示
+ * - 拖曳時搖桿圓點跟隨手指，最大偏移 BASE_RADIUS（60px）
+ * - 放開手指後隱藏搖桿，輸出向量歸零
+ * - 若按下位置落在 UI 排除區域內，不觸發搖桿
+ * - 偏移量 < 死區（12px）時視為無輸入，回傳 {x:0, y:0}
  *
  * Validates: Requirement 2.4
  */
@@ -21,15 +22,15 @@ export class VirtualJoystick {
   private readonly KNOB_RADIUS = 28;
 
   /** 死區：偏移量小於此值視為無輸入（BASE_RADIUS × 20% = 12px） */
-  private readonly DEAD_ZONE = 12; // 60 * 0.20
+  private readonly DEAD_ZONE = 12;
 
-  /** 底座圖形 */
+  /** 底座圖形（浮動，按下時才顯示） */
   private baseGraphic!: Phaser.GameObjects.Graphics;
 
   /** 旋鈕圖形 */
   private knobGraphic!: Phaser.GameObjects.Graphics;
 
-  /** 底座中心位置（固定） */
+  /** 當前搖桿中心（按下時設定） */
   private baseX: number = 0;
   private baseY: number = 0;
 
@@ -43,6 +44,13 @@ export class VirtualJoystick {
   /** 追蹤中的 pointer ID（避免多點觸控干擾） */
   private activePointerId: number = -1;
 
+  /**
+   * UI 排除區域（矩形陣列）
+   * 若 pointerdown 落在這些區域內，不觸發搖桿
+   * 格式：{ x, y, w, h }，x/y 為左上角座標
+   */
+  private uiZones: Array<{ x: number; y: number; w: number; h: number }> = [];
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.createGraphics();
@@ -50,41 +58,39 @@ export class VirtualJoystick {
   }
 
   /**
-   * 建立底座與旋鈕圖形
+   * 設定 UI 排除區域（由 GameScene 在 HUD 建立後呼叫）
+   * 落在這些區域內的 pointerdown 不會觸發搖桿
+   */
+  public setUIZones(zones: Array<{ x: number; y: number; w: number; h: number }>): void {
+    this.uiZones = zones;
+  }
+
+  /**
+   * 建立底座與旋鈕圖形（預設隱藏）
    */
   private createGraphics(): void {
-    const W = this.scene.scale.width;
-    const H = this.scene.scale.height;
-    const isPortrait = H > W;
-
-    // 搖桿位置：左下角，基於實際螢幕尺寸動態計算
-    // 直屏：x = W × 0.20（距左邊 20%），y = H - H×0.14（距底部 14%）
-    // 橫屏：x = W × 0.125（距左邊 12.5%），y = H - H×0.165（距底部 16.5%）
-    if (isPortrait) {
-      this.baseX = Math.max(this.BASE_RADIUS + 10, Math.round(W * 0.20));
-      this.baseY = Math.min(H - this.BASE_RADIUS - 20, Math.round(H - H * 0.14));
-    } else {
-      this.baseX = Math.max(this.BASE_RADIUS + 10, Math.round(W * 0.125));
-      this.baseY = Math.min(H - this.BASE_RADIUS - 10, Math.round(H * 0.835));
-    }
-
-    // 底座：半透明圓形，alpha 0.4
+    // 底座：半透明圓形，alpha 0.45
     this.baseGraphic = this.scene.add.graphics();
-    this.baseGraphic.fillStyle(0xffffff, 0.4);
+    this.baseGraphic.fillStyle(0xffffff, 0.20);
     this.baseGraphic.fillCircle(0, 0, this.BASE_RADIUS);
-    this.baseGraphic.lineStyle(2, 0xffffff, 0.6);
+    this.baseGraphic.lineStyle(2.5, 0xffffff, 0.55);
     this.baseGraphic.strokeCircle(0, 0, this.BASE_RADIUS);
-    this.baseGraphic.setPosition(this.baseX, this.baseY);
+    // 內圈輔助線
+    this.baseGraphic.lineStyle(1, 0xffffff, 0.20);
+    this.baseGraphic.strokeCircle(0, 0, this.BASE_RADIUS * 0.5);
     this.baseGraphic.setScrollFactor(0);
     this.baseGraphic.setDepth(50);
+    this.baseGraphic.setVisible(false);
 
-    // 旋鈕：較亮的圓形，alpha 0.7
+    // 旋鈕：較亮的圓形，alpha 0.75
     this.knobGraphic = this.scene.add.graphics();
-    this.knobGraphic.fillStyle(0xffffff, 0.7);
+    this.knobGraphic.fillStyle(0xffffff, 0.75);
     this.knobGraphic.fillCircle(0, 0, this.KNOB_RADIUS);
-    this.knobGraphic.setPosition(this.baseX, this.baseY);
+    this.knobGraphic.lineStyle(2, 0xffffff, 0.9);
+    this.knobGraphic.strokeCircle(0, 0, this.KNOB_RADIUS);
     this.knobGraphic.setScrollFactor(0);
     this.knobGraphic.setDepth(51);
+    this.knobGraphic.setVisible(false);
   }
 
   /**
@@ -98,23 +104,42 @@ export class VirtualJoystick {
   }
 
   /**
-   * 觸控按下：記錄起始點，啟動搖桿
+   * 判斷座標是否落在 UI 排除區域內
+   */
+  private isInUIZone(x: number, y: number): boolean {
+    for (const zone of this.uiZones) {
+      if (x >= zone.x && x <= zone.x + zone.w &&
+          y >= zone.y && y <= zone.y + zone.h) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 觸控按下：以按下位置為搖桿中心，顯示搖桿
    */
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    // 只接受左半邊螢幕的觸控（搖桿區域）
-    const W = this.scene.scale.width;
-    if (pointer.x > W * 0.5) return;
-
     // 若已有觸控中，忽略新的觸控
     if (this.isTouching) return;
+
+    // 若按在 UI 排除區域內，不觸發搖桿
+    if (this.isInUIZone(pointer.x, pointer.y)) return;
 
     this.isTouching = true;
     this.activePointerId = pointer.id;
     this.offsetX = 0;
     this.offsetY = 0;
 
-    // 更新旋鈕位置至底座中心
+    // 以按下位置為搖桿中心
+    this.baseX = pointer.x;
+    this.baseY = pointer.y;
+
+    // 顯示搖桿
+    this.baseGraphic.setPosition(this.baseX, this.baseY);
+    this.baseGraphic.setVisible(true);
     this.knobGraphic.setPosition(this.baseX, this.baseY);
+    this.knobGraphic.setVisible(true);
   }
 
   /**
@@ -143,7 +168,7 @@ export class VirtualJoystick {
   }
 
   /**
-   * 觸控結束：重置旋鈕至中心，輸出向量歸零
+   * 觸控結束：隱藏搖桿，輸出向量歸零
    */
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
     if (pointer.id !== this.activePointerId) return;
@@ -153,24 +178,23 @@ export class VirtualJoystick {
     this.offsetX = 0;
     this.offsetY = 0;
 
-    // 旋鈕回到底座中心
-    this.knobGraphic.setPosition(this.baseX, this.baseY);
+    // 隱藏搖桿
+    this.baseGraphic.setVisible(false);
+    this.knobGraphic.setVisible(false);
   }
 
   /**
    * 取得當前移動向量（已正規化）
-   * - 偏移量 < 死區（12px）時回傳 {x:0, y:0}（Requirement 2.4）
+   * - 偏移量 < 死區（12px）時回傳 {x:0, y:0}
    * - 偏移量 ≥ 死區時，正規化偏移向量作為移動方向
    */
   public getVector(): { x: number; y: number } {
     const dist = Math.sqrt(this.offsetX * this.offsetX + this.offsetY * this.offsetY);
 
-    // 死區判斷（Requirement 2.4：偏移量 < 搖桿半徑 20% 視為無輸入）
     if (dist < this.DEAD_ZONE) {
       return { x: 0, y: 0 };
     }
 
-    // 正規化向量
     return {
       x: this.offsetX / dist,
       y: this.offsetY / dist,
@@ -178,9 +202,16 @@ export class VirtualJoystick {
   }
 
   /**
-   * 顯示或隱藏搖桿
+   * 顯示或隱藏搖桿（外部控制用，例如暫停時強制隱藏）
    */
   public setVisible(visible: boolean): void {
+    if (!visible) {
+      // 強制隱藏時也重置觸控狀態
+      this.isTouching = false;
+      this.activePointerId = -1;
+      this.offsetX = 0;
+      this.offsetY = 0;
+    }
     this.baseGraphic.setVisible(visible);
     this.knobGraphic.setVisible(visible);
   }
@@ -194,7 +225,7 @@ export class VirtualJoystick {
     this.scene.input.off('pointerup', this.onPointerUp, this);
     this.scene.input.off('pointerupoutside', this.onPointerUp, this);
 
-    this.baseGraphic.destroy();
-    this.knobGraphic.destroy();
+    if (this.baseGraphic && this.baseGraphic.active) this.baseGraphic.destroy();
+    if (this.knobGraphic && this.knobGraphic.active) this.knobGraphic.destroy();
   }
 }

@@ -745,6 +745,37 @@ export class HUD {
   }
 
   /**
+   * 回傳所有 UI 互動區域（供 VirtualJoystick 排除用）
+   * 格式：{ x, y, w, h }，x/y 為左上角座標
+   */
+  public getUIZones(): Array<{ x: number; y: number; w: number; h: number }> {
+    const zones: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    const isPortrait = H > W;
+
+    // 暫停按鈕（52×52 hit area，中心在 pauseX/pauseY）
+    zones.push({ x: this.pauseX - 30, y: this.pauseY - 30, w: 60, h: 60 });
+
+    // 屬性按鈕（52×52 hit area，中心在 statsX/statsY）
+    zones.push({ x: this.statsX - 30, y: this.statsY - 30, w: 60, h: 60 });
+
+    // 上方 HUD 條（直屏：全寬 H*0.10；橫屏：左上面板區域）
+    if (isPortrait) {
+      const hudH = Math.round(H * 0.10);
+      // 上方 HUD 條 + 武器/被動格列（再加 40px 緩衝）
+      zones.push({ x: 0, y: 0, w: W, h: hudH + 50 });
+    } else {
+      // 橫屏：左上面板（220×60）
+      zones.push({ x: 0, y: 0, w: 230, h: 65 });
+      // 右上按鈕區（暫停+屬性，已由上方個別按鈕覆蓋，再加整體右上角保護）
+      zones.push({ x: W - 120, y: 0, w: 120, h: 60 });
+    }
+
+    return zones;
+  }
+
+  /**
    * 設定低血量警告狀態（HP < 30% 時傳入 true）
    * 由 GameScene 每幀呼叫
    */
