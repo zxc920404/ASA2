@@ -1902,9 +1902,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      // 使用三當家當前位置
-      const bx = elite.active ? elite.x : castX;
-      const by = elite.active ? elite.y : castY;
+      // BUG-A4 修正：三當家在蓄力期間死亡則不造成傷害
+      if (!elite.active || elite.isDying) {
+        elite.shieldEndCast();
+        return;
+      }
+
+      // RISK-B2 修正（方案 A）：傷害判定固定使用 castX/castY，與預警圈位置一致
+      // 預警圈已固定在 castX/castY，傷害判定也用相同位置，避免玩家看到 A 點預警卻在 B 點受傷
+      const bx = castX;
+      const by = castY;
 
       // ── 爆發圓圈（setPosition + 相對座標，alpha 淡出，不做 scale）──
       const burstG = this.add.graphics();
@@ -1994,6 +2001,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (warnG && warnG.active) warnG.destroy();
 
       if (this.isPaused || this.isGameOver || this.isVictory) {
+        if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1);
+        elite.shieldEndCast();
+        return;
+      }
+
+      // BUG-A5 修正：三當家在跳躍期間死亡則不瞬移、不造成傷害
+      if (!elite.active || elite.isDying) {
         if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1);
         elite.shieldEndCast();
         return;
@@ -2121,6 +2135,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
+      // BUG-A4 修正：三當家在蓄力期間死亡則不造成傷害
+      if (!elite.active || elite.isDying) {
+        elite.shieldEndCast();
+        return;
+      }
+
       // 使用三當家當前位置
       const bx = elite.active ? elite.x : castX;
       const by = elite.active ? elite.y : castY;
@@ -2188,20 +2208,23 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 連續重擊：三當家朝玩家方向前方範圍連續打擊
    * 站定後朝玩家方向連續打擊 3 次，每次前方矩形範圍判定
    */
+  /**
+   * 連續重擊：三當家朝玩家方向前方範圍連續打擊
+   * 站定後朝玩家方向連續打擊 3 次，每次前方扇形範圍判定
+   *
+   * BUG-A1 修正：視覺改為扇形，傷害判定也改為扇形（與視覺一致）
+   * BUG-A2 修正：每次打擊先顯示預警扇形，STRIKE_WARN_DUR 後才判定傷害
+   */
   private spawnShieldComboStrike(cx: number, cy: number, dirX: number, dirY: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
 
     const STRIKE_COUNT    = 3;
-    const STRIKE_RANGE    = 260;  // 打擊距離（px）
-    const STRIKE_WIDTH    = 140;  // 攻擊寬度（px）
+    const STRIKE_RANGE    = 260;                    // 打擊距離（px）
+    const STRIKE_ANGLE    = Math.PI * (80 / 180);  // 80° 扇形（視覺與判定一致）
     const STRIKE_DMG      = Math.ceil(elite.contactDamage * 0.5);
-    const WINDUP_DUR      = 400;  // 技能前搖（ms）
-    const STRIKE_INTERVAL = 300;  // 每次打擊間隔（ms）
-
-    // 施放瞬間鎖定方向（朝玩家）
-    const castDirX = dirX;
-    const castDirY = dirY;
-    const baseAngle = Math.atan2(castDirY, castDirX);
+    const WINDUP_DUR      = 400;   // 技能前搖（ms）
+    const STRIKE_WARN_DUR = 180;   // 每次打擊預警時間（ms）：先顯示預警，再傷害
+    const STRIKE_INTERVAL = 380;   // 每次打擊間隔（ms，從 executeStrike 開始計時）
 
     // ── 前搖提示（三當家身上出現橘色光圈）──────────────────────────
     const windupG = this.add.graphics();
@@ -2229,53 +2252,95 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         return;
       }
 
-      // 每次打擊以三當家當前位置為基準
+      // 每次打擊以三當家當前位置為基準，並重新朝向玩家
       const bx = elite.x;
       const by = elite.y;
+      const pdxDir = this.player.x - bx;
+      const pdyDir = this.player.y - by;
+      const pDist = Math.sqrt(pdxDir * pdxDir + pdyDir * pdyDir);
+      // 每次打擊重新朝向玩家（不固定方向）
+      const strikeAngle = pDist > 1
+        ? Math.atan2(pdyDir, pdxDir)
+        : Math.atan2(dirY, dirX);
 
-      // ── 打擊視覺（setPosition + 相對座標，扇形弧線）──────────────────
-      const strikeG = this.add.graphics();
-      strikeG.setPosition(bx, by);
-      strikeG.setDepth(19);
-
-      // 繪製前方扇形打擊範圍（相對座標）
-      const STRIKE_ANGLE = Math.PI * (70 / 180); // 70° 扇形
-      strikeG.fillStyle(0xff8800, 0.40);
-      strikeG.lineStyle(4, 0xffcc00, 0.9);
-      strikeG.beginPath();
-      strikeG.moveTo(0, 0);
-      const steps = 14;
-      for (let i = 0; i <= steps; i++) {
-        const a = baseAngle - STRIKE_ANGLE * 0.5 + STRIKE_ANGLE * (i / steps);
-        strikeG.lineTo(Math.cos(a) * STRIKE_RANGE, Math.sin(a) * STRIKE_RANGE);
+      // ── 預警扇形（先顯示，STRIKE_WARN_DUR 後才判定傷害）──────────
+      // 視覺與判定使用完全相同的 STRIKE_RANGE / STRIKE_ANGLE
+      const warnG = this.add.graphics();
+      warnG.setPosition(bx, by);
+      warnG.setDepth(17);
+      warnG.fillStyle(0xff8800, 0.20);
+      warnG.lineStyle(3, 0xffcc00, 0.75);
+      warnG.beginPath();
+      warnG.moveTo(0, 0);
+      const warnSteps = 16;
+      for (let i = 0; i <= warnSteps; i++) {
+        const a = strikeAngle - STRIKE_ANGLE * 0.5 + STRIKE_ANGLE * (i / warnSteps);
+        warnG.lineTo(Math.cos(a) * STRIKE_RANGE, Math.sin(a) * STRIKE_RANGE);
       }
-      strikeG.closePath();
-      strikeG.fillPath();
-      strikeG.strokePath();
-      // 中心線
-      strikeG.lineStyle(3, 0xffffff, 0.7);
-      strikeG.lineBetween(0, 0, Math.cos(baseAngle) * STRIKE_RANGE, Math.sin(baseAngle) * STRIKE_RANGE);
+      warnG.closePath();
+      warnG.fillPath();
+      warnG.strokePath();
+      // 中心方向線
+      warnG.lineStyle(2, 0xffdd88, 0.6);
+      warnG.lineBetween(0, 0, Math.cos(strikeAngle) * STRIKE_RANGE, Math.sin(strikeAngle) * STRIKE_RANGE);
 
       this.tweens.add({
-        targets: strikeG,
+        targets: warnG,
         alpha: 0,
-        duration: 220,
-        ease: 'Power2',
-        onComplete: () => { if (strikeG && strikeG.active) strikeG.destroy(); },
+        delay: STRIKE_WARN_DUR * 0.6,
+        duration: STRIKE_WARN_DUR * 0.4 + 100,
+        ease: 'Power1',
+        onComplete: () => { if (warnG && warnG.active) warnG.destroy(); },
       });
 
-      // ── 傷害判定（矩形投影，以 bx/by 為起點，castDir 為方向）──────────
-      const pdx = this.player.x - bx;
-      const pdy = this.player.y - by;
-      const proj = pdx * castDirX + pdy * castDirY;
-      if (proj >= 0 && proj <= STRIKE_RANGE + 14) {
-        const perpX = pdx - castDirX * proj;
-        const perpY = pdy - castDirY * proj;
-        const perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
-        if (perpDist <= STRIKE_WIDTH * 0.5 + 10) {
-          this.player.takeDamage(STRIKE_DMG, this);
+      // ── 預警結束後才執行打擊視覺 + 傷害判定 ──────────────────────
+      this.time.delayedCall(STRIKE_WARN_DUR, () => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        if (!elite.active || elite.isDying) return;
+
+        // ── 打擊視覺（橘色扇形，與預警扇形完全一致）──────────────────
+        const strikeG = this.add.graphics();
+        strikeG.setPosition(bx, by);
+        strikeG.setDepth(19);
+        strikeG.fillStyle(0xff8800, 0.45);
+        strikeG.lineStyle(4, 0xffcc00, 0.95);
+        strikeG.beginPath();
+        strikeG.moveTo(0, 0);
+        const hitSteps = 16;
+        for (let i = 0; i <= hitSteps; i++) {
+          const a = strikeAngle - STRIKE_ANGLE * 0.5 + STRIKE_ANGLE * (i / hitSteps);
+          strikeG.lineTo(Math.cos(a) * STRIKE_RANGE, Math.sin(a) * STRIKE_RANGE);
         }
-      }
+        strikeG.closePath();
+        strikeG.fillPath();
+        strikeG.strokePath();
+        // 中心線
+        strikeG.lineStyle(3, 0xffffff, 0.8);
+        strikeG.lineBetween(0, 0, Math.cos(strikeAngle) * STRIKE_RANGE, Math.sin(strikeAngle) * STRIKE_RANGE);
+
+        this.tweens.add({
+          targets: strikeG,
+          alpha: 0,
+          duration: 220,
+          ease: 'Power2',
+          onComplete: () => { if (strikeG && strikeG.active) strikeG.destroy(); },
+        });
+
+        // ── 傷害判定（扇形，與視覺完全一致）──────────────────────────
+        // 使用 bx/by（施放時記錄的位置）+ strikeAngle + STRIKE_RANGE/STRIKE_ANGLE
+        const playerDx = this.player.x - bx;
+        const playerDy = this.player.y - by;
+        const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
+        if (playerDist <= STRIKE_RANGE + 12) {
+          const playerAngle = Math.atan2(playerDy, playerDx);
+          let angleDiff = playerAngle - strikeAngle;
+          while (angleDiff >  Math.PI) angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+          if (Math.abs(angleDiff) <= STRIKE_ANGLE * 0.5 + 0.08) {
+            this.player.takeDamage(STRIKE_DMG, this);
+          }
+        }
+      });
 
       // ── 繼續下一次打擊或結束 ──────────────────────────────────────────
       const nextIndex = strikeIndex + 1;
@@ -2638,6 +2703,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           onComplete: () => {
             (charger as any).syncVisual?.();
 
+            // BUG-A3 修正：衝刺途中死亡則不造成落點傷害
+            if (!charger.active || charger.isDying) {
+              charger.chargerEndCast();
+              return;
+            }
+
             // ── 落點衝擊視覺（塵土震地）──────────────────────────────
             const impactG = this.add.graphics();
             impactG.setDepth(18);
@@ -2747,7 +2818,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const SLASH_DMG      = Math.ceil(charger.contactDamage * 0.65);
     const SLASH_COUNT    = 3;
     const SLASH_WARN_DUR = 320;             // 每斬預警時間（ms）：預警先顯示，之後才傷害
-    const SLASH_INTERVAL = 420;             // 每斬間隔（ms，含預警）
+    const SLASH_INTERVAL = 480;             // RISK-B3 修正：增加到 480ms，確保上一斬視覺消失後才開始下一斬預警
     const WINDUP_DUR     = 400;             // 第一斬前搖（ms）
 
     // ── 前搖提示（大當家身上出現紅色光芒，範圍更大）──────────────
@@ -2863,7 +2934,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         this.tweens.add({
           targets: slashG,
           alpha: 0,
-          duration: 280,
+          duration: 160, // RISK-B3 修正：縮短淡出時間，確保在下一斬預警開始前消失
           ease: 'Power2',
           onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
         });
