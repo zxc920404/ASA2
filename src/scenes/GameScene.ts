@@ -382,6 +382,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 建立虛擬搖桿（Requirement 2.4、任務 11）
     this.virtualJoystick = new VirtualJoystick(this);
+    // 設定 UI 排除區域，避免點擊 HUD 按鈕時觸發搖桿
+    this.virtualJoystick.setUIZones(this.hud.getUIZones());
 
     // 建立直向警告元素（任務 11）
     this.createPortraitWarning();
@@ -459,6 +461,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     if (this.virtualJoystick) {
       this.virtualJoystick.destroy();
       this.virtualJoystick = new VirtualJoystick(this);
+      // 重建後更新 UI 排除區域（HUD 已重建，座標可能改變）
+      this.virtualJoystick.setUIZones(this.hud.getUIZones());
     }
   }
 
