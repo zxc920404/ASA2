@@ -1576,6 +1576,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // charger（大當家）注入：霸刀橫斬 + 蠻王衝鋒 + 裂寨三斬 + 連環破甲刺
     if (eliteType === 'charger') {
+      // 霸刀橫斬前搖開始：顯示預警扇形（前搖期間讓玩家看到攻擊範圍）
+      elite.onChargerMeleeWindupStart = (cx, cy, dirX, dirY, windupMs) => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        this.showChargerMeleeWarning(cx, cy, dirX, dirY, windupMs);
+      };
+
       // 霸刀橫斬：普通近戰攻擊
       elite.onChargerMeleeSlash = (cx, cy, dmg, dirX, dirY) => {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
@@ -2338,19 +2344,112 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   // ── 大當家（charger）技能 ─────────────────────────────────────────────────
+  //
+  // ══════════════════════════════════════════════════════════════════════════
+  // Elite / Boss 技能可讀性規範（所有新增技能必須遵守）
+  // ══════════════════════════════════════════════════════════════════════════
+  // 1. 所有 elite / boss 主動技能都必須有 warningTime（預警時間）
+  // 2. 所有會造成傷害或控制的技能都必須有範圍提示（Graphics）
+  // 3. 預警範圍必須和實際傷害 / 控制範圍一致（使用相同常數）
+  // 4. 技能不能瞬發命中玩家，除非是非常小範圍普通接觸攻擊
+  // 5. 衝撞、跳砸、扇形、直線、圓形 AoE、怒吼、黑洞都必須有明確 telegraph
+  // 6. 技能結束後必須清理 warning graphics（tween onComplete 中 destroy）
+  // 7. 非投射物技能的 hitbox 不可以每幀自行漂移
+  // 8. 不要把 direction vector 當成 world position
+  // 9. 技能開始時應記錄 castX / castY / facingDirX / facingDirY
+  // 10. 實際判定應根據 cast position + direction + range / width / angle 計算
+  //
+  // 判定方式：
+  // - 直線 / 長條：castX/castY + facingDir + range/width（投影 + 垂直距離）
+  // - 扇形：castX/castY + facingDir + range/angle（atan2 角度差）
+  // - 圓形：castX/castY + radius（距離）
+  // - 衝撞：衝撞路徑方向線 + 落點圓形，衝撞結束後清理所有物件
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * 霸刀橫斬預警：前搖開始時顯示攻擊範圍扇形（橘紅色半透明）
+   * 預警持續整個前搖時間，讓玩家有時間閃避
+   * 預警範圍與 doChargerMeleeSlash 的傷害範圍完全一致
+   *
+   * Elite/Boss 技能可讀性規範：
+   * - warningTime = windupMs（前搖時間即預警時間）
+   * - 預警範圍 = 傷害範圍（SLASH_RANGE / arcSpread 一致）
+   * - 使用 castX/castY + facingDir 計算，不漂移
+   * - 技能結束後自動 destroy（tween onComplete）
+   */
+  private showChargerMeleeWarning(cx: number, cy: number, dirX: number, dirY: number, windupMs: number): void {
+    if (!this.scene.isActive()) return;
+
+    // 與 doChargerMeleeSlash 完全一致的範圍常數
+    const SLASH_RANGE = 160;
+    const arcSpread   = Math.PI * 0.611; // 約 110°
+    const baseAngle   = Math.atan2(dirY, dirX);
+
+    const warnG = this.add.graphics();
+    warnG.setDepth(17);
+
+    // 扇形填充（橘紅半透明，明顯但不遮擋視線）
+    warnG.fillStyle(0xff4400, 0.18);
+    warnG.beginPath();
+    warnG.moveTo(cx, cy);
+    for (let i = 0; i <= 20; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 20);
+      warnG.lineTo(cx + Math.cos(a) * SLASH_RANGE, cy + Math.sin(a) * SLASH_RANGE);
+    }
+    warnG.closePath();
+    warnG.fillPath();
+
+    // 扇形邊框（橘紅實線）
+    warnG.lineStyle(3, 0xff6600, 0.85);
+    warnG.beginPath();
+    warnG.moveTo(cx, cy);
+    for (let i = 0; i <= 20; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 20);
+      warnG.lineTo(cx + Math.cos(a) * SLASH_RANGE, cy + Math.sin(a) * SLASH_RANGE);
+    }
+    warnG.closePath();
+    warnG.strokePath();
+
+    // 弧線外緣（更亮的橘色，強調邊界）
+    warnG.lineStyle(2, 0xffaa00, 0.7);
+    warnG.beginPath();
+    for (let i = 0; i <= 20; i++) {
+      const a = baseAngle - arcSpread * 0.5 + arcSpread * (i / 20);
+      const px = cx + Math.cos(a) * SLASH_RANGE;
+      const py = cy + Math.sin(a) * SLASH_RANGE;
+      if (i === 0) warnG.moveTo(px, py);
+      else warnG.lineTo(px, py);
+    }
+    warnG.strokePath();
+
+    // 預警持續前搖時間，前搖結束時淡出並 destroy
+    this.tweens.add({
+      targets: warnG,
+      alpha: 0,
+      delay: windupMs * 0.7,   // 前 70% 時間保持可見
+      duration: windupMs * 0.3, // 後 30% 時間淡出
+      ease: 'Power1',
+      onComplete: () => { if (warnG && warnG.active) warnG.destroy(); },
+    });
+  }
 
   /**
    * 霸刀橫斬：大當家普通近戰攻擊
    * 前搖結束後執行重型橫斬，命中造成傷害與小幅擊退
-   * 攻擊方向朝玩家，判定基於施放時的 cx/cy + 方向向量
+   * 攻擊方向使用前搖開始時記錄的方向（與預警一致，不追蹤玩家）
+   *
+   * Elite/Boss 技能可讀性規範：
+   * - 傷害範圍 = 預警範圍（SLASH_RANGE / arcSpread 與 showChargerMeleeWarning 一致）
+   * - 使用 castX/castY（cx/cy）+ facingDir（dirX/dirY）計算，不漂移
+   * - 技能結束後 slashG 自動 destroy（tween onComplete）
    */
   private doChargerMeleeSlash(cx: number, cy: number, dmg: number, dirX: number, dirY: number): void {
     if (!this.scene.isActive()) return;
 
-    const SLASH_RANGE = 140;          // 攻擊距離（px）
-    const SLASH_WIDTH = 120;          // 攻擊寬度（px，扇形弧長對應）
-    const arcSpread = Math.PI * 0.60; // 約 108°，對應 width 120
-    const baseAngle = Math.atan2(dirY, dirX);
+    // 與 showChargerMeleeWarning 完全一致的範圍常數
+    const SLASH_RANGE = 160;
+    const arcSpread   = Math.PI * 0.611; // 約 110°
+    const baseAngle   = Math.atan2(dirY, dirX);
 
     // ── 重型橫斬弧線視覺（深紅/暗金色）──────────────────────────────
     const slashG = this.add.graphics();
@@ -2378,7 +2477,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
     slashG.strokePath();
     // 扇形填充（淡紅）
-    slashG.fillStyle(0xff2200, 0.08);
+    slashG.fillStyle(0xff2200, 0.10);
     slashG.beginPath();
     slashG.moveTo(cx, cy);
     for (let i = 0; i <= 16; i++) {
@@ -2396,7 +2495,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
     });
 
-    // ── 傷害與擊退判定（扇形範圍，基於施放位置 cx/cy）────────────────
+    // ── 傷害與擊退判定（扇形範圍，基於施放位置 cx/cy，不漂移）────────
     const pdx = this.player.x - cx;
     const pdy = this.player.y - cy;
     const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
@@ -2422,21 +2521,26 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 蠻王衝鋒：大當家連續衝刺技能
    * 蓄力後連續衝刺 2 次，每次衝刺前有清楚預警線，落點造成小範圍傷害
-   * 速度降低 35%，確保玩家有足夠反應時間
+   *
+   * Elite/Boss 技能可讀性規範：
+   * - warningTime = WINDUP_DUR（初始蓄力）+ WARN_DUR（每段衝刺前預警）
+   * - 衝刺方向在預警開始時鎖定，不追蹤玩家
+   * - 落點傷害基於 endX/endY（固定），不漂移
+   * - 所有 warning graphics 在 tween onComplete 中 destroy
    */
   private spawnChargerDash(fromX: number, fromY: number, targetX: number, targetY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const WINDUP_DUR    = 1100;  // 初始蓄力時間（ms）：1.1 秒
-    const WARN_DUR      = 550;   // 每段衝刺前預警時間（ms）：0.55 秒
-    const DASH_SPEED    = 338;   // 衝刺速度（px/s）：原 520 降低 35%
-    const DASH_DIST     = 220;   // 單次衝刺距離（px）
-    const DASH_DUR      = Math.round((DASH_DIST / DASH_SPEED) * 1000); // 約 651ms
+    const WINDUP_DUR    = 1200;  // 初始蓄力時間（ms）：1.2 秒
+    const WARN_DUR      = 700;   // 每段衝刺前預警時間（ms）：0.7 秒
+    const DASH_SPEED    = 250;   // 衝刺速度（px/s）：降低至 250，玩家有充足反應時間
+    const DASH_DIST     = 210;   // 單次衝刺距離（px）
+    const DASH_DUR      = Math.round((DASH_DIST / DASH_SPEED) * 1000); // 約 840ms
     const IMPACT_RADIUS = 120;   // 落點傷害半徑（px）
     const IMPACT_DMG    = Math.ceil(charger.contactDamage * 0.75);
     const COMBO_COUNT   = 2;     // 固定 2 次衝刺
-    const PAUSE_BETWEEN = 380;   // 每次衝刺後停頓（ms）：0.38 秒硬直
-    const STAGGER_DUR   = 420;   // 最後衝刺後硬直（ms）
+    const PAUSE_BETWEEN = 450;   // 每次衝刺後停頓（ms）：0.45 秒硬直
+    const STAGGER_DUR   = 500;   // 最後衝刺後硬直（ms）
 
     // ── 蓄力視覺（紅色光圈收縮 + 地面震動線）──────────────────────
     const windupG = this.add.graphics();
@@ -2627,21 +2731,24 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 裂寨三斬：大當家連續扇形斬擊
    * 連續揮出三次扇形斬擊，每斬朝向玩家，有間隔
-   */
-  /**
-   * 裂寨三斬：大當家連續扇形斬擊
-   * 連續揮出三次扇形斬擊，每斬朝向玩家，有間隔
    * 判定基於每斬開始時的 charger.x/y，不漂移
+   *
+   * Elite/Boss 技能可讀性規範：
+   * - 每斬有獨立 warningTime（SLASH_WARN_DUR）
+   * - 預警扇形先顯示，SLASH_WARN_DUR 後才判定傷害
+   * - 預警範圍 = 傷害範圍（SLASH_RANGE / SLASH_ANGLE 一致）
+   * - 每段 previewG 在 tween onComplete 中 destroy
    */
   private spawnChargerTripleSlash(cx: number, cy: number, dirX: number, dirY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const SLASH_RANGE  = 210;              // 斬擊距離（px）
-    const SLASH_ANGLE  = Math.PI * 0.611; // 約 110° 扇形
-    const SLASH_DMG    = Math.ceil(charger.contactDamage * 0.65);
-    const SLASH_COUNT  = 3;
-    const SLASH_INTERVAL = 380;            // 每斬間隔（ms）
-    const WINDUP_DUR   = 400;             // 第一斬前搖（ms）
+    const SLASH_RANGE    = 220;              // 斬擊距離（px）
+    const SLASH_ANGLE    = Math.PI * 0.611; // 約 110° 扇形
+    const SLASH_DMG      = Math.ceil(charger.contactDamage * 0.65);
+    const SLASH_COUNT    = 3;
+    const SLASH_WARN_DUR = 320;             // 每斬預警時間（ms）：預警先顯示，之後才傷害
+    const SLASH_INTERVAL = 420;             // 每斬間隔（ms，含預警）
+    const WINDUP_DUR     = 400;             // 第一斬前搖（ms）
 
     // ── 前搖提示（大當家身上出現紅色光芒，範圍更大）──────────────
     const windupG = this.add.graphics();
@@ -2682,82 +2789,99 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       const sDirY = pdist > 0 ? pdy / pdist : dirY;
       const baseAngle = Math.atan2(sDirY, sDirX);
 
-      // ── 預警扇形（與傷害扇形一致）────────────────────────────────
+      // ── 預警扇形（先顯示，SLASH_WARN_DUR 後才判定傷害）────────────
       const previewG = this.add.graphics();
       previewG.setDepth(17);
-      previewG.fillStyle(0xff2200, 0.10);
+      previewG.fillStyle(0xff2200, 0.15);
       previewG.beginPath();
       previewG.moveTo(castX, castY);
-      for (let i = 0; i <= 16; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+      for (let i = 0; i <= 20; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 20);
         previewG.lineTo(castX + Math.cos(a) * SLASH_RANGE, castY + Math.sin(a) * SLASH_RANGE);
       }
       previewG.closePath();
       previewG.fillPath();
-      previewG.lineStyle(2, 0xff4400, 0.6);
+      previewG.lineStyle(3, 0xff4400, 0.8);
       previewG.beginPath();
       previewG.moveTo(castX, castY);
-      for (let i = 0; i <= 16; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+      for (let i = 0; i <= 20; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 20);
         previewG.lineTo(castX + Math.cos(a) * SLASH_RANGE, castY + Math.sin(a) * SLASH_RANGE);
       }
       previewG.closePath();
       previewG.strokePath();
+      // 弧線外緣
+      previewG.lineStyle(2, 0xffaa00, 0.6);
+      previewG.beginPath();
+      for (let i = 0; i <= 20; i++) {
+        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 20);
+        const px = castX + Math.cos(a) * SLASH_RANGE;
+        const py = castY + Math.sin(a) * SLASH_RANGE;
+        if (i === 0) previewG.moveTo(px, py);
+        else previewG.lineTo(px, py);
+      }
+      previewG.strokePath();
       this.tweens.add({
         targets: previewG,
         alpha: 0,
-        duration: 320,
+        delay: SLASH_WARN_DUR * 0.6,
+        duration: SLASH_WARN_DUR * 0.4 + 150,
         ease: 'Power1',
         onComplete: () => { if (previewG && previewG.active) previewG.destroy(); },
       });
 
-      // ── 揮刀視覺（深紅弧線，與預警扇形一致）──────────────────────
-      const slashG = this.add.graphics();
-      slashG.setDepth(19);
-      // 外層弧（深紅）
-      slashG.lineStyle(12, 0xcc1100, 0.95);
-      slashG.beginPath();
-      for (let i = 0; i <= 16; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
-        const px = castX + Math.cos(a) * SLASH_RANGE;
-        const py = castY + Math.sin(a) * SLASH_RANGE;
-        if (i === 0) slashG.moveTo(px, py);
-        else slashG.lineTo(px, py);
-      }
-      slashG.strokePath();
-      // 內層弧（橘金）
-      slashG.lineStyle(5, 0xff8800, 0.75);
-      slashG.beginPath();
-      for (let i = 0; i <= 16; i++) {
-        const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
-        const px = castX + Math.cos(a) * (SLASH_RANGE * 0.55);
-        const py = castY + Math.sin(a) * (SLASH_RANGE * 0.55);
-        if (i === 0) slashG.moveTo(px, py);
-        else slashG.lineTo(px, py);
-      }
-      slashG.strokePath();
+      // ── 預警結束後才執行揮刀視覺 + 傷害判定 ──────────────────────
+      this.time.delayedCall(SLASH_WARN_DUR, () => {
+        if (this.isPaused || this.isGameOver || this.isVictory) return;
+        if (!charger.active || charger.isDying) return;
 
-      this.tweens.add({
-        targets: slashG,
-        alpha: 0,
-        duration: 300,
-        ease: 'Power2',
-        onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
-      });
-
-      // ── 傷害判定（扇形範圍，基於 castX/castY，不漂移）────────────
-      const playerDx = this.player.x - castX;
-      const playerDy = this.player.y - castY;
-      const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-      if (playerDist <= SLASH_RANGE + 12) {
-        const playerAngle = Math.atan2(playerDy, playerDx);
-        let angleDiff = playerAngle - baseAngle;
-        while (angleDiff > Math.PI)  angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        if (Math.abs(angleDiff) <= SLASH_ANGLE * 0.5 + 0.1) {
-          this.player.takeDamage(SLASH_DMG, this);
+        // ── 揮刀視覺（深紅弧線，與預警扇形一致）──────────────────────
+        const slashG = this.add.graphics();
+        slashG.setDepth(19);
+        // 外層弧（深紅）
+        slashG.lineStyle(12, 0xcc1100, 0.95);
+        slashG.beginPath();
+        for (let i = 0; i <= 16; i++) {
+          const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+          const px = castX + Math.cos(a) * SLASH_RANGE;
+          const py = castY + Math.sin(a) * SLASH_RANGE;
+          if (i === 0) slashG.moveTo(px, py);
+          else slashG.lineTo(px, py);
         }
-      }
+        slashG.strokePath();
+        // 內層弧（橘金）
+        slashG.lineStyle(5, 0xff8800, 0.75);
+        slashG.beginPath();
+        for (let i = 0; i <= 16; i++) {
+          const a = baseAngle - SLASH_ANGLE * 0.5 + SLASH_ANGLE * (i / 16);
+          const px = castX + Math.cos(a) * (SLASH_RANGE * 0.55);
+          const py = castY + Math.sin(a) * (SLASH_RANGE * 0.55);
+          if (i === 0) slashG.moveTo(px, py);
+          else slashG.lineTo(px, py);
+        }
+        slashG.strokePath();
+        this.tweens.add({
+          targets: slashG,
+          alpha: 0,
+          duration: 280,
+          ease: 'Power2',
+          onComplete: () => { if (slashG && slashG.active) slashG.destroy(); },
+        });
+
+        // ── 傷害判定（扇形範圍，基於 castX/castY，不漂移）────────────
+        const playerDx = this.player.x - castX;
+        const playerDy = this.player.y - castY;
+        const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
+        if (playerDist <= SLASH_RANGE + 12) {
+          const playerAngle = Math.atan2(playerDy, playerDx);
+          let angleDiff = playerAngle - baseAngle;
+          while (angleDiff > Math.PI)  angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+          if (Math.abs(angleDiff) <= SLASH_ANGLE * 0.5 + 0.1) {
+            this.player.takeDamage(SLASH_DMG, this);
+          }
+        }
+      });
 
       // ── 繼續下一斬或結束 ──────────────────────────────────────────────
       const nextIndex = slashIndex + 1;
@@ -2787,16 +2911,23 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 連環破甲刺：大當家連續直線戳擊
    * 站定後朝玩家方向連續戳擊 4 次，每次前方長條直線攻擊判定
    * 判定基於每次戳擊時的 charger.x/y + 方向向量，不漂移
+   *
+   * Elite/Boss 技能可讀性規範：
+   * - 每次戳擊有獨立 warningTime（STAB_WINDUP）
+   * - 預警長條先顯示，STAB_WINDUP 後才判定傷害
+   * - 傷害範圍 = 預警範圍（STAB_RANGE / STAB_WIDTH 一致）
+   * - 使用 castX/castY + sDirX/sDirY 計算，不漂移
+   * - 所有 warnG / stabG 在 tween onComplete 中 destroy
    */
   private spawnChargerStab(cx: number, cy: number, dirX: number, dirY: number, charger: Enemy): void {
     if (!this.scene.isActive()) return;
 
     const STAB_COUNT    = 4;     // 固定 4 次戳擊
-    const STAB_RANGE    = 300;   // 戳擊距離（px）
-    const STAB_WIDTH    = 80;    // 攻擊寬度（px，用於判定）
+    const STAB_RANGE    = 310;   // 戳擊距離（px）
+    const STAB_WIDTH    = 88;    // 攻擊寬度（px，用於判定）
     const STAB_DMG      = Math.ceil(charger.contactDamage * 0.50);
-    const STAB_WINDUP   = 250;   // 每次戳擊前搖（ms）
-    const STAB_INTERVAL = 350;   // 每次戳擊間隔（ms）
+    const STAB_WINDUP   = 280;   // 每次戳擊前搖（ms）：預警顯示時間
+    const STAB_INTERVAL = 450;   // 每次戳擊間隔（ms，從 executeStab 開始計時）
     const WINDUP_DUR    = 500;   // 技能前搖（ms）
 
     // ── 技能前搖提示（大當家身上出現藍白光芒，範圍更大）──────────
@@ -2851,17 +2982,26 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       // ── 前方直線預警（存在 STAB_WINDUP 時間，讓玩家可側移閃避）──
       const warnG = this.add.graphics();
       warnG.setDepth(17);
-      warnG.lineStyle(STAB_WIDTH, 0xffffff, 0.10);
+      // 寬條半透明填充（明確顯示攻擊寬度）
+      warnG.lineStyle(STAB_WIDTH, 0xffffff, 0.12);
       warnG.lineBetween(castX, castY, endX, endY);
-      warnG.lineStyle(3, 0xaaddff, 0.75);
+      // 中心線（亮藍白）
+      warnG.lineStyle(4, 0xaaddff, 0.85);
       warnG.lineBetween(castX, castY, endX, endY);
+      // 邊緣線（較細，標示寬度邊界）
+      const perpX2 = -sDirY * STAB_WIDTH * 0.5;
+      const perpY2 =  sDirX * STAB_WIDTH * 0.5;
+      warnG.lineStyle(1.5, 0x88ccff, 0.5);
+      warnG.lineBetween(castX + perpX2, castY + perpY2, endX + perpX2, endY + perpY2);
+      warnG.lineBetween(castX - perpX2, castY - perpY2, endX - perpX2, endY - perpY2);
       // 終點圓圈提示
-      warnG.lineStyle(2, 0x88ccff, 0.5);
+      warnG.lineStyle(2, 0x88ccff, 0.6);
       warnG.strokeCircle(endX, endY, STAB_WIDTH * 0.5);
       this.tweens.add({
         targets: warnG,
         alpha: 0,
-        duration: STAB_WINDUP + STAB_INTERVAL,
+        delay: STAB_WINDUP * 0.65,
+        duration: STAB_WINDUP * 0.35 + 100,
         ease: 'Power1',
         onComplete: () => { if (warnG && warnG.active) warnG.destroy(); },
       });
@@ -2902,7 +3042,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           const perpX = playerDx - sDirX * proj;
           const perpY = playerDy - sDirY * proj;
           const perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
-          if (perpDist <= STAB_WIDTH * 0.5 + 12) {
+          if (perpDist <= STAB_WIDTH * 0.5 + 10) {
             this.player.takeDamage(STAB_DMG, this);
           }
         }

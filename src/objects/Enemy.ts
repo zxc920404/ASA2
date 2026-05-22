@@ -80,14 +80,17 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private chargerMeleeCooldown: number = 2000;
   /** 普通攻擊前搖計時（ms，> 0 表示前搖中） */
   private chargerMeleeWindupTimer: number = 0;
-  /** 普通攻擊距離（px）：140 讓大當家在中距離就能觸發橫斬 */
-  private readonly CHARGER_MELEE_RANGE = 140;
-  /** 普通攻擊前搖時間（ms）：0.42 秒，玩家有時間反應 */
-  private readonly CHARGER_MELEE_WINDUP = 420;
+  /** 普通攻擊距離（px）：160 讓大當家在中距離就能觸發橫斬 */
+  private readonly CHARGER_MELEE_RANGE = 160;
+  /** 普通攻擊前搖時間（ms）：0.45 秒，玩家有時間反應 */
+  private readonly CHARGER_MELEE_WINDUP = 450;
   /** 普通攻擊冷卻最小值（ms） */
   private readonly CHARGER_MELEE_CD_MIN = 1500;
   /** 普通攻擊冷卻最大值（ms） */
   private readonly CHARGER_MELEE_CD_MAX = 2000;
+  /** 前搖開始時記錄的玩家方向（供 GameScene 繪製預警用） */
+  public chargerMeleeWindupDirX: number = 1;
+  public chargerMeleeWindupDirY: number = 0;
 
   // ── 技能冷卻 ──────────────────────────────────────────────────────────
   /** 蠻王衝鋒冷卻（ms） */
@@ -101,6 +104,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private readonly CHARGER_SKILL_SELECT_INTERVAL = 1200;
 
   // ── 回呼（由 GameScene 注入）──────────────────────────────────────────
+  /** 霸刀橫斬前搖開始：GameScene 在此時繪製預警扇形 */
+  public onChargerMeleeWindupStart?: (cx: number, cy: number, dirX: number, dirY: number, windupMs: number) => void;
   /** 霸刀橫斬：普通近戰攻擊 */
   public onChargerMeleeSlash?: (cx: number, cy: number, dmg: number, dirX: number, dirY: number) => void;
   /** 蠻王衝鋒：連續衝刺技能 */
@@ -436,14 +441,13 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
         this.chargerMeleeWindupTimer = 0;
         this.chargerState = 'idle';
         // 前搖結束，執行霸刀橫斬傷害判定
+        // 使用前搖開始時記錄的方向（不追蹤玩家，與預警一致）
         if (this.onChargerMeleeSlash) {
-          const dx = playerX - this.x;
-          const dy = playerY - this.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const dirX = dist > 0 ? dx / dist : 1;
-          const dirY = dist > 0 ? dy / dist : 0;
           const dmg = Math.ceil(this.contactDamage * 0.85);
-          this.onChargerMeleeSlash(this.x, this.y, dmg, dirX, dirY);
+          this.onChargerMeleeSlash(
+            this.x, this.y, dmg,
+            this.chargerMeleeWindupDirX, this.chargerMeleeWindupDirY
+          );
         }
         // 重置普通攻擊冷卻
         this.chargerMeleeCooldown = this.CHARGER_MELEE_CD_MIN +
@@ -532,9 +536,20 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist <= this.CHARGER_MELEE_RANGE) {
+      // 記錄前搖開始時的攻擊方向（供 GameScene 繪製預警扇形）
+      this.chargerMeleeWindupDirX = dist > 0 ? dx / dist : 1;
+      this.chargerMeleeWindupDirY = dist > 0 ? dy / dist : 0;
       // 進入前搖（停止移動）
       this.chargerState = 'melee_windup';
       this.chargerMeleeWindupTimer = this.CHARGER_MELEE_WINDUP;
+      // 通知 GameScene 顯示預警扇形
+      if (this.onChargerMeleeWindupStart) {
+        this.onChargerMeleeWindupStart(
+          this.x, this.y,
+          this.chargerMeleeWindupDirX, this.chargerMeleeWindupDirY,
+          this.CHARGER_MELEE_WINDUP
+        );
+      }
     }
   }
 
