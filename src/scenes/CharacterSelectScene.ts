@@ -53,6 +53,17 @@ const SECT_INFO: Record<string, {
     glowColor: 0xcc3300,
     dimColor: 0x2a1008,
   },
+  wave: {
+    sectName: '驚濤派',
+    motto: '驚濤拍岸，浪卷千軍。',
+    role: '均衡型・動畫角色',
+    description: '以水為師，剛柔並濟。動如驚濤，靜如深淵。',
+    primary: 0x0a1e3a,
+    accent:  0x44ccff,
+    borderColor: 0x22aaee,
+    glowColor: 0x1166aa,
+    dimColor: 0x081428,
+  },
 };
 
 export class CharacterSelectScene extends Phaser.Scene {
@@ -238,6 +249,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     ];
 
     CHARACTERS.forEach((_char, i) => {
+      if (i >= 3) return; // 輪播固定 3 個槽位，多餘角色透過導航切換
       this.buildCharacterCard(i, s);
     });
   }
@@ -401,6 +413,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private refreshCards(): void {
     CHARACTERS.forEach((_char, slotIndex) => {
+      if (slotIndex >= 3) return; // 輪播固定 3 個槽位
       const charIndex = this.getDisplayIndex(slotIndex);
       const char = CHARACTERS[charIndex];
       const sect = SECT_INFO[char.id] ?? { borderColor: 0x6688aa, glowColor: 0x334466 };
