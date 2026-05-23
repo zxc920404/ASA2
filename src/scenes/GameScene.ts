@@ -300,6 +300,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 預先生成 Sprite Texture（用 Graphics 繪製後快取）────────────────
     this.generateSpriteTextures();
 
+    // ── 驚濤派玩家動畫（wave_stand / wave_run）────────────────────────
+    this.createPlayerAnimations();
+
     // ── 武俠訓練場背景（Polish 3）──────────────────────────────────────
     this.drawGameBackground();
 
@@ -3322,6 +3325,53 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
     if (areaBonus > 0) {
       this.player.stats.attackRange = this.player.stats.attackRange * (1 + areaBonus);
+    }
+  }
+
+  /**
+   * 建立驚濤派玩家動畫（wave_stand / wave_run）
+   * 使用個別載入的 PNG 幀，透過 frames 陣列指定 texture key。
+   * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他角色）。
+   */
+  private createPlayerAnimations(): void {
+    const anims = this.anims;
+
+    // 避免 scene restart 時重複建立
+    if (anims.exists('wave_stand') && anims.exists('wave_run')) return;
+
+    // ── wave_stand：4 幀，4 fps，循環 ────────────────────────────────
+    if (!anims.exists('wave_stand')) {
+      const standFrames = ['wave_stand_1', 'wave_stand_5', 'wave_stand_9', 'wave_stand_13']
+        .filter(key => this.textures.exists(key))
+        .map(key => ({ key }));
+
+      if (standFrames.length > 0) {
+        anims.create({
+          key: 'wave_stand',
+          frames: standFrames,
+          frameRate: 4,
+          repeat: -1,
+        });
+      }
+    }
+
+    // ── wave_run：8 幀，9 fps，循環 ──────────────────────────────────
+    if (!anims.exists('wave_run')) {
+      const runFrames = [
+        'wave_run_1', 'wave_run_3', 'wave_run_5', 'wave_run_7',
+        'wave_run_9', 'wave_run_11', 'wave_run_13', 'wave_run_15',
+      ]
+        .filter(key => this.textures.exists(key))
+        .map(key => ({ key }));
+
+      if (runFrames.length > 0) {
+        anims.create({
+          key: 'wave_run',
+          frames: runFrames,
+          frameRate: 9,
+          repeat: -1,
+        });
+      }
     }
   }
 

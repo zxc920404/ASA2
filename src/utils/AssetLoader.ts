@@ -95,6 +95,7 @@ export class AssetLoader {
    * - 宗門立繪（160×220，戰鬥 HUD 可能顯示）
    * - 戰鬥 BGM
    * - 戰鬥背景圖
+   * - 驚濤派玩家動畫幀（wave-stand × 4、wave-run × 8）
    */
   static preloadGameAssets(scene: Phaser.Scene): void {
     // ── 敵人 Sprite（48×48）──────────────────────────────────────────
@@ -113,6 +114,23 @@ export class AssetLoader {
 
     // ── 戰鬥背景圖 ────────────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'bg_grass_battle', 'assets/backgrounds/grass_battle_tile.png');
+
+    // ── 驚濤派玩家動畫幀 ──────────────────────────────────────────────
+    // wave-stand：只取 4 幀（image_1, 5, 9, 13），frameRate 3～4 fps
+    AssetLoader.loadImage(scene, 'wave_stand_1',  'assets/sprites/player/wave/wave-stand/image_1.png');
+    AssetLoader.loadImage(scene, 'wave_stand_5',  'assets/sprites/player/wave/wave-stand/image_5.png');
+    AssetLoader.loadImage(scene, 'wave_stand_9',  'assets/sprites/player/wave/wave-stand/image_9.png');
+    AssetLoader.loadImage(scene, 'wave_stand_13', 'assets/sprites/player/wave/wave-stand/image_13.png');
+
+    // wave-run：只取 8 幀（image_1, 3, 5, 7, 9, 11, 13, 15），frameRate 8～10 fps
+    AssetLoader.loadImage(scene, 'wave_run_1',  'assets/sprites/player/wave/wave-run/image_1.png');
+    AssetLoader.loadImage(scene, 'wave_run_3',  'assets/sprites/player/wave/wave-run/image_3.png');
+    AssetLoader.loadImage(scene, 'wave_run_5',  'assets/sprites/player/wave/wave-run/image_5.png');
+    AssetLoader.loadImage(scene, 'wave_run_7',  'assets/sprites/player/wave/wave-run/image_7.png');
+    AssetLoader.loadImage(scene, 'wave_run_9',  'assets/sprites/player/wave/wave-run/image_9.png');
+    AssetLoader.loadImage(scene, 'wave_run_11', 'assets/sprites/player/wave/wave-run/image_11.png');
+    AssetLoader.loadImage(scene, 'wave_run_13', 'assets/sprites/player/wave/wave-run/image_13.png');
+    AssetLoader.loadImage(scene, 'wave_run_15', 'assets/sprites/player/wave/wave-run/image_15.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────

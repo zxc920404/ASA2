@@ -37,6 +37,18 @@ export const CHARACTERS: CharacterData[] = [
     iconKey: 'sect_icon_taoist',
     portraitKey: 'sect_portrait_taoist',
   },
+  {
+    id: 'wave',
+    name: '驚濤派',
+    baseHP: 170,
+    baseMoveSpeed: 170,
+    baseAttackPower: 1.1,
+    basePickupRange: 90,
+    startingWeaponId: 'guardian_ring', // 守心環（預設武器）
+    trait: '屬性加成型', // 暫用，待正式設計後更新
+    iconKey: 'sect_icon_swordsman', // 暫用劍客圖示，待美術補充
+    portraitKey: 'sect_portrait_swordsman', // 暫用劍客立繪，待美術補充
+  },
 ];
 
 export const getCharacterById = (id: string): CharacterData | undefined => {

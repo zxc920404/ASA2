@@ -9,7 +9,7 @@ let activePlayerDamageNumbers = 0;
 /**
  * Player 遊戲物件
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，32×32）
- * 視覺圖形由 Image（Sprite Texture）顯示，跟隨 Rectangle 位置
+ * 視覺圖形由 Sprite（動畫）或 Image（fallback）顯示，跟隨 Rectangle 位置
  */
 export class Player extends Phaser.GameObjects.Rectangle {
   public characterId: string;
@@ -23,8 +23,14 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
   private charData: CharacterData;
 
-  /** 視覺圖形（Image，使用 generateTexture 生成的 key） */
-  private visual!: Phaser.GameObjects.Image;
+  /** 視覺圖形：有動畫時為 Sprite，否則為 Image（fallback） */
+  private visual!: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+
+  /** 是否使用動畫 Sprite（驚濤派角色） */
+  private useSprite: boolean = false;
+
+  /** 上一幀是否在移動（用於切換動畫） */
+  private wasMoving: boolean = false;
 
   // ── 受傷回饋狀態 ──────────────────────────────────────────────────────
   /** 無敵幀計時（ms）：> 0 時不受傷 */
@@ -61,18 +67,35 @@ export class Player extends Phaser.GameObjects.Rectangle {
     // 加入場景並啟用
     scene.add.existing(this);
 
-    // 建立視覺 Image（使用對應角色的 texture key）
+    // 建立視覺圖形
+    // 驚濤派（wave）：使用 Sprite + 動畫；其他角色：使用 Image（程式繪製 texture）
     const textureKey = `player_${charData.id}`;
-    // fallback：若 texture 不存在則用 Graphics 繪製
-    if (scene.textures.exists(textureKey)) {
+    const isWave = charData.id === 'wave';
+
+    if (isWave && scene.textures.exists('wave_stand_1')) {
+      // 驚濤派：建立 Sprite，初始幀為 wave_stand_1
+      const sprite = scene.add.sprite(x, y, 'wave_stand_1');
+      sprite.setDepth(5);
+      sprite.setDisplaySize(64, 64);
+      this.visual = sprite;
+      this.useSprite = true;
+      // 播放待機動畫（動畫由 GameScene 在 create 後建立，此處延遲一幀確保動畫已註冊）
+      scene.time.delayedCall(0, () => {
+        if (this.visual && this.visual.active && this.useSprite) {
+          (this.visual as Phaser.GameObjects.Sprite).play('wave_stand');
+        }
+      });
+    } else if (scene.textures.exists(textureKey)) {
       this.visual = scene.add.image(x, y, textureKey);
+      this.visual.setDepth(5);
+      this.visual.setDisplaySize(64, 64);
     } else {
-      // fallback：建立 Graphics 並轉為 Image
+      // fallback：建立 Image 並程式繪製
       this.visual = scene.add.image(x, y, '__DEFAULT');
+      this.visual.setDepth(5);
+      this.visual.setDisplaySize(64, 64);
       this.drawFallbackVisual();
     }
-    this.visual.setDepth(5);
-    this.visual.setDisplaySize(64, 64);
   }
 
   /**
@@ -277,7 +300,33 @@ export class Player extends Phaser.GameObjects.Rectangle {
     vx += joystickVec.x;
     vy += joystickVec.y;
 
-    if (vx === 0 && vy === 0) return;
+    const isMoving = vx !== 0 || vy !== 0;
+
+    // ── 驚濤派動畫切換 ────────────────────────────────────────────────
+    if (this.useSprite && this.visual && this.visual.active) {
+      const sprite = this.visual as Phaser.GameObjects.Sprite;
+
+      if (isMoving) {
+        // 水平方向翻轉：朝左時 flipX=true，朝右時 flipX=false
+        if (vx < 0) {
+          sprite.setFlipX(true);
+        } else if (vx > 0) {
+          sprite.setFlipX(false);
+        }
+        // 切換至跑步動畫（若尚未播放）
+        if (!this.wasMoving) {
+          sprite.play('wave_run', true);
+        }
+      } else {
+        // 切換至待機動畫（若尚未停止）
+        if (this.wasMoving) {
+          sprite.play('wave_stand', true);
+        }
+      }
+      this.wasMoving = isMoving;
+    }
+
+    if (!isMoving) return;
 
     const len = Math.sqrt(vx * vx + vy * vy);
     vx /= len;
