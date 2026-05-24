@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CharacterData, EquipmentSlot, PlayerStats } from '../types/index';
 import { calculateStats } from '../systems/StatCalculator';
+import { AssetLoader } from '../utils/AssetLoader';
 
 /** 傷害浮字同時上限 */
 const MAX_PLAYER_DAMAGE_NUMBERS = 20;
@@ -72,20 +73,34 @@ export class Player extends Phaser.GameObjects.Rectangle {
     const textureKey = `player_${charData.id}`;
     const isWave = charData.id === 'wave';
 
-    if (isWave && scene.textures.exists('wave_stand_1')) {
+    // 使用 AssetLoader.hasTexture 而非 textures.exists，
+    // 避免 Phaser 將 404 失敗的圖片登記為 __MISSING 後仍回傳 true
+    const waveTexturesReady = isWave
+      && AssetLoader.hasTexture(scene, 'wave_stand_1')
+      && AssetLoader.hasTexture(scene, 'wave_run_1');
+
+    console.log('[Player] charData.id:', charData.id,
+      '| isWave:', isWave,
+      '| wave_stand_1 exists:', scene.textures.exists('wave_stand_1'),
+      '| wave_stand_1 valid:', AssetLoader.hasTexture(scene, 'wave_stand_1'),
+      '| wave_run_1 valid:', AssetLoader.hasTexture(scene, 'wave_run_1'),
+      '| waveTexturesReady:', waveTexturesReady);
+
+    if (waveTexturesReady) {
       // 驚濤派：建立 Sprite，初始幀為 wave_stand_1
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
       sprite.setDisplaySize(64, 64);
       this.visual = sprite;
       this.useSprite = true;
-      // 播放待機動畫（動畫由 GameScene 在 create 後建立，此處延遲一幀確保動畫已註冊）
-      scene.time.delayedCall(0, () => {
-        if (this.visual && this.visual.active && this.useSprite) {
-          (this.visual as Phaser.GameObjects.Sprite).play('wave_stand');
-        }
-      });
-    } else if (scene.textures.exists(textureKey)) {
+      // 動畫已在 GameScene.createPlayerAnimations() 中建立（Player 建立前執行）
+      if (scene.anims.exists('wave_stand')) {
+        sprite.play('wave_stand');
+        console.log('[Player] wave_stand animation started');
+      } else {
+        console.warn('[Player] wave_stand animation not found — check createPlayerAnimations()');
+      }
+    } else if (AssetLoader.hasTexture(scene, textureKey)) {
       this.visual = scene.add.image(x, y, textureKey);
       this.visual.setDepth(5);
       this.visual.setDisplaySize(64, 64);

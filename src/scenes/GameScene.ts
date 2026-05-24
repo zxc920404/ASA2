@@ -309,6 +309,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 取得角色資料；若找不到則使用預設角色
     const charData = getCharacterById(this.characterId) ?? getCharacterById('swordsman')!;
 
+    console.log('[GameScene] characterId:', this.characterId,
+      '| charData.id:', charData.id,
+      '| wave_stand_1 valid:', AssetLoader.hasTexture(this, 'wave_stand_1'),
+      '| wave_run_1 valid:', AssetLoader.hasTexture(this, 'wave_run_1'),
+      '| wave_stand anim:', this.anims.exists('wave_stand'),
+      '| wave_run anim:', this.anims.exists('wave_run'));
+
     // 建立 Player，初始位置於世界中央
     this.player = new Player(this, WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5, charData);
 
@@ -3341,9 +3348,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // ── wave_stand：4 幀，4 fps，循環 ────────────────────────────────
     if (!anims.exists('wave_stand')) {
+      // 使用 AssetLoader.hasTexture 排除 __MISSING（404 失敗的圖片）
       const standFrames = ['wave_stand_1', 'wave_stand_5', 'wave_stand_9', 'wave_stand_13']
-        .filter(key => this.textures.exists(key))
+        .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
+
+      console.log('[GameScene] wave_stand frames valid:', standFrames.length, '/', 4);
 
       if (standFrames.length > 0) {
         anims.create({
@@ -3361,8 +3371,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         'wave_run_1', 'wave_run_3', 'wave_run_5', 'wave_run_7',
         'wave_run_9', 'wave_run_11', 'wave_run_13', 'wave_run_15',
       ]
-        .filter(key => this.textures.exists(key))
+        .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
+
+      console.log('[GameScene] wave_run frames valid:', runFrames.length, '/', 8);
 
       if (runFrames.length > 0) {
         anims.create({
