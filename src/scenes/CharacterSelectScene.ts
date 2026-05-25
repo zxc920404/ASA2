@@ -248,10 +248,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       { cx: cardCenterX + sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH },
     ];
 
-    CHARACTERS.forEach((_char, i) => {
-      if (i >= 3) return; // 輪播固定 3 個槽位，多餘角色透過導航切換
-      this.buildCharacterCard(i, s);
-    });
+    // 固定建立 3 個槽位（左、中、右），與 CHARACTERS 陣列長度無關
+    for (let slotIndex = 0; slotIndex < 3; slotIndex++) {
+      this.buildCharacterCard(slotIndex, s);
+    }
   }
 
   private buildCharacterCard(slotIndex: number, s: number): void {
@@ -412,8 +412,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   }
 
   private refreshCards(): void {
-    CHARACTERS.forEach((_char, slotIndex) => {
-      if (slotIndex >= 3) return; // 輪播固定 3 個槽位
+    // 固定刷新 3 個槽位（左、中、右）
+    for (let slotIndex = 0; slotIndex < 3; slotIndex++) {
       const charIndex = this.getDisplayIndex(slotIndex);
       const char = CHARACTERS[charIndex];
       const sect = SECT_INFO[char.id] ?? { borderColor: 0x6688aa, glowColor: 0x334466 };
@@ -437,7 +437,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.fillCardContainer(this.cardContainers[slotIndex], slotIndex, s);
       this.cardContainers[slotIndex].setAlpha(isCenter ? 1.0 : 0.35);
       this.floatTweens[slotIndex]?.resume();
-    });
+    }
     this.refreshDots();
   }
 
@@ -685,8 +685,9 @@ export class CharacterSelectScene extends Phaser.Scene {
   private buildNavArrows(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
     const arrowY = Math.round(H * 0.36);
-    const leftX  = Math.round(W * 0.06);
-    const rightX = Math.round(W * 0.94);
+    const arrowRadius = Math.round(18 * s);
+    const leftX  = Math.max(arrowRadius + 4, Math.round(W * 0.06));
+    const rightX = Math.min(W - arrowRadius - 4, Math.round(W * 0.94));
 
     const drawCircle = (g: Phaser.GameObjects.Graphics, x: number) => {
       g.fillStyle(0x060e1e, 0.68);
