@@ -103,13 +103,13 @@ export class Player extends Phaser.GameObjects.Rectangle {
     // 避免 Phaser 將 404 失敗的圖片登記為 __MISSING 後仍回傳 true
     const waveTexturesReady = isAssassin
       && AssetLoader.hasTexture(scene, 'wave_stand_1')
-      && AssetLoader.hasTexture(scene, 'wave_run_1');
+      && AssetLoader.hasTexture(scene, 'wave_run_01');
 
     console.log('[Player] charData.id:', charData.id,
       '| isAssassin:', isAssassin,
       '| wave_stand_1 exists:', scene.textures.exists('wave_stand_1'),
       '| wave_stand_1 valid:', AssetLoader.hasTexture(scene, 'wave_stand_1'),
-      '| wave_run_1 valid:', AssetLoader.hasTexture(scene, 'wave_run_1'),
+      '| wave_run_01 valid:', AssetLoader.hasTexture(scene, 'wave_run_01'),
       '| waveTexturesReady:', waveTexturesReady);
 
     if (waveTexturesReady) {

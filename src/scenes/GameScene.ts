@@ -313,7 +313,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     console.log('[GameScene] characterId:', this.characterId,
       '| charData.id:', charData.id,
       '| wave_stand_1 valid:', AssetLoader.hasTexture(this, 'wave_stand_1'),
-      '| wave_run_1 valid:', AssetLoader.hasTexture(this, 'wave_run_1'),
+      '| wave_run_01 valid:', AssetLoader.hasTexture(this, 'wave_run_01'),
       '| wave_stand anim:', this.anims.exists('wave_stand'),
       '| wave_run anim:', this.anims.exists('wave_run'));
 
@@ -3403,11 +3403,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── wave_run：8 幀，9 fps，循環 ──────────────────────────────────
+    // ── wave_run：8 幀，9 fps，循環（新版 frames_fixed/run_01~08）────────
     if (!anims.exists('wave_run')) {
       const runFrames = [
-        'wave_run_1', 'wave_run_3', 'wave_run_5', 'wave_run_7',
-        'wave_run_9', 'wave_run_11', 'wave_run_13', 'wave_run_15',
+        'wave_run_01', 'wave_run_02', 'wave_run_03', 'wave_run_04',
+        'wave_run_05', 'wave_run_06', 'wave_run_07', 'wave_run_08',
       ]
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
