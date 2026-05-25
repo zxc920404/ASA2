@@ -3403,7 +3403,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── wave_run：8 幀，9 fps，循環（新版 frames_fixed/run_01~08）────────
+    // ── wave_run：8 幀，8 fps，循環（frames_uniform/run_01~08）────────
+    // 使用 frames_uniform 版本（等比例裁切），frameRate 8 降低播放速度避免滑步感
     if (!anims.exists('wave_run')) {
       const runFrames = [
         'wave_run_01', 'wave_run_02', 'wave_run_03', 'wave_run_04',
@@ -3418,7 +3419,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         anims.create({
           key: 'wave_run',
           frames: runFrames,
-          frameRate: 9,
+          frameRate: 8,
           repeat: -1,
         });
       }

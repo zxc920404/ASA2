@@ -117,10 +117,12 @@ export class Player extends Phaser.GameObjects.Rectangle {
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
       // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突
-      // 0.33 = 合理比例，與敵人、地圖尺寸一致（原 0.5 太大）
-      const WAVE_SPRITE_SCALE = 0.33;
+      // 0.7 = 合理比例，與敵人、地圖尺寸一致（原 0.33 太小）
+      // setOrigin(0.5, 0.88)：水平置中，垂直錨點靠近腳底，避免浮空感
+      const WAVE_SPRITE_SCALE = 0.7;
       this.baseVisualScale = WAVE_SPRITE_SCALE;
       sprite.setScale(WAVE_SPRITE_SCALE);
+      sprite.setOrigin(0.5, 0.88);
       this.visual = sprite;
       this.useSprite = true;
       // 動畫已在 GameScene.createPlayerAnimations() 中建立（Player 建立前執行）

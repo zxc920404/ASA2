@@ -124,15 +124,16 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'wave_stand_9',  'assets/sprites/player/wave/wave-stand/image_9.png');
     AssetLoader.loadImage(scene, 'wave_stand_13', 'assets/sprites/player/wave/wave-stand/image_13.png');
 
-    // wave-run：新版 8 幀（frames_fixed/run_01~08），frameRate 9 fps
-    AssetLoader.loadImage(scene, 'wave_run_01', 'assets/sprites/player/wave/wave-run/frames_fixed/run_01.png');
-    AssetLoader.loadImage(scene, 'wave_run_02', 'assets/sprites/player/wave/wave-run/frames_fixed/run_02.png');
-    AssetLoader.loadImage(scene, 'wave_run_03', 'assets/sprites/player/wave/wave-run/frames_fixed/run_03.png');
-    AssetLoader.loadImage(scene, 'wave_run_04', 'assets/sprites/player/wave/wave-run/frames_fixed/run_04.png');
-    AssetLoader.loadImage(scene, 'wave_run_05', 'assets/sprites/player/wave/wave-run/frames_fixed/run_05.png');
-    AssetLoader.loadImage(scene, 'wave_run_06', 'assets/sprites/player/wave/wave-run/frames_fixed/run_06.png');
-    AssetLoader.loadImage(scene, 'wave_run_07', 'assets/sprites/player/wave/wave-run/frames_fixed/run_07.png');
-    AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/frames_fixed/run_08.png');
+    // wave-run：8 幀（frames_uniform/run_01~08），frameRate 8 fps
+    // 使用 frames_uniform 版本（等比例裁切，無多餘空白），避免 frames_fixed 的比例問題
+    AssetLoader.loadImage(scene, 'wave_run_01', 'assets/sprites/player/wave/wave-run/frames_uniform/run_01.png');
+    AssetLoader.loadImage(scene, 'wave_run_02', 'assets/sprites/player/wave/wave-run/frames_uniform/run_02.png');
+    AssetLoader.loadImage(scene, 'wave_run_03', 'assets/sprites/player/wave/wave-run/frames_uniform/run_03.png');
+    AssetLoader.loadImage(scene, 'wave_run_04', 'assets/sprites/player/wave/wave-run/frames_uniform/run_04.png');
+    AssetLoader.loadImage(scene, 'wave_run_05', 'assets/sprites/player/wave/wave-run/frames_uniform/run_05.png');
+    AssetLoader.loadImage(scene, 'wave_run_06', 'assets/sprites/player/wave/wave-run/frames_uniform/run_06.png');
+    AssetLoader.loadImage(scene, 'wave_run_07', 'assets/sprites/player/wave/wave-run/frames_uniform/run_07.png');
+    AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/frames_uniform/run_08.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────
