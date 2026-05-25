@@ -117,9 +117,10 @@ export class Player extends Phaser.GameObjects.Rectangle {
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
       // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突
-      // 0.7 = 合理比例，與敵人、地圖尺寸一致（原 0.33 太小）
+      // 0.13 = 玩家比最大普通小怪（tank 48px）略大一點的比例
+      // 圖片原始尺寸 864×480，有大量透明邊距，有效角色區域約佔高度 60%
       // setOrigin(0.5, 0.88)：水平置中，垂直錨點靠近腳底，避免浮空感
-      const WAVE_SPRITE_SCALE = 0.7;
+      const WAVE_SPRITE_SCALE = 0.13;
       this.baseVisualScale = WAVE_SPRITE_SCALE;
       sprite.setScale(WAVE_SPRITE_SCALE);
       sprite.setOrigin(0.5, 0.88);
