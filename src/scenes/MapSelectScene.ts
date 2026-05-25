@@ -192,6 +192,7 @@ export class MapSelectScene extends Phaser.Scene {
       });
       hitArea.on('pointerdown', () => {
         SFXManager.playButtonClick(this);
+        console.log('[MapSelectScene] 選擇地圖 → 傳入 GameScene characterId:', this.characterId, '| mapId:', map.id);
         this.scene.start('GameScene', {
           characterId: this.characterId,
           selectedMapId: map.id,

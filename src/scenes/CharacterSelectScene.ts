@@ -612,8 +612,19 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     hitArea.on('pointerdown', () => {
       SFXManager.playButtonClick(this);
-      const characterId = CHARACTERS[this.centerIndex].id;
-      console.log('[CharacterSelectScene] 踏入修行 → centerIndex:', this.centerIndex, '| 傳入 MapSelectScene characterId:', characterId);
+      // 中央卡片永遠是 slot 1，用 getDisplayIndex(1) 取得與畫面顯示完全一致的角色
+      const centerCharIndex = this.getDisplayIndex(1);
+      const selectedChar = CHARACTERS[centerCharIndex];
+      const characterId = selectedChar.id;
+      const sectInfo = SECT_INFO[characterId];
+      console.log(
+        '[CharacterSelectScene] 踏入修行',
+        '| centerIndex:', this.centerIndex,
+        '| centerCharIndex:', centerCharIndex,
+        '| selectedChar.id:', selectedChar.id,
+        '| sectName:', sectInfo?.sectName ?? selectedChar.name,
+        '| 傳入 MapSelectScene characterId:', characterId
+      );
       this.scene.start('MapSelectScene', { characterId });
     });
     hitArea.on('pointerover', () => this.drawConfirmBtn(true, btnX, btnY, btnW, btnH));
