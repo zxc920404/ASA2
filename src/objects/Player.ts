@@ -30,6 +30,9 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 是否使用動畫 Sprite（驚濤派角色） */
   private useSprite: boolean = false;
 
+  /** wave sprite 的基礎縮放比例（用於受傷 tween 結束後還原） */
+  private baseVisualScale: number = 1;
+
   /** debug 用：取得目前視覺狀態摘要 */
   public getDebugInfo(): string {
     const isWave = this.characterId === 'wave';
@@ -110,7 +113,10 @@ export class Player extends Phaser.GameObjects.Rectangle {
       // 驚濤派：建立 Sprite，初始幀為 wave_stand_1
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
-      sprite.setDisplaySize(64, 64);
+      // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突
+      const WAVE_SPRITE_SCALE = 0.5; // 若 sprite sheet 幀尺寸不同可調整
+      this.baseVisualScale = WAVE_SPRITE_SCALE;
+      sprite.setScale(WAVE_SPRITE_SCALE);
       this.visual = sprite;
       this.useSprite = true;
       // 動畫已在 GameScene.createPlayerAnimations() 中建立（Player 建立前執行）
@@ -130,6 +136,16 @@ export class Player extends Phaser.GameObjects.Rectangle {
       this.visual.setDepth(5);
       this.visual.setDisplaySize(64, 64);
       this.drawFallbackVisual();
+    }
+  }
+
+  /**
+   * 還原視覺圖形至基礎縮放比例。
+   * 在任何修改 scale 的 tween onComplete 中呼叫，確保 wave sprite 不會卡在錯誤縮放。
+   */
+  private applyBaseScale(): void {
+    if (this.useSprite && this.visual && this.visual.active) {
+      (this.visual as Phaser.GameObjects.Sprite).setScale(this.baseVisualScale);
     }
   }
 
@@ -187,12 +203,12 @@ export class Player extends Phaser.GameObjects.Rectangle {
     if (this.visual && this.visual.active && scene.tweens) {
       scene.tweens.add({
         targets: this.visual,
-        scaleX: 0.88, scaleY: 0.88,
+        scaleX: this.baseVisualScale * 0.88, scaleY: this.baseVisualScale * 0.88,
         duration: 55, ease: 'Power2',
         yoyo: true,
         onComplete: () => {
           if (this.visual && this.visual.active) {
-            this.visual.setScale(1);
+            this.applyBaseScale();
           }
         },
       });
@@ -228,7 +244,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
         this.hitFlashTimer = 0;
         if (this.visual && this.visual.active) {
           this.visual.clearTint();
-          this.visual.setScale(1);
+          this.applyBaseScale();
         }
       }
     }

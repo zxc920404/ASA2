@@ -309,6 +309,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       sectName: char.id, role: '',
       primary: 0x0d1e3a, accent: 0x6688aa, borderColor: 0x6688aa, glowColor: 0x334466,
     };
+    console.log(`[CardDebug] slotIndex=${slotIndex} char.id=${char.id} sect.sectName=${sect.sectName} char.iconKey=${char.iconKey}`);
     const { cx, cy, cardW, cardH } = this.cardLayout[slotIndex];
     const isCenter = slotIndex === 1;
 
