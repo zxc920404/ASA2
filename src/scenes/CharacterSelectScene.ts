@@ -219,17 +219,18 @@ export class CharacterSelectScene extends Phaser.Scene {
   // ─────────────────────────────────────────────────────────────────────────
   private buildCardArea(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
-    // 卡片區垂直中心：畫面上方 38%
-    const cardCenterY = Math.round(H * 0.36);
+    // 卡片區垂直中心：畫面上方 36%
+    const cardCenterY = Math.round(H * 0.34);
     const cardCenterX = W / 2;
 
-    // 主卡尺寸（直屏：寬度佔畫面 52%，高度適中）
-    const mainCardW = Math.round(Math.min(W * 0.52, 220));
-    const mainCardH = Math.round(Math.min(H * 0.34, 280));
+    // 主卡尺寸（直屏：寬度佔畫面 46%，高度略縮）
+    const mainCardW = Math.round(Math.min(W * 0.46, 200));
+    const mainCardH = Math.round(Math.min(H * 0.30, 250));
     // 側邊卡縮小
-    const sideCardW = Math.round(mainCardW * 0.68);
-    const sideCardH = Math.round(mainCardH * 0.76);
-    const sideOffset = Math.round(mainCardW * 0.60 + sideCardW * 0.50 + 8);
+    const sideCardW = Math.round(mainCardW * 0.65);
+    const sideCardH = Math.round(mainCardH * 0.74);
+    // sideOffset 縮小，讓側卡不被裁切
+    const sideOffset = Math.round(mainCardW * 0.55 + sideCardW * 0.50 + 6);
 
     this.cardLayout = [
       { cx: cardCenterX - sideOffset, cy: cardCenterY, cardW: sideCardW, cardH: sideCardH },
@@ -463,8 +464,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   // ─────────────────────────────────────────────────────────────────────────
   private buildInfoPanel(W: number, H: number, layout: ReturnType<typeof ResponsiveLayout.compute>): void {
     const s = layout.uiScale;
-    const panelTop = Math.round(H * 0.58);
-    const panelH = Math.round(H * 0.26);
+    const panelTop = Math.round(H * 0.60);
+    const panelH = Math.round(H * 0.22);
     const panelX = layout.usableX + 8;
     const panelW = layout.usableW - 16;
     const cx = W / 2;
@@ -585,7 +586,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const btnW = Math.round(Math.min(W * 0.72, 320));
     const btnH = layout.btnH;
     const btnX = W / 2;
-    const btnY = H - layout.safeBottom - Math.round(btnH * 0.80);
+    const btnY = H - layout.safeBottom - Math.round(btnH * 1.4);
     const r = 10;
     const x = Math.round(btnX - btnW / 2);
     const y = Math.round(btnY - btnH / 2);

@@ -15,11 +15,11 @@ import Phaser from 'phaser';
 export class VirtualJoystick {
   private scene: Phaser.Scene;
 
-  /** 搖桿底座半徑（px） */
-  private readonly BASE_RADIUS = 60;
+  /** 搖桿底座半徑（px）— 視覺縮小約 13%，hit area 不變 */
+  private readonly BASE_RADIUS = 52;
 
   /** 搖桿旋鈕半徑（px） */
-  private readonly KNOB_RADIUS = 28;
+  private readonly KNOB_RADIUS = 24;
 
   /** 死區：偏移量小於此值視為無輸入（BASE_RADIUS × 20% = 12px） */
   private readonly DEAD_ZONE = 12;

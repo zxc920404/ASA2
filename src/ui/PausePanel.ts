@@ -56,7 +56,7 @@ export class PausePanel {
 
     // ── 遮罩 ──────────────────────────────────────────────────────────────
     this.overlay = this.scene.add.graphics().setScrollFactor(0).setDepth(100);
-    this.overlay.fillStyle(0x000000, 0.65);
+    this.overlay.fillStyle(0x000000, 0.45);
     this.overlay.fillRect(0, 0, W, H);
     if (isPortrait) {
       this.overlay.fillStyle(0x0a0a1a, 0.3);

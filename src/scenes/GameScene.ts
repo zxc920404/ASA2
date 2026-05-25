@@ -3499,8 +3499,84 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       g.fillStyle(0xffaa00, 0.8); g.fillRect(cx - 9, cy + 2, 18, 3);
     });
 
-    // ── 普通小怪 texture 已移除：Enemy 建構子直接使用 Graphics 即時繪製，
-    // 不再依賴 generateTexture（Android WebGL 初始化時可能靜默產生空白 texture）
+    // ── 普通小怪 fallback texture（人形 Q 版，確保無 PNG 時也顯示人形）────
+    // key 與 Enemy 建構子的 imgKey 一致（enemy_img_<id>），
+    // 若外部 PNG 已載入（AssetLoader.hasTexture 回傳 true），Enemy 會優先使用外部 PNG。
+    // 此處只在 key 不存在時生成 fallback，避免覆蓋已載入的真實素材。
+
+    // basic：紅衣邪修小兵（36×36，r=18）
+    ensureTexture('enemy_img_basic', undefined, 36, 36, (g) => {
+      const cx = 18, cy = 18, r = 18;
+      g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - r * 0.55, r * 0.32);
+      g.fillStyle(0xaa1111, 1);
+      g.fillRect(cx - r * 0.28, cy - r * 0.87, r * 0.56, r * 0.22);
+      g.fillRect(cx - r * 0.1,  cy - r * 1.0,  r * 0.2,  r * 0.15);
+      g.fillStyle(0xcc2222, 1); g.fillRect(cx - r * 0.32, cy - r * 0.22, r * 0.64, r * 0.5);
+      g.fillStyle(0x880000, 1); g.fillRect(cx - r * 0.32, cy + r * 0.22, r * 0.64, r * 0.1);
+      g.fillStyle(0xaa1111, 1);
+      g.fillRect(cx - r * 0.28, cy + r * 0.32, r * 0.22, r * 0.38);
+      g.fillRect(cx + r * 0.06, cy + r * 0.32, r * 0.22, r * 0.38);
+      g.fillStyle(0xdddddd, 1); g.fillRect(cx + r * 0.36, cy - r * 0.3, r * 0.1, r * 0.5);
+      g.lineStyle(1.5, 0xff6666, 0.9);
+      g.strokeRect(cx - r * 0.32, cy - r * 0.22, r * 0.64, r * 0.5);
+    });
+
+    // fast：疾行刺客（28×28，r=14）
+    ensureTexture('enemy_img_fast', undefined, 28, 28, (g) => {
+      const cx = 14, cy = 14, r = 14;
+      g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - r * 0.6, r * 0.26);
+      g.fillStyle(0xff5500, 1);
+      g.fillRect(cx - r * 0.22, cy - r * 0.88, r * 0.44, r * 0.18);
+      g.fillStyle(0xff6600, 1); g.fillRect(cx - r * 0.24, cy - r * 0.28, r * 0.48, r * 0.52);
+      g.fillStyle(0xcc4400, 1);
+      g.fillRect(cx - r * 0.22, cy + r * 0.24, r * 0.18, r * 0.42);
+      g.fillRect(cx + r * 0.04, cy + r * 0.24, r * 0.18, r * 0.42);
+      g.lineStyle(2, 0xffdd44, 1);
+      g.lineBetween(cx - r * 1.1, cy - r * 0.1, cx - r * 0.3, cy - r * 0.1);
+      g.lineBetween(cx - r * 1.2, cy + r * 0.15, cx - r * 0.3, cy + r * 0.15);
+      g.fillStyle(0xcccccc, 1); g.fillRect(cx + r * 0.3, cy - r * 0.35, r * 0.08, r * 0.4);
+      g.lineStyle(1.5, 0xffaa44, 0.9);
+      g.strokeRect(cx - r * 0.24, cy - r * 0.28, r * 0.48, r * 0.52);
+    });
+
+    // tank：重甲力士（48×48，r=24）
+    ensureTexture('enemy_img_tank', undefined, 48, 48, (g) => {
+      const cx = 24, cy = 24, r = 24;
+      g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - r * 0.52, r * 0.35);
+      g.fillStyle(0x880000, 1);
+      g.fillRect(cx - r * 0.35, cy - r * 0.88, r * 0.7, r * 0.25);
+      g.fillRect(cx - r * 0.12, cy - r * 1.05, r * 0.24, r * 0.18);
+      g.fillStyle(0xaa0000, 1);
+      g.fillRect(cx - r * 0.55, cy - r * 0.28, r * 0.2, r * 0.22);
+      g.fillRect(cx + r * 0.35, cy - r * 0.28, r * 0.2, r * 0.22);
+      g.fillStyle(0xcc1111, 1); g.fillRect(cx - r * 0.42, cy - r * 0.18, r * 0.84, r * 0.55);
+      g.fillStyle(0x880000, 1);
+      g.fillRect(cx - r * 0.42, cy + r * 0.05, r * 0.84, r * 0.07);
+      g.fillRect(cx - r * 0.42, cy + r * 0.2,  r * 0.84, r * 0.07);
+      g.fillStyle(0xcc8800, 1); g.fillRect(cx - r * 0.42, cy + r * 0.32, r * 0.84, r * 0.1);
+      g.fillStyle(0xaa0000, 1);
+      g.fillRect(cx - r * 0.38, cy + r * 0.42, r * 0.3, r * 0.42);
+      g.fillRect(cx + r * 0.08, cy + r * 0.42, r * 0.3, r * 0.42);
+      g.lineStyle(2.5, 0xff4444, 1);
+      g.strokeRect(cx - r * 0.42, cy - r * 0.18, r * 0.84, r * 0.55);
+    });
+
+    // ranged：紫袍術士（36×36，r=18）
+    ensureTexture('enemy_img_ranged', undefined, 36, 36, (g) => {
+      const cx = 18, cy = 18, r = 18;
+      g.fillStyle(0xddccaa, 1); g.fillCircle(cx, cy - r * 0.55, r * 0.3);
+      g.fillStyle(0x440066, 1);
+      g.fillTriangle(cx, cy - r * 1.05, cx - r * 0.28, cy - r * 0.7, cx + r * 0.28, cy - r * 0.7);
+      g.fillStyle(0x7700aa, 1); g.fillRect(cx - r * 0.3, cy - r * 0.22, r * 0.6, r * 0.52);
+      g.fillStyle(0x660099, 1); g.fillRect(cx - r * 0.36, cy + r * 0.22, r * 0.72, r * 0.22);
+      g.fillStyle(0xcc8800, 1); g.fillRect(cx - r * 0.3, cy + r * 0.2, r * 0.6, r * 0.08);
+      g.fillStyle(0xdd44ff, 1); g.fillCircle(cx - r * 0.48, cy, r * 0.18);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle(cx - r * 0.48, cy, r * 0.08);
+      g.fillStyle(0xdd44ff, 1); g.fillCircle(cx + r * 0.48, cy, r * 0.18);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle(cx + r * 0.48, cy, r * 0.08);
+      g.lineStyle(1.5, 0xcc66ff, 0.9);
+      g.strokeRect(cx - r * 0.3, cy - r * 0.22, r * 0.6, r * 0.52);
+    });
 
     // ── XP 經驗球（亮綠發光圓，20×20）───────────────────────────────────
     ensureTexture('xp_gem', undefined, 20, 20, (g) => {
