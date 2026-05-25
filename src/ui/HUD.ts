@@ -339,20 +339,24 @@ export class HUD {
 
     // 武器欄背景
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.weaponPanelBg.fillStyle(0x000000, 0.30);
+    this.weaponPanelBg.fillStyle(0x000000, 0.50);
     this.weaponPanelBg.fillRoundedRect(wStartX - 2, slotY - 2, MAX_SLOTS * (slotSize + slotGap) + 4, rowH + 4, 3);
+    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.30);
+    this.weaponPanelBg.strokeRoundedRect(wStartX - 2, slotY - 2, MAX_SLOTS * (slotSize + slotGap) + 4, rowH + 4, 3);
 
     this.weaponHeaderText = this.scene.add.text(
-      wStartX, slotY - 1, '武', uiText(8, '#ccaa44')
+      wStartX, slotY - 1, '武', uiText(9, '#e8c060')
     ).setOrigin(0, 1).setScrollFactor(0).setDepth(10);
 
     // 被動欄背景
     this.passivePanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.passivePanelBg.fillStyle(0x000000, 0.30);
+    this.passivePanelBg.fillStyle(0x000000, 0.50);
     this.passivePanelBg.fillRoundedRect(pStartX - 2, slotY - 2, MAX_SLOTS * (slotSize + slotGap) + 4, rowH + 4, 3);
+    this.passivePanelBg.lineStyle(1, 0x4488aa, 0.30);
+    this.passivePanelBg.strokeRoundedRect(pStartX - 2, slotY - 2, MAX_SLOTS * (slotSize + slotGap) + 4, rowH + 4, 3);
 
     this.passiveHeaderText = this.scene.add.text(
-      pStartX, slotY - 1, '被', uiText(8, '#7799cc')
+      pStartX, slotY - 1, '被', uiText(9, '#88ccff')
     ).setOrigin(0, 1).setScrollFactor(0).setDepth(10);
 
     for (let i = 0; i < MAX_SLOTS; i++) {
@@ -360,29 +364,29 @@ export class HUD {
       const pxSlot = pStartX + i * (slotSize + slotGap);
 
       const wBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      wBg.fillStyle(0x111111, 0.50);
+      wBg.fillStyle(0x1a1000, 0.70);
       wBg.fillRoundedRect(wxSlot, slotY, slotSize, slotSize, 3);
-      wBg.lineStyle(1, 0x2a2a2a, 0.5);
+      wBg.lineStyle(1, 0x443300, 0.65);
       wBg.strokeRoundedRect(wxSlot, slotY, slotSize, slotSize, 3);
       this.weaponSlotBgs.push(wBg);
 
       const wTxt = this.scene.add.text(
         wxSlot + slotSize / 2, slotY + slotSize / 2,
-        '--', uiText(8, '#2a2a2a')
+        '--', uiText(9, '#443322')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.weaponSlotTexts.push(wTxt);
       this.weaponSlotIcons.push(null);
 
       const pBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      pBg.fillStyle(0x111111, 0.50);
+      pBg.fillStyle(0x001020, 0.70);
       pBg.fillRoundedRect(pxSlot, slotY, slotSize, slotSize, 3);
-      pBg.lineStyle(1, 0x2a2a2a, 0.5);
+      pBg.lineStyle(1, 0x223344, 0.65);
       pBg.strokeRoundedRect(pxSlot, slotY, slotSize, slotSize, 3);
       this.passiveSlotBgs.push(pBg);
 
       const pTxt = this.scene.add.text(
         pxSlot + slotSize / 2, slotY + slotSize / 2,
-        '--', uiText(8, '#2a2a2a')
+        '--', uiText(9, '#223344')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.passiveSlotTexts.push(pTxt);
       this.passiveSlotIcons.push(null);
@@ -419,26 +423,26 @@ export class HUD {
 
     // 武器欄背景
     this.weaponPanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.weaponPanelBg.fillStyle(0x000000, 0.35);
+    this.weaponPanelBg.fillStyle(0x000000, 0.55);
     this.weaponPanelBg.fillRoundedRect(wX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
-    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.15);
+    this.weaponPanelBg.lineStyle(1, 0xd4af37, 0.35);
     this.weaponPanelBg.strokeRoundedRect(wX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
 
     this.weaponHeaderText = this.scene.add.text(
       wX + slotW / 2, panelY + headerH / 2,
-      '武器', uiText(9, '#ccaa44')
+      '武器', uiText(10, '#e8c060')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
     // 被動欄背景
     this.passivePanelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.passivePanelBg.fillStyle(0x000000, 0.35);
+    this.passivePanelBg.fillStyle(0x000000, 0.55);
     this.passivePanelBg.fillRoundedRect(pX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
-    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.15);
+    this.passivePanelBg.lineStyle(1, 0xd4af37, 0.35);
     this.passivePanelBg.strokeRoundedRect(pX - 2, panelY - 2, slotW + 4, totalH + 4, 4);
 
     this.passiveHeaderText = this.scene.add.text(
       pX + slotW / 2, panelY + headerH / 2,
-      '被動', uiText(9, '#7799cc')
+      '被動', uiText(10, '#88ccff')
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
 
     for (let i = 0; i < MAX_SLOTS; i++) {
@@ -446,29 +450,29 @@ export class HUD {
       const pySlot = pY + i * (slotH + slotGap);
 
       const wBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      wBg.fillStyle(0x111111, 0.40);
+      wBg.fillStyle(0x1a1000, 0.65);
       wBg.fillRoundedRect(wX, wySlot, slotW, slotH, 2);
-      wBg.lineStyle(1, 0x2a2a2a, 0.5);
+      wBg.lineStyle(1, 0x443300, 0.7);
       wBg.strokeRoundedRect(wX, wySlot, slotW, slotH, 2);
       this.weaponSlotBgs.push(wBg);
 
       const wTxt = this.scene.add.text(
         wX + slotW / 2, wySlot + slotH / 2,
-        '--', uiText(9, '#2a2a2a')
+        '--', uiText(9, '#443322')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.weaponSlotTexts.push(wTxt);
       this.weaponSlotIcons.push(null);
 
       const pBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
-      pBg.fillStyle(0x111111, 0.40);
+      pBg.fillStyle(0x001020, 0.65);
       pBg.fillRoundedRect(pX, pySlot, slotW, slotH, 2);
-      pBg.lineStyle(1, 0x2a2a2a, 0.5);
+      pBg.lineStyle(1, 0x223344, 0.7);
       pBg.strokeRoundedRect(pX, pySlot, slotW, slotH, 2);
       this.passiveSlotBgs.push(pBg);
 
       const pTxt = this.scene.add.text(
         pX + slotW / 2, pySlot + slotH / 2,
-        '--', uiText(9, '#2a2a2a')
+        '--', uiText(9, '#223344')
       ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
       this.passiveSlotTexts.push(pTxt);
       this.passiveSlotIcons.push(null);
@@ -609,7 +613,7 @@ export class HUD {
       } else {
         if (this.weaponSlotIcons[i]) this.weaponSlotIcons[i]!.setVisible(false);
         this.weaponSlotTexts[i].setText('--');
-        this.weaponSlotTexts[i].setColor('#2a2a2a');
+        this.weaponSlotTexts[i].setColor('#554433');
         this.weaponSlotTexts[i].setPosition(wxSlot + slotSize / 2, slotY + slotSize / 2);
       }
     }
@@ -643,7 +647,7 @@ export class HUD {
       } else {
         if (this.passiveSlotIcons[i]) this.passiveSlotIcons[i]!.setVisible(false);
         this.passiveSlotTexts[i].setText('--');
-        this.passiveSlotTexts[i].setColor('#2a2a2a');
+        this.passiveSlotTexts[i].setColor('#334455');
         this.passiveSlotTexts[i].setPosition(pxSlot + slotSize / 2, slotY + slotSize / 2);
       }
     }
@@ -690,7 +694,7 @@ export class HUD {
           this.weaponSlotIcons[i]!.setVisible(false);
         }
         this.weaponSlotTexts[i].setText('--');
-        this.weaponSlotTexts[i].setColor('#2a2a2a');
+        this.weaponSlotTexts[i].setColor('#554433');
         this.weaponSlotTexts[i].setX(wX + slotW / 2);
       }
     }
@@ -730,7 +734,7 @@ export class HUD {
           this.passiveSlotIcons[i]!.setVisible(false);
         }
         this.passiveSlotTexts[i].setText('--');
-        this.passiveSlotTexts[i].setColor('#2a2a2a');
+        this.passiveSlotTexts[i].setColor('#334455');
         this.passiveSlotTexts[i].setX(pX + slotW / 2);
       }
     }

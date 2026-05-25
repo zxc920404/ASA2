@@ -328,33 +328,39 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     // ── 臨時 debug overlay（右下角，固定在畫面上）────────────────────────
-    const dbgText = this.add.text(
-      this.scale.width - 8,
-      this.scale.height - 8,
-      this.player.getDebugInfo(),
-      {
-        fontSize: '11px',
-        color: '#00ff88',
-        stroke: '#000000',
-        strokeThickness: 2,
-        align: 'right',
-        lineSpacing: 2,
-      }
-    )
-      .setOrigin(1, 1)
-      .setScrollFactor(0)
-      .setDepth(300)
-      .setAlpha(0.90);
-    // 每秒更新一次（動畫 key 可能在移動後改變）
-    this.time.addEvent({
-      delay: 500,
-      loop: true,
-      callback: () => {
-        if (dbgText.active && this.player?.active) {
-          dbgText.setText(this.player.getDebugInfo());
+    // 只在 localStorage.getItem('asa2_debug') === '1' 時顯示
+    // 開啟方式：瀏覽器 console 輸入 localStorage.setItem('asa2_debug','1') 後重整
+    const showDebugOverlay = typeof localStorage !== 'undefined'
+      && localStorage.getItem('asa2_debug') === '1';
+    if (showDebugOverlay) {
+      const dbgText = this.add.text(
+        this.scale.width - 8,
+        this.scale.height - 8,
+        this.player.getDebugInfo(),
+        {
+          fontSize: '10px',
+          color: '#00ff88',
+          stroke: '#000000',
+          strokeThickness: 2,
+          align: 'right',
+          lineSpacing: 2,
+          backgroundColor: '#00000066',
         }
-      },
-    });
+      )
+        .setOrigin(1, 1)
+        .setScrollFactor(0)
+        .setDepth(300)
+        .setAlpha(0.80);
+      this.time.addEvent({
+        delay: 500,
+        loop: true,
+        callback: () => {
+          if (dbgText.active && this.player?.active) {
+            dbgText.setText(this.player.getDebugInfo());
+          }
+        },
+      });
+    }
     // ── end debug overlay ─────────────────────────────────────────────────
 
     // 設定 WASD 鍵盤輸入

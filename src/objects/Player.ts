@@ -71,6 +71,9 @@ export class Player extends Phaser.GameObjects.Rectangle {
     charData: CharacterData
   ) {
     // 透明碰撞體 32×32（不顯示）
+    // 碰撞體固定 32×32，與 sprite 的視覺縮放無關。
+    // 玩家碰撞半徑由 GameScene 的 PLAYER_COLLISION_RADIUS = 14 控制（圓形判定）。
+    // 即使 sprite scale 改變，碰撞範圍也不會跟著放大。
     super(scene, x, y, 32, 32, 0x000000, 0);
 
     this.charData = charData;
@@ -114,7 +117,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
       // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突
-      const WAVE_SPRITE_SCALE = 0.5; // 若 sprite sheet 幀尺寸不同可調整
+      // 0.33 = 合理比例，與敵人、地圖尺寸一致（原 0.5 太大）
+      const WAVE_SPRITE_SCALE = 0.33;
       this.baseVisualScale = WAVE_SPRITE_SCALE;
       sprite.setScale(WAVE_SPRITE_SCALE);
       this.visual = sprite;
