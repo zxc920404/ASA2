@@ -14,16 +14,16 @@ export const CHARACTERS: CharacterData[] = [
     portraitKey: 'sect_portrait_swordsman',
   },
   {
-    id: 'assassin',
-    name: '刺客',
-    baseHP: 130,
-    baseMoveSpeed: 190,
-    baseAttackPower: 1.5,
-    basePickupRange: 100,
-    startingWeaponId: 'swift_blade', // 疾風刃
-    trait: '條件觸發型',
-    iconKey: 'sect_icon_assassin',
-    portraitKey: 'sect_portrait_assassin',
+    id: 'wave',
+    name: '驚濤派',
+    baseHP: 170,
+    baseMoveSpeed: 170,
+    baseAttackPower: 1.1,
+    basePickupRange: 90,
+    startingWeaponId: 'guardian_ring', // 守心環（預設武器）
+    trait: '屬性加成型', // 暫用，待正式設計後更新
+    iconKey: 'sect_icon_swordsman', // 暫用劍客圖示，待美術補充
+    portraitKey: 'sect_portrait_swordsman', // 暫用劍客立繪，待美術補充
   },
   {
     id: 'taoist',
@@ -38,16 +38,16 @@ export const CHARACTERS: CharacterData[] = [
     portraitKey: 'sect_portrait_taoist',
   },
   {
-    id: 'wave',
-    name: '驚濤派',
-    baseHP: 170,
-    baseMoveSpeed: 170,
-    baseAttackPower: 1.1,
-    basePickupRange: 90,
-    startingWeaponId: 'guardian_ring', // 守心環（預設武器）
-    trait: '屬性加成型', // 暫用，待正式設計後更新
-    iconKey: 'sect_icon_swordsman', // 暫用劍客圖示，待美術補充
-    portraitKey: 'sect_portrait_swordsman', // 暫用劍客立繪，待美術補充
+    id: 'assassin',
+    name: '刺客',
+    baseHP: 130,
+    baseMoveSpeed: 190,
+    baseAttackPower: 1.5,
+    basePickupRange: 100,
+    startingWeaponId: 'swift_blade', // 疾風刃
+    trait: '條件觸發型',
+    iconKey: 'sect_icon_assassin',
+    portraitKey: 'sect_portrait_assassin',
   },
 ];
 

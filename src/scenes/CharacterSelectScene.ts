@@ -124,7 +124,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const H = this.scale.height;
     const layout = ResponsiveLayout.compute(W, H);
 
-    this.centerIndex = 0;
+    this.centerIndex = 1; // 預設選中驚濤派（wave，index 1）
     this.cardGraphics = [];
     this.cardContainers = [];
     this.cardGlowGraphics = [];
@@ -449,18 +449,21 @@ export class CharacterSelectScene extends Phaser.Scene {
     const offset = slotIndex - 1;
     const n = CHARACTERS.length;
     this.centerIndex = (this.centerIndex + offset + n) % n;
+    console.log('[CharacterSelectScene] navigateTo slot', slotIndex, '→ centerIndex:', this.centerIndex, '| id:', CHARACTERS[this.centerIndex].id);
     this.refreshCards();
     this.refreshInfoPanel();
   }
 
   private navigateLeft(): void {
     this.centerIndex = (this.centerIndex - 1 + CHARACTERS.length) % CHARACTERS.length;
+    console.log('[CharacterSelectScene] navigateLeft → centerIndex:', this.centerIndex, '| id:', CHARACTERS[this.centerIndex].id);
     this.refreshCards();
     this.refreshInfoPanel();
   }
 
   private navigateRight(): void {
     this.centerIndex = (this.centerIndex + 1) % CHARACTERS.length;
+    console.log('[CharacterSelectScene] navigateRight → centerIndex:', this.centerIndex, '| id:', CHARACTERS[this.centerIndex].id);
     this.refreshCards();
     this.refreshInfoPanel();
   }
@@ -610,6 +613,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     hitArea.on('pointerdown', () => {
       SFXManager.playButtonClick(this);
       const characterId = CHARACTERS[this.centerIndex].id;
+      console.log('[CharacterSelectScene] 踏入修行 → centerIndex:', this.centerIndex, '| 傳入 MapSelectScene characterId:', characterId);
       this.scene.start('MapSelectScene', { characterId });
     });
     hitArea.on('pointerover', () => this.drawConfirmBtn(true, btnX, btnY, btnW, btnH));

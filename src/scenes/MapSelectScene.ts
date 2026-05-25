@@ -1,10 +1,10 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import { uiText, uiTitle } from '../ui/UIStyles';
 import { ResponsiveLayout } from '../utils/ResponsiveLayout';
 import { BGMManager } from '../systems/BGMManager';
 import { SFXManager } from '../systems/SFXManager';
 
-// ── 地圖資料定義 ──────────────────────────────────────────────────────────
+// ?? ?啣?鞈?摰儔 ??????????????????????????????????????????????????????????
 interface MapData {
   id: string;
   name: string;
@@ -15,20 +15,20 @@ interface MapData {
 const MAPS: MapData[] = [
   {
     id: 'qingyuan',
-    name: '青原試煉場',
-    description: '靈氣初聚之地，適合宗門弟子試煉。',
+    name: '??閰衣???,
+    description: '?除??銋嚗???撘?閰衣???,
     available: true,
   },
   {
     id: 'youzhu',
-    name: '幽竹秘境',
-    description: '待更新',
+    name: '撟賜姘蝘?',
+    description: '敺??,
     available: false,
   },
   {
     id: 'chisha',
-    name: '赤砂古道',
-    description: '待更新',
+    name: '韏斤??日?',
+    description: '敺??,
     available: false,
   },
 ];
@@ -46,6 +46,7 @@ export class MapSelectScene extends Phaser.Scene {
 
   init(data: MapSelectSceneData): void {
     this.characterId = data?.characterId ?? '';
+    console.log('[MapSelectScene] init 收到 characterId:', this.characterId);
   }
 
   create(): void {
@@ -57,7 +58,7 @@ export class MapSelectScene extends Phaser.Scene {
     this.drawBackground(W, H);
     this.drawTitle(W, H, layout);
 
-    // 直屏：地圖卡片垂直排列
+    // ?游?嚗????湔???
     const cardW = Math.round(Math.min(layout.usableW - 16, 340));
     const cardH = Math.round(Math.min(H * 0.16, 110));
     const cardX = W / 2;
@@ -71,7 +72,7 @@ export class MapSelectScene extends Phaser.Scene {
 
     this.buildBackButton(W, H, layout);
 
-    // ── BGM（有專屬 BGM 則播放，否則 fallback 到主選單 BGM）────────────
+    // ?? BGM嚗?撠惇 BGM ??橘??血? fallback ?唬蜓?詨 BGM嚗????????????
     BGMManager.play(this, 'bgm_map_select');
   }
 
@@ -86,7 +87,7 @@ export class MapSelectScene extends Phaser.Scene {
       bg.fillStyle((r << 16) | (g << 8) | b, 1);
       bg.fillRect(0, Math.round((H / steps) * i), W, Math.round(H / steps) + 1);
     }
-    // 柔和光暈
+    // ????
     const glow = this.add.graphics().setDepth(1);
     glow.fillStyle(0x1a4466, 0.10);
     glow.fillCircle(Math.round(W * 0.5), Math.round(H * 0.3), Math.round(W * 0.7));
@@ -97,10 +98,10 @@ export class MapSelectScene extends Phaser.Scene {
     const cx = W / 2;
     const ty = layout.safeTop + Math.round(H * 0.08);
 
-    this.add.text(cx + 2, ty + 2, '選擇地圖',
+    this.add.text(cx + 2, ty + 2, '?豢??啣?',
       uiTitle(Math.round(30 * s), '#7a4a00')
     ).setOrigin(0.5, 0.5).setDepth(10);
-    this.add.text(cx, ty, '選擇地圖',
+    this.add.text(cx, ty, '?豢??啣?',
       uiTitle(Math.round(30 * s), '#ffd700')
     ).setOrigin(0.5, 0.5).setDepth(11);
 
@@ -130,12 +131,12 @@ export class MapSelectScene extends Phaser.Scene {
       cardG.strokeRoundedRect(x, y, cardW, cardH, r);
     }
 
-    // 左側圖示區
+    // 撌血?內?
     const iconX = x + Math.round(cardH * 0.50);
     const iconY = cy;
     this.drawMapIcon(iconX, iconY, map, Math.round(cardH * 0.36));
 
-    // 右側文字區
+    // ?喳???
     const textX = x + Math.round(cardH * 0.90);
     const nameColor = map.available ? '#ffffff' : '#555566';
     this.add.text(textX, cy - Math.round(cardH * 0.18),
@@ -144,7 +145,7 @@ export class MapSelectScene extends Phaser.Scene {
     ).setOrigin(0, 0.5).setDepth(10);
 
     if (map.available) {
-      // 狀態標籤
+      // ???蝐?
       const tagG = this.add.graphics().setDepth(9);
       const tagW = Math.round(cardW * 0.28);
       const tagH = Math.round(18 * s);
@@ -154,7 +155,7 @@ export class MapSelectScene extends Phaser.Scene {
       tagG.fillRoundedRect(tagX, tagY - tagH / 2, tagW, tagH, 4);
       tagG.lineStyle(1, 0x44cc88, 0.7);
       tagG.strokeRoundedRect(tagX, tagY - tagH / 2, tagW, tagH, 4);
-      this.add.text(tagX + tagW / 2, tagY, '✦ 已開放',
+      this.add.text(tagX + tagW / 2, tagY, '??撌脤???,
         uiText(Math.round(10 * s), '#44cc88', { fontStyle: 'bold' })
       ).setOrigin(0.5, 0.5).setDepth(10);
 
@@ -164,7 +165,7 @@ export class MapSelectScene extends Phaser.Scene {
       ).setOrigin(0, 0.5).setDepth(10);
     } else {
       this.add.text(textX, cy + Math.round(cardH * 0.12),
-        '🔒 待更新',
+        '?? 敺??,
         uiText(Math.round(11 * s), '#555566')
       ).setOrigin(0, 0.5).setDepth(10);
     }
@@ -248,7 +249,7 @@ export class MapSelectScene extends Phaser.Scene {
     };
     drawBtn(false);
 
-    this.add.text(btnX, btnY, '← 返回宗門選擇',
+    this.add.text(btnX, btnY, '??餈?摰??豢?',
       uiText(Math.round(15 * s), '#aaaacc', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setDepth(12);
 
@@ -262,3 +263,4 @@ export class MapSelectScene extends Phaser.Scene {
     });
   }
 }
+

@@ -240,6 +240,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   init(data: GameSceneData): void {
     // 接收從 MapSelectScene 傳入的 characterId 與 selectedMapId
     this.characterId = data?.characterId ?? '';
+    console.log('[GameScene] init 收到 characterId:', this.characterId);
     // selectedMapId 目前只有 'qingyuan'，預留給未來多地圖擴充
     // const selectedMapId = data?.selectedMapId ?? 'qingyuan';
   }
