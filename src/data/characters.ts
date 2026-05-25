@@ -22,8 +22,8 @@ export const CHARACTERS: CharacterData[] = [
     basePickupRange: 90,
     startingWeaponId: 'guardian_ring', // 守心環（預設武器）
     trait: '屬性加成型', // 暫用，待正式設計後更新
-    iconKey: 'sect_icon_swordsman', // 暫用劍客圖示，待美術補充
-    portraitKey: 'sect_portrait_swordsman', // 暫用劍客立繪，待美術補充
+    iconKey: 'sect_icon_wave',     // 驚濤派專用 icon（美術補充後替換）
+    portraitKey: 'sect_portrait_wave', // 驚濤派專用立繪（美術補充後替換）
   },
   {
     id: 'taoist',

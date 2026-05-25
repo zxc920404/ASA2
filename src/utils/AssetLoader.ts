@@ -53,6 +53,7 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'sect_icon_swordsman', 'assets/sects/icons/Shield.png');
     AssetLoader.loadImage(scene, 'sect_icon_assassin',  'assets/sects/icons/SWORD.png');
     AssetLoader.loadImage(scene, 'sect_icon_taoist',    'assets/sects/icons/GUA.png');
+    AssetLoader.loadImage(scene, 'sect_icon_wave',      'assets/sects/icons/WAVE.png'); // 驚濤派 icon（美術補充後生效）
 
     // ── 宗門選擇背景圖 ────────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'ui_bg_char_select', 'assets/ui/classback.png');

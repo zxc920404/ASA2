@@ -346,6 +346,25 @@ export class CharacterSelectScene extends Phaser.Scene {
         g.fillStyle(0xff8844, 1);
         g.fillRect(cx + Math.round(8 * r), iconY - Math.round(20 * r), Math.round(3 * r), Math.round(28 * r));
         g.fillCircle(cx + Math.round(9 * r), iconY - Math.round(22 * r), Math.round(5 * r));
+      } else if (char.id === 'wave') {
+        // 驚濤派 fallback：水波紋圖示（青藍色波浪線）
+        g.lineStyle(Math.round(2.5 * r), 0x44ccff, 0.9);
+        // 上波浪
+        g.beginPath();
+        g.moveTo(cx - Math.round(14 * r), iconY - Math.round(4 * r));
+        g.lineTo(cx - Math.round(7 * r),  iconY - Math.round(10 * r));
+        g.lineTo(cx,                       iconY - Math.round(4 * r));
+        g.lineTo(cx + Math.round(7 * r),   iconY - Math.round(10 * r));
+        g.lineTo(cx + Math.round(14 * r),  iconY - Math.round(4 * r));
+        g.strokePath();
+        // 下波浪
+        g.beginPath();
+        g.moveTo(cx - Math.round(14 * r), iconY + Math.round(4 * r));
+        g.lineTo(cx - Math.round(7 * r),  iconY + Math.round(10 * r));
+        g.lineTo(cx,                       iconY + Math.round(4 * r));
+        g.lineTo(cx + Math.round(7 * r),   iconY + Math.round(10 * r));
+        g.lineTo(cx + Math.round(14 * r),  iconY + Math.round(4 * r));
+        g.strokePath();
       }
       container.add(g);
     }
