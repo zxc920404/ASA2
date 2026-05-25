@@ -53,7 +53,6 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'sect_icon_swordsman', 'assets/sects/icons/Shield.png');
     AssetLoader.loadImage(scene, 'sect_icon_assassin',  'assets/sects/icons/SWORD.png');
     AssetLoader.loadImage(scene, 'sect_icon_taoist',    'assets/sects/icons/GUA.png');
-    AssetLoader.loadImage(scene, 'sect_icon_wave',      'assets/sects/icons/WAVE.png'); // 驚濤派 icon（美術補充後生效）
 
     // ── 宗門選擇背景圖 ────────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'ui_bg_char_select', 'assets/ui/classback.png');
@@ -96,7 +95,7 @@ export class AssetLoader {
    * - 宗門立繪（160×220，戰鬥 HUD 可能顯示）
    * - 戰鬥 BGM
    * - 戰鬥背景圖
-   * - 驚濤派玩家動畫幀（wave-stand × 4、wave-run × 8）
+   * - 驚鴻派（assassin）玩家動畫幀（wave-stand × 4、wave-run × 8）
    */
   static preloadGameAssets(scene: Phaser.Scene): void {
     // ── 敵人 Sprite（48×48）──────────────────────────────────────────
@@ -109,6 +108,7 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'sect_portrait_swordsman', 'assets/sects/portraits/swordsman.png');
     AssetLoader.loadImage(scene, 'sect_portrait_assassin',  'assets/sects/portraits/assassin.png');
     AssetLoader.loadImage(scene, 'sect_portrait_taoist',    'assets/sects/portraits/taoist.png');
+    // 注意：wave_stand / wave_run 動畫素材供驚鴻派（assassin）使用，不是獨立宗門
 
     // ── 戰鬥 BGM ──────────────────────────────────────────────────────
     AssetLoader.loadAudio(scene, 'bgm_battle', 'assets/audio/bgm/Bandits.mp3');
@@ -116,7 +116,8 @@ export class AssetLoader {
     // ── 戰鬥背景圖 ────────────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'bg_grass_battle', 'assets/backgrounds/grass_battle_tile.png');
 
-    // ── 驚濤派玩家動畫幀 ──────────────────────────────────────────────
+    // ── 驚鴻派（assassin）玩家動畫幀 ────────────────────────────────────
+    // wave-stand / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
     // wave-stand：只取 4 幀（image_1, 5, 9, 13），frameRate 3～4 fps
     AssetLoader.loadImage(scene, 'wave_stand_1',  'assets/sprites/player/wave/wave-stand/image_1.png');
     AssetLoader.loadImage(scene, 'wave_stand_5',  'assets/sprites/player/wave/wave-stand/image_5.png');

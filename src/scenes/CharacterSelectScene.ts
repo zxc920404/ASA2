@@ -53,17 +53,6 @@ const SECT_INFO: Record<string, {
     glowColor: 0xcc3300,
     dimColor: 0x2a1008,
   },
-  wave: {
-    sectName: '驚濤派',
-    motto: '驚濤拍岸，浪卷千軍。',
-    role: '均衡型・動畫角色',
-    description: '以水為師，剛柔並濟。動如驚濤，靜如深淵。',
-    primary: 0x0a1e3a,
-    accent:  0x44ccff,
-    borderColor: 0x22aaee,
-    glowColor: 0x1166aa,
-    dimColor: 0x081428,
-  },
 };
 
 export class CharacterSelectScene extends Phaser.Scene {
@@ -124,7 +113,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const H = this.scale.height;
     const layout = ResponsiveLayout.compute(W, H);
 
-    this.centerIndex = 1; // 預設選中驚濤派（wave，index 1）
+    this.centerIndex = 1; // 預設選中驚鴻派（assassin，index 1）
     this.cardGraphics = [];
     this.cardContainers = [];
     this.cardGlowGraphics = [];
@@ -346,25 +335,6 @@ export class CharacterSelectScene extends Phaser.Scene {
         g.fillStyle(0xff8844, 1);
         g.fillRect(cx + Math.round(8 * r), iconY - Math.round(20 * r), Math.round(3 * r), Math.round(28 * r));
         g.fillCircle(cx + Math.round(9 * r), iconY - Math.round(22 * r), Math.round(5 * r));
-      } else if (char.id === 'wave') {
-        // 驚濤派 fallback：水波紋圖示（青藍色波浪線）
-        g.lineStyle(Math.round(2.5 * r), 0x44ccff, 0.9);
-        // 上波浪
-        g.beginPath();
-        g.moveTo(cx - Math.round(14 * r), iconY - Math.round(4 * r));
-        g.lineTo(cx - Math.round(7 * r),  iconY - Math.round(10 * r));
-        g.lineTo(cx,                       iconY - Math.round(4 * r));
-        g.lineTo(cx + Math.round(7 * r),   iconY - Math.round(10 * r));
-        g.lineTo(cx + Math.round(14 * r),  iconY - Math.round(4 * r));
-        g.strokePath();
-        // 下波浪
-        g.beginPath();
-        g.moveTo(cx - Math.round(14 * r), iconY + Math.round(4 * r));
-        g.lineTo(cx - Math.round(7 * r),  iconY + Math.round(10 * r));
-        g.lineTo(cx,                       iconY + Math.round(4 * r));
-        g.lineTo(cx + Math.round(7 * r),   iconY + Math.round(10 * r));
-        g.lineTo(cx + Math.round(14 * r),  iconY + Math.round(4 * r));
-        g.strokePath();
       }
       container.add(g);
     }

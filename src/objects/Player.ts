@@ -27,7 +27,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 視覺圖形：有動畫時為 Sprite，否則為 Image（fallback） */
   private visual!: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
 
-  /** 是否使用動畫 Sprite（驚濤派角色） */
+  /** 是否使用動畫 Sprite（驚鴻派角色，使用 wave_stand / wave_run 素材） */
   private useSprite: boolean = false;
 
   /** wave sprite 的基礎縮放比例（用於受傷 tween 結束後還原） */
@@ -35,7 +35,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
   /** debug 用：取得目前視覺狀態摘要 */
   public getDebugInfo(): string {
-    const isWave = this.characterId === 'wave';
+    const isAssassin = this.characterId === 'assassin';
     let visualKey = '?';
     if (this.useSprite) {
       const sprite = this.visual as Phaser.GameObjects.Sprite;
@@ -47,7 +47,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
       `charId: ${this.characterId}`,
       `charData.id: ${this.charData.id}`,
       `charData.name: ${this.charData.name}`,
-      `isWave: ${isWave}`,
+      `isAssassin: ${isAssassin}`,
       `useSprite: ${this.useSprite}`,
       `visual: ${visualKey}`,
     ].join('\n');
@@ -92,25 +92,25 @@ export class Player extends Phaser.GameObjects.Rectangle {
     scene.add.existing(this);
 
     // 建立視覺圖形
-    // 驚濤派（wave）：使用 Sprite + 動畫；其他角色：使用 Image（程式繪製 texture）
+    // 驚鴻派（assassin）：使用 Sprite + wave_stand / wave_run 動畫；其他角色：使用 Image（程式繪製 texture）
     const textureKey = `player_${charData.id}`;
-    const isWave = charData.id === 'wave';
+    const isAssassin = charData.id === 'assassin';
 
     // 使用 AssetLoader.hasTexture 而非 textures.exists，
     // 避免 Phaser 將 404 失敗的圖片登記為 __MISSING 後仍回傳 true
-    const waveTexturesReady = isWave
+    const waveTexturesReady = isAssassin
       && AssetLoader.hasTexture(scene, 'wave_stand_1')
       && AssetLoader.hasTexture(scene, 'wave_run_1');
 
     console.log('[Player] charData.id:', charData.id,
-      '| isWave:', isWave,
+      '| isAssassin:', isAssassin,
       '| wave_stand_1 exists:', scene.textures.exists('wave_stand_1'),
       '| wave_stand_1 valid:', AssetLoader.hasTexture(scene, 'wave_stand_1'),
       '| wave_run_1 valid:', AssetLoader.hasTexture(scene, 'wave_run_1'),
       '| waveTexturesReady:', waveTexturesReady);
 
     if (waveTexturesReady) {
-      // 驚濤派：建立 Sprite，初始幀為 wave_stand_1
+      // 驚鴻派：建立 Sprite，初始幀為 wave_stand_1
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
       // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突

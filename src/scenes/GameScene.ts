@@ -301,7 +301,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 預先生成 Sprite Texture（用 Graphics 繪製後快取）────────────────
     this.generateSpriteTextures();
 
-    // ── 驚濤派玩家動畫（wave_stand / wave_run）────────────────────────
+    // ── 驚鴻派玩家動畫（wave_stand / wave_run，供 assassin 使用）────────
     this.createPlayerAnimations();
 
     // ── 武俠訓練場背景（Polish 3）──────────────────────────────────────
@@ -3367,7 +3367,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 建立驚濤派玩家動畫（wave_stand / wave_run）
+   * 建立驚鴻派玩家動畫（wave_stand / wave_run）
+   * wave_stand / wave_run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用。
    * 使用個別載入的 PNG 幀，透過 frames 陣列指定 texture key。
    * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他角色）。
    */
