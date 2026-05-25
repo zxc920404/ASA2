@@ -327,6 +327,36 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
+    // ── 臨時 debug overlay（右下角，固定在畫面上）────────────────────────
+    const dbgText = this.add.text(
+      this.scale.width - 8,
+      this.scale.height - 8,
+      this.player.getDebugInfo(),
+      {
+        fontSize: '11px',
+        color: '#00ff88',
+        stroke: '#000000',
+        strokeThickness: 2,
+        align: 'right',
+        lineSpacing: 2,
+      }
+    )
+      .setOrigin(1, 1)
+      .setScrollFactor(0)
+      .setDepth(300)
+      .setAlpha(0.90);
+    // 每秒更新一次（動畫 key 可能在移動後改變）
+    this.time.addEvent({
+      delay: 500,
+      loop: true,
+      callback: () => {
+        if (dbgText.active && this.player?.active) {
+          dbgText.setText(this.player.getDebugInfo());
+        }
+      },
+    });
+    // ── end debug overlay ─────────────────────────────────────────────────
+
     // 設定 WASD 鍵盤輸入
     const keyboard = this.input.keyboard!;
     this.keyW = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);

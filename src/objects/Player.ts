@@ -30,6 +30,26 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 是否使用動畫 Sprite（驚濤派角色） */
   private useSprite: boolean = false;
 
+  /** debug 用：取得目前視覺狀態摘要 */
+  public getDebugInfo(): string {
+    const isWave = this.characterId === 'wave';
+    let visualKey = '?';
+    if (this.useSprite) {
+      const sprite = this.visual as Phaser.GameObjects.Sprite;
+      visualKey = `anim:${sprite.anims?.currentAnim?.key ?? 'none'}`;
+    } else {
+      visualKey = `img:${(this.visual as Phaser.GameObjects.Image).texture?.key ?? 'none'}`;
+    }
+    return [
+      `charId: ${this.characterId}`,
+      `charData.id: ${this.charData.id}`,
+      `charData.name: ${this.charData.name}`,
+      `isWave: ${isWave}`,
+      `useSprite: ${this.useSprite}`,
+      `visual: ${visualKey}`,
+    ].join('\n');
+  }
+
   /** 上一幀是否在移動（用於切換動畫） */
   private wasMoving: boolean = false;
 
