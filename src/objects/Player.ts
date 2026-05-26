@@ -7,6 +7,23 @@ import { AssetLoader } from '../utils/AssetLoader';
 const MAX_PLAYER_DAMAGE_NUMBERS = 20;
 let activePlayerDamageNumbers = 0;
 
+// ── Wave（驚鴻派）視覺尺寸設定 ────────────────────────────────────────────
+// stand 幀原始尺寸 864×480，有效角色區域約佔圖片高度 65%
+// run   幀原始尺寸 317×409，有效角色區域約佔圖片高度 85%
+// 目標有效角色高度 = 60px（比最大普通小怪 tank 48px 略大）
+// displayHeight 設定讓兩個動畫的有效角色高度一致，切換時不忽大忽小
+/** wave_stand 動畫的 displayHeight（px）：60 / 0.65 ≈ 92 */
+const WAVE_STAND_DISPLAY_HEIGHT = 92;
+/** wave_run 動畫的 displayHeight（px）：60 / 0.85 ≈ 71 */
+const WAVE_RUN_DISPLAY_HEIGHT = 71;
+/** wave sprite 的 origin（水平置中，垂直錨點靠近腳底） */
+const WAVE_ORIGIN_X = 0.5;
+const WAVE_ORIGIN_Y = 0.88;
+/** wave_stand 幀原始寬高比（864 / 480） */
+const WAVE_STAND_ASPECT = 864 / 480;
+/** wave_run 幀原始寬高比（317 / 409） */
+const WAVE_RUN_ASPECT = 317 / 409;
+
 /**
  * Player 遊戲物件
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，32×32）
@@ -30,8 +47,23 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 是否使用動畫 Sprite（驚鴻派角色，使用 wave_stand / wave_run 素材） */
   private useSprite: boolean = false;
 
-  /** wave sprite 的基礎縮放比例（用於受傷 tween 結束後還原） */
-  private baseVisualScale: number = 1;
+  /** wave sprite 目前播放的動畫（'stand' | 'run'），用於受傷 tween 後還原正確 displayHeight */
+  private waveCurrentAnim: 'stand' | 'run' = 'stand';
+
+  /**
+   * 套用 wave sprite 的正確 displayHeight（依目前動畫狀態）。
+   * 在任何修改 scale 的 tween onComplete 中呼叫，確保不會卡在錯誤尺寸。
+   * 使用預先量測的原始圖片寬高比常數，不依賴 sprite.width/height（可能因幀切換而不準確）。
+   */
+  private applyWaveDisplayHeight(): void {
+    if (!this.useSprite || !this.visual || !this.visual.active) return;
+    const sprite = this.visual as Phaser.GameObjects.Sprite;
+    if (this.waveCurrentAnim === 'run') {
+      sprite.setDisplaySize(WAVE_RUN_DISPLAY_HEIGHT * WAVE_RUN_ASPECT, WAVE_RUN_DISPLAY_HEIGHT);
+    } else {
+      sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);
+    }
+  }
 
   /** debug 用：取得目前視覺狀態摘要 */
   public getDebugInfo(): string {
@@ -116,16 +148,15 @@ export class Player extends Phaser.GameObjects.Rectangle {
       // 驚鴻派：建立 Sprite，初始幀為 wave_stand_1
       const sprite = scene.add.sprite(x, y, 'wave_stand_1');
       sprite.setDepth(5);
-      // Wave sprite：使用 setScale 而非 setDisplaySize，避免與縮放 tween 衝突
-      // 0.13 = 玩家比最大普通小怪（tank 48px）略大一點的比例
-      // 圖片原始尺寸 864×480，有大量透明邊距，有效角色區域約佔高度 60%
-      // setOrigin(0.5, 0.88)：水平置中，垂直錨點靠近腳底，避免浮空感
-      const WAVE_SPRITE_SCALE = 0.13;
-      this.baseVisualScale = WAVE_SPRITE_SCALE;
-      sprite.setScale(WAVE_SPRITE_SCALE);
-      sprite.setOrigin(0.5, 0.88);
+      // Wave sprite：使用 displayHeight 固定有效角色高度，避免 stand/run 切換時忽大忽小。
+      // stand 幀 864×480，run 幀 317×409，原始比例不同，同一 scale 下視覺大小不一致。
+      // 改用各自的 WAVE_STAND_DISPLAY_HEIGHT / WAVE_RUN_DISPLAY_HEIGHT，讓有效角色高度一致。
+      sprite.setOrigin(WAVE_ORIGIN_X, WAVE_ORIGIN_Y);
+      // 初始為 stand 動畫，套用 stand 的 displayHeight（使用預先量測的寬高比常數）
+      sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);
       this.visual = sprite;
       this.useSprite = true;
+      this.waveCurrentAnim = 'stand';
       // 動畫已在 GameScene.createPlayerAnimations() 中建立（Player 建立前執行）
       if (scene.anims.exists('wave_stand')) {
         sprite.play('wave_stand');
@@ -147,13 +178,11 @@ export class Player extends Phaser.GameObjects.Rectangle {
   }
 
   /**
-   * 還原視覺圖形至基礎縮放比例。
+   * 還原視覺圖形至正確顯示尺寸。
    * 在任何修改 scale 的 tween onComplete 中呼叫，確保 wave sprite 不會卡在錯誤縮放。
    */
   private applyBaseScale(): void {
-    if (this.useSprite && this.visual && this.visual.active) {
-      (this.visual as Phaser.GameObjects.Sprite).setScale(this.baseVisualScale);
-    }
+    this.applyWaveDisplayHeight();
   }
 
   /**
@@ -206,16 +235,20 @@ export class Player extends Phaser.GameObjects.Rectangle {
       this.hitFlashTimer = 110;
     }
 
-    // 【2】縮放抖動（scale 1.0 → 0.88 → 1.0）
+    // 【2】縮放抖動（displayHeight 縮小至 88% → 還原）
     if (this.visual && this.visual.active && scene.tweens) {
+      const sprite = this.visual as Phaser.GameObjects.Sprite;
+      const curH = sprite.displayHeight;
+      const curW = sprite.displayWidth;
       scene.tweens.add({
-        targets: this.visual,
-        scaleX: this.baseVisualScale * 0.88, scaleY: this.baseVisualScale * 0.88,
+        targets: sprite,
+        displayHeight: curH * 0.88,
+        displayWidth: curW * 0.88,
         duration: 55, ease: 'Power2',
         yoyo: true,
         onComplete: () => {
           if (this.visual && this.visual.active) {
-            this.applyBaseScale();
+            this.applyWaveDisplayHeight();
           }
         },
       });
@@ -374,11 +407,17 @@ export class Player extends Phaser.GameObjects.Rectangle {
         // 切換至跑步動畫（若尚未播放）
         if (!this.wasMoving) {
           sprite.play('wave_run', true);
+          this.waveCurrentAnim = 'run';
+          // 切換動畫後立即套用 run 的 displayHeight，避免忽然變大
+          sprite.setDisplaySize(WAVE_RUN_DISPLAY_HEIGHT * WAVE_RUN_ASPECT, WAVE_RUN_DISPLAY_HEIGHT);
         }
       } else {
         // 切換至待機動畫（若尚未停止）
         if (this.wasMoving) {
           sprite.play('wave_stand', true);
+          this.waveCurrentAnim = 'stand';
+          // 切換動畫後立即套用 stand 的 displayHeight，避免忽然縮小
+          sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);
         }
       }
       this.wasMoving = isMoving;
