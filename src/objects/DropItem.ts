@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Player } from './Player';
 
-export type DropItemType = 'heal' | 'speed' | 'bomb';
+export type DropItemType = 'heal' | 'speed' | 'bomb' | 'magnet';
 
 /** 道具拾取半徑 */
 const PICKUP_RADIUS = 22;
@@ -87,6 +87,22 @@ export class DropItem {
         g.fillTriangle(0, 9, -3, 3, 3, 3);
         g.fillTriangle(-9, 0, -3, -3, -3, 3);
         g.fillTriangle(9, 0, 3, -3, 3, 3);
+        break;
+      case 'magnet':
+        // 紫藍色磁鐵：外圈光暈 + 內圓 + U 形磁鐵符號
+        g.fillStyle(0x4400cc, 0.30); g.fillCircle(0, 0, 16);
+        g.fillStyle(0x6633ff, 0.85); g.fillCircle(0, 0, 10);
+        g.lineStyle(2, 0x99aaff, 0.9); g.strokeCircle(0, 0, 14);
+        // U 形磁鐵：兩條短豎線 + 底部橫線
+        g.lineStyle(2.5, 0xffffff, 0.95);
+        g.lineBetween(-5, -7, -5, 3);
+        g.lineBetween( 5, -7,  5, 3);
+        g.beginPath();
+        g.arc(0, 3, 5, 0, Math.PI, false);
+        g.strokePath();
+        // 磁極顏色點（紅/藍）
+        g.fillStyle(0xff4444, 1); g.fillCircle(-5, -7, 2);
+        g.fillStyle(0x44aaff, 1); g.fillCircle( 5, -7, 2);
         break;
     }
   }

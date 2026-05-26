@@ -1702,15 +1702,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 機率掉落道具（普通小怪死亡時呼叫）
-   * 測試掉落率 12%（heal 5% / speed 4% / bomb 3%）
-   * 正式版建議改回 4%（heal 2% / speed 1% / bomb 1%）
+   * 每種道具獨立判定，同一隻怪最多掉一個。
+   * 優先級：magnet > bomb > heal > speed
+   * 機率：magnet 1%、bomb 1%、heal 2%、speed 1.5%
    */
   private trySpawnDropItem(x: number, y: number): void {
-    const r = Math.random();
+    const rollMagnet = Math.random() < 0.01;
+    const rollBomb   = Math.random() < 0.01;
+    const rollHeal   = Math.random() < 0.02;
+    const rollSpeed  = Math.random() < 0.015;
+
     let type: DropItemType | null = null;
-    if      (r < 0.02) type = 'heal';
-    else if (r < 0.015) type = 'speed';
-    else if (r < 0.01) type = 'bomb';
+    if      (rollMagnet) type = 'magnet';
+    else if (rollBomb)   type = 'bomb';
+    else if (rollHeal)   type = 'heal';
+    else if (rollSpeed)  type = 'speed';
+
     if (!type) return;
 
     if (this.dropItems.length >= this.MAX_DROP_ITEMS) {
@@ -1766,6 +1773,36 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         // 爆炸視覺
         this.showBombEffect(this.player.x, this.player.y, BOMB_RADIUS);
         this.showPickupEffect(this.player.x, this.player.y, 0xff8800, '清怪！');
+        break;
+      }
+      case 'magnet': {
+        // ── 吸取全地圖所有 XPGem ──────────────────────────────────────
+        const gems = this.xpGemGroup.getChildren() as XPGem[];
+        for (const gem of gems) {
+          gem.isAttracting = true;
+        }
+
+        // ── 吸取所有 DropItem（快照避免邊遍歷邊修改陣列）────────────
+        // 複製一份快照，避免在遍歷中修改 this.dropItems 造成漏處理
+        const itemSnapshot = [...this.dropItems];
+        for (const item of itemSnapshot) {
+          // 跳過已死亡的道具
+          if (item.isDead) continue;
+          // magnet 本身只移除，不遞迴觸發 applyDropItem('magnet')
+          if (item.type === 'magnet') {
+            item.destroy();
+            const idx = this.dropItems.indexOf(item);
+            if (idx !== -1) this.dropItems.splice(idx, 1);
+            continue;
+          }
+          // 其他道具：套用效果後移除
+          this.applyDropItem(item.type);
+          item.destroy();
+          const idx = this.dropItems.indexOf(item);
+          if (idx !== -1) this.dropItems.splice(idx, 1);
+        }
+
+        this.showPickupEffect(this.player.x, this.player.y, 0x66ccff, '吸星！');
         break;
       }
     }
