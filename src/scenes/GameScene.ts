@@ -44,8 +44,8 @@ const MAX_LEVEL = 99;
 
 /** 敵人生成距離範圍（Requirement 6.4）
  * 使用較大距離確保怪物從玩家視野外四面八方生成 */
-const SPAWN_DIST_MIN = 600;
-const SPAWN_DIST_MAX = 720;
+const SPAWN_DIST_MIN = 1000;
+const SPAWN_DIST_MAX = 1200;
 
 /** 玩家碰撞半徑（Requirement 6.2） */
 const PLAYER_COLLISION_RADIUS = 15;
@@ -54,10 +54,10 @@ const PLAYER_COLLISION_RADIUS = 15;
 const CONTACT_DAMAGE_COOLDOWN_MS = 500;
 
 /** 敵人分離半徑（px）：距離小於此值時產生推力（下調讓後期可形成密集怪潮） */
-const ENEMY_SEPARATION_RADIUS = 36;
+const ENEMY_SEPARATION_RADIUS = 50;
 
 /** 敵人分離強度：分離向量的權重（下調讓怪物可以稍微重疊，不互相硬推） */
-const ENEMY_SEPARATION_STRENGTH = 0.40;
+const ENEMY_SEPARATION_STRENGTH = 0.5;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
