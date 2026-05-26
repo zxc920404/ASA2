@@ -324,7 +324,7 @@ export class HUD {
 
   /**
    * 直屏武器格 + 被動格（上方 HUD 條下方，小圖示水平排列）
-   * 武器格：左側，被動格：右側，各最多 4 格
+   * 武器格：左側靠左，被動格：右側靠右，左右對稱
    */
   private buildSlotsPortrait(W: number, _H: number, startY: number): void {
     const MAX_SLOTS = 4;
@@ -332,9 +332,11 @@ export class HUD {
     const slotGap = 3;
     const rowH = slotSize + 2;
 
-    // 武器格：左側水平排列
-    const wStartX = 6;
-    const pStartX = W / 2 + 4;
+    // 左右對稱：武器欄靠左，被動欄靠右，各留 6px 邊距
+    const sidePad = 6;
+    const totalSlotsW = MAX_SLOTS * (slotSize + slotGap) - slotGap; // 4 格總寬（不含最後 gap）
+    const wStartX = sidePad;
+    const pStartX = W - sidePad - totalSlotsW;
     const slotY = startY + 2;
 
     // 武器欄背景
@@ -581,8 +583,12 @@ export class HUD {
     const slotGap = 3;
     const hudH = Math.round(_H * 0.10);
     const slotY = layout.safeTop + hudH + 8;
-    const wStartX = 6;
-    const pStartX = W / 2 + 4;
+
+    // 左右對稱：與 buildSlotsPortrait 保持一致
+    const sidePad = 6;
+    const totalSlotsW = MAX_SLOTS * (slotSize + slotGap) - slotGap;
+    const wStartX = sidePad;
+    const pStartX = W - sidePad - totalSlotsW;
 
     for (let i = 0; i < MAX_SLOTS; i++) {
       const ws = player.equipment.weapons[i];

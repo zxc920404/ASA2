@@ -11,7 +11,7 @@ let activePlayerDamageNumbers = 0;
 // idle / run 圖片畫布都是 256×256（正方形），比例 1:1
 // origin 統一使用 (0.5, 0.5)，錨點在圖片中心
 /** wave 動畫統一 displaySize（px）：stand 與 run 相同 */
-const WAVE_DISPLAY_HEIGHT = 90;
+const WAVE_DISPLAY_HEIGHT = 160;
 /** wave sprite 的 origin（水平置中，垂直置中） */
 const WAVE_ORIGIN_X = 0.5;
 const WAVE_ORIGIN_Y = 0.5;
@@ -23,7 +23,7 @@ const WAVE_RUN_ASPECT = 256 / 256;
 const WAVE_STAND_DISPLAY_HEIGHT = WAVE_DISPLAY_HEIGHT;
 const WAVE_RUN_DISPLAY_HEIGHT = WAVE_DISPLAY_HEIGHT;
 /** run 動畫視覺偏移補正（px）：若 run 角色本體在畫布內偏移，調整此值 */
-const WAVE_RUN_OFFSET_X = -18;
+const WAVE_RUN_OFFSET_X = 0;
 const WAVE_RUN_OFFSET_Y = 0;
 /** idle 動畫視覺偏移（px）：本體置中，不需補正 */
 const WAVE_IDLE_OFFSET_X = 0;
