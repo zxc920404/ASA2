@@ -8,20 +8,26 @@ const MAX_PLAYER_DAMAGE_NUMBERS = 20;
 let activePlayerDamageNumbers = 0;
 
 // ── Wave（驚鴻派）視覺尺寸設定 ────────────────────────────────────────────
-// idle 幀原始尺寸 444×444（正方形），有效角色區域約佔圖片高度 90%
-// run  幀原始尺寸 317×409，跑步姿勢腿部伸展，視覺上比 idle 更高
-// 兩者使用不同 displayHeight 補償視覺差異，讓切換時感覺大小一致
-/** wave_stand（idle）動畫的 displayHeight（px） */
-const WAVE_STAND_DISPLAY_HEIGHT = 70;
-/** wave_run 動畫的 displayHeight（px）：比 stand 略小，補償跑步姿勢視覺偏大 */
-const WAVE_RUN_DISPLAY_HEIGHT = 70;
-/** wave sprite 的 origin（水平置中，垂直錨點靠近腳底） */
+// idle / run 圖片畫布都是 256×256（正方形），比例 1:1
+// origin 統一使用 (0.5, 0.5)，錨點在圖片中心
+/** wave 動畫統一 displaySize（px）：stand 與 run 相同 */
+const WAVE_DISPLAY_HEIGHT = 90;
+/** wave sprite 的 origin（水平置中，垂直置中） */
 const WAVE_ORIGIN_X = 0.5;
-const WAVE_ORIGIN_Y = 0.88;
-/** wave_stand（idle）幀原始寬高比（444 / 444 = 1.0） */
-const WAVE_STAND_ASPECT = 444 / 444;
-/** wave_run 幀原始寬高比（317 / 409） */
-const WAVE_RUN_ASPECT = 317 / 409;
+const WAVE_ORIGIN_Y = 0.5;
+/** wave_stand（idle）幀原始寬高比（256 / 256 = 1.0） */
+const WAVE_STAND_ASPECT = 256 / 256;
+/** wave_run 幀原始寬高比（256 / 256 = 1.0） */
+const WAVE_RUN_ASPECT = 256 / 256;
+// 保留個別常數供 applyWaveDisplayHeight 使用（兩者相同）
+const WAVE_STAND_DISPLAY_HEIGHT = WAVE_DISPLAY_HEIGHT;
+const WAVE_RUN_DISPLAY_HEIGHT = WAVE_DISPLAY_HEIGHT;
+/** run 動畫視覺偏移補正（px）：若 run 角色本體在畫布內偏移，調整此值 */
+const WAVE_RUN_OFFSET_X = -18;
+const WAVE_RUN_OFFSET_Y = 0;
+/** idle 動畫視覺偏移（px）：本體置中，不需補正 */
+const WAVE_IDLE_OFFSET_X = 0;
+const WAVE_IDLE_OFFSET_Y = 0;
 
 /**
  * Player 遊戲物件
@@ -48,6 +54,10 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
   /** wave sprite 目前播放的動畫（'stand' | 'run'），用於受傷 tween 後還原正確 displayHeight */
   private waveCurrentAnim: 'stand' | 'run' = 'stand';
+
+  /** wave visual 顯示層偏移補正（px），只影響 sprite 位置，不動 player 本體座標 */
+  private waveVisualOffsetX: number = 0;
+  private waveVisualOffsetY: number = 0;
 
   /**
    * 套用 wave sprite 的正確 displayHeight（依目前動畫狀態）。
@@ -200,11 +210,11 @@ export class Player extends Phaser.GameObjects.Rectangle {
   }
 
   /**
-   * 同步視覺圖形位置
+   * 同步視覺圖形位置（套用 wave visual offset 補正）
    */
   private syncVisual(): void {
     if (this.visual && this.visual.active) {
-      this.visual.setPosition(this.x, this.y);
+      this.visual.setPosition(this.x + this.waveVisualOffsetX, this.y + this.waveVisualOffsetY);
     }
   }
 
@@ -409,6 +419,9 @@ export class Player extends Phaser.GameObjects.Rectangle {
           this.waveCurrentAnim = 'run';
           // 切換動畫後立即套用 run 的 displayHeight，避免忽然變大
           sprite.setDisplaySize(WAVE_RUN_DISPLAY_HEIGHT * WAVE_RUN_ASPECT, WAVE_RUN_DISPLAY_HEIGHT);
+          // 套用 run 視覺偏移補正（run 角色本體在畫布內偏右）
+          this.waveVisualOffsetX = WAVE_RUN_OFFSET_X;
+          this.waveVisualOffsetY = WAVE_RUN_OFFSET_Y;
         }
       } else {
         // 切換至待機動畫（若尚未停止）
@@ -417,6 +430,9 @@ export class Player extends Phaser.GameObjects.Rectangle {
           this.waveCurrentAnim = 'stand';
           // 切換動畫後立即套用 stand 的 displayHeight，避免忽然縮小
           sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);
+          // 還原 idle 視覺偏移（idle 本體置中，不需補正）
+          this.waveVisualOffsetX = WAVE_IDLE_OFFSET_X;
+          this.waveVisualOffsetY = WAVE_IDLE_OFFSET_Y;
         }
       }
       this.wasMoving = isMoving;

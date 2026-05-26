@@ -86,24 +86,23 @@ export class AssetLoader {
     AssetLoader.loadAudio(scene, 'bgm_battle', 'assets/audio/bgm/Bandits.mp3');
 
     // ── 驚鴻派（assassin）玩家動畫幀 ────────────────────────────────────
-    // wave-stand / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
-    // wave-stand（idle）：5 幀（idle_01~05），frameRate 5 fps
-    AssetLoader.loadImage(scene, 'wave_idle_01', 'assets/sprites/player/wave/wave-stand/idle_01.png');
-    AssetLoader.loadImage(scene, 'wave_idle_02', 'assets/sprites/player/wave/wave-stand/idle_02.png');
-    AssetLoader.loadImage(scene, 'wave_idle_03', 'assets/sprites/player/wave/wave-stand/idle_03.png');
-    AssetLoader.loadImage(scene, 'wave_idle_04', 'assets/sprites/player/wave/wave-stand/idle_04.png');
-    AssetLoader.loadImage(scene, 'wave_idle_05', 'assets/sprites/player/wave/wave-stand/idle_05.png');
+    // wave-idle / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
+    // wave-idle：4 幀（wave-idle/01~04.png），frameRate 4 fps
+    AssetLoader.loadImage(scene, 'wave_idle_01', 'assets/sprites/player/wave/wave-idle/01.png');
+    AssetLoader.loadImage(scene, 'wave_idle_02', 'assets/sprites/player/wave/wave-idle/02.png');
+    AssetLoader.loadImage(scene, 'wave_idle_03', 'assets/sprites/player/wave/wave-idle/03.png');
+    AssetLoader.loadImage(scene, 'wave_idle_04', 'assets/sprites/player/wave/wave-idle/04.png');
 
-    // wave-run：8 幀（frames_uniform/run_01~08），frameRate 8 fps
-    // 使用 frames_uniform 版本（等比例裁切，無多餘空白），避免 frames_fixed 的比例問題
-    AssetLoader.loadImage(scene, 'wave_run_01', 'assets/sprites/player/wave/wave-run/frames_uniform/run_01.png');
-    AssetLoader.loadImage(scene, 'wave_run_02', 'assets/sprites/player/wave/wave-run/frames_uniform/run_02.png');
-    AssetLoader.loadImage(scene, 'wave_run_03', 'assets/sprites/player/wave/wave-run/frames_uniform/run_03.png');
-    AssetLoader.loadImage(scene, 'wave_run_04', 'assets/sprites/player/wave/wave-run/frames_uniform/run_04.png');
-    AssetLoader.loadImage(scene, 'wave_run_05', 'assets/sprites/player/wave/wave-run/frames_uniform/run_05.png');
-    AssetLoader.loadImage(scene, 'wave_run_06', 'assets/sprites/player/wave/wave-run/frames_uniform/run_06.png');
-    AssetLoader.loadImage(scene, 'wave_run_07', 'assets/sprites/player/wave/wave-run/frames_uniform/run_07.png');
-    AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/frames_uniform/run_08.png');
+    // wave-run：9 幀（wave-run/01~09.png），frameRate 12 fps
+    AssetLoader.loadImage(scene, 'wave_run_01', 'assets/sprites/player/wave/wave-run/01.png');
+    AssetLoader.loadImage(scene, 'wave_run_02', 'assets/sprites/player/wave/wave-run/02.png');
+    AssetLoader.loadImage(scene, 'wave_run_03', 'assets/sprites/player/wave/wave-run/03.png');
+    AssetLoader.loadImage(scene, 'wave_run_04', 'assets/sprites/player/wave/wave-run/04.png');
+    AssetLoader.loadImage(scene, 'wave_run_05', 'assets/sprites/player/wave/wave-run/05.png');
+    AssetLoader.loadImage(scene, 'wave_run_06', 'assets/sprites/player/wave/wave-run/06.png');
+    AssetLoader.loadImage(scene, 'wave_run_07', 'assets/sprites/player/wave/wave-run/07.png');
+    AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/08.png');
+    AssetLoader.loadImage(scene, 'wave_run_09', 'assets/sprites/player/wave/wave-run/09.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────

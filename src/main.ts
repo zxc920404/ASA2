@@ -9,6 +9,13 @@ import { MetaUpgradeScene } from './scenes/MetaUpgradeScene';
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.WEBGL,
   backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 0 },
+      debug: false,
+    },
+  },
   scene: [BootScene, MainMenuScene, CharacterSelectScene, MapSelectScene, GameScene, MetaUpgradeScene],
   scale: {
     // RESIZE：canvas 跟隨視口大小，直屏 portrait 模式
