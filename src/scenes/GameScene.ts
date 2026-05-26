@@ -54,10 +54,10 @@ const PLAYER_COLLISION_RADIUS = 14;
 const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
 
 /** 敵人分離半徑（px）：距離小於此值時產生推力（下調讓後期可形成密集怪潮） */
-const ENEMY_SEPARATION_RADIUS = 18;
+const ENEMY_SEPARATION_RADIUS = 32;
 
 /** 敵人分離強度：分離向量的權重（下調讓怪物可以稍微重疊，不互相硬推） */
-const ENEMY_SEPARATION_STRENGTH = 0.45;
+const ENEMY_SEPARATION_STRENGTH = 0.40;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
