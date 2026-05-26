@@ -51,7 +51,7 @@ const SPAWN_DIST_MAX = 720;
 const PLAYER_COLLISION_RADIUS = 15;
 
 /** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
-const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
+const CONTACT_DAMAGE_COOLDOWN_MS = 500;
 
 /** 敵人分離半徑（px）：距離小於此值時產生推力（下調讓後期可形成密集怪潮） */
 const ENEMY_SEPARATION_RADIUS = 36;
