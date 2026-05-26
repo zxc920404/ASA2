@@ -8,14 +8,13 @@ const MAX_PLAYER_DAMAGE_NUMBERS = 20;
 let activePlayerDamageNumbers = 0;
 
 // ── Wave（驚鴻派）視覺尺寸設定 ────────────────────────────────────────────
-// idle 幀原始尺寸 444×444（正方形），有效角色區域約佔圖片高度 85%
-// run  幀原始尺寸 317×409，有效角色區域約佔圖片高度 85%
-// 兩者有效比例相近，使用相同 displayHeight 讓大小一致
-// 目標有效角色高度 = 70px（比最大普通小怪 tank 48px 略大）
-/** wave_stand（idle）動畫的 displayHeight（px）：70 / 0.85 ≈ 82 */
+// idle 幀原始尺寸 444×444（正方形），有效角色區域約佔圖片高度 90%
+// run  幀原始尺寸 317×409，跑步姿勢腿部伸展，視覺上比 idle 更高
+// 兩者使用不同 displayHeight 補償視覺差異，讓切換時感覺大小一致
+/** wave_stand（idle）動畫的 displayHeight（px） */
 const WAVE_STAND_DISPLAY_HEIGHT = 82;
-/** wave_run 動畫的 displayHeight（px）：與 stand 相同，確保切換時大小一致 */
-const WAVE_RUN_DISPLAY_HEIGHT = 82;
+/** wave_run 動畫的 displayHeight（px）：比 stand 略小，補償跑步姿勢視覺偏大 */
+const WAVE_RUN_DISPLAY_HEIGHT = 68;
 /** wave sprite 的 origin（水平置中，垂直錨點靠近腳底） */
 const WAVE_ORIGIN_X = 0.5;
 const WAVE_ORIGIN_Y = 0.88;
