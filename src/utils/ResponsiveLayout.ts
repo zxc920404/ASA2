@@ -59,10 +59,46 @@ export interface LayoutMetrics {
   isPortrait: boolean;
 }
 
+/**
+ * 從 CSS env(safe-area-inset-*) 讀取實際系統安全邊距（px）
+ * 在 Android windowTranslucentStatus 模式下，這會反映真實的瀏海/狀態列高度
+ * 若瀏覽器不支援或讀取失敗，回傳 0
+ */
+function readCssSafeAreaInsets(): { top: number; bottom: number; left: number; right: number } {
+  try {
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed',
+      'top:0',
+      'left:0',
+      'width:0',
+      'height:0',
+      'visibility:hidden',
+      'padding-top:env(safe-area-inset-top,0px)',
+      'padding-bottom:env(safe-area-inset-bottom,0px)',
+      'padding-left:env(safe-area-inset-left,0px)',
+      'padding-right:env(safe-area-inset-right,0px)',
+    ].join(';');
+    document.body.appendChild(el);
+    const style = window.getComputedStyle(el);
+    const top    = parseFloat(style.paddingTop)    || 0;
+    const bottom = parseFloat(style.paddingBottom) || 0;
+    const left   = parseFloat(style.paddingLeft)   || 0;
+    const right  = parseFloat(style.paddingRight)  || 0;
+    document.body.removeChild(el);
+    return { top, bottom, left, right };
+  } catch {
+    return { top: 0, bottom: 0, left: 0, right: 0 };
+  }
+}
+
 export class ResponsiveLayout {
   /**
    * 根據畫布尺寸計算完整 layout metrics
    * 直屏（portrait）與橫屏（landscape）均支援
+   *
+   * safe area 優先使用 CSS env(safe-area-inset-*) 的實際值，
+   * 確保 HUD 在 canvas 延伸到狀態列後方時仍正確避開瀏海。
    */
   static compute(W: number, H: number): LayoutMetrics {
     const aspectRatio = W / H;
@@ -89,34 +125,50 @@ export class ResponsiveLayout {
       }
     }
 
-    // ── Safe area ────────────────────────────────────────────────────
+    // ── Safe area：優先讀取 CSS env()，fallback 至估算值 ────────────
+    const cssInsets = readCssSafeAreaInsets();
+
     const baseSafeH = Math.max(8, Math.round(H * 0.012));
     const baseSafeW = Math.max(8, Math.round(W * 0.010));
 
     let safeTop: number;
     let safeBottom: number;
-    const safeLeft = baseSafeW;
-    const safeRight = baseSafeW;
+    let safeLeft: number;
+    let safeRight: number;
 
     if (isPortrait) {
-      // 直屏：上方補償瀏海/挖孔，下方補償手勢導航列
-      switch (aspectClass) {
-        case 'compact':
-          safeTop    = Math.max(16, baseSafeH);
-          safeBottom = Math.max(16, baseSafeH);
-          break;
-        case 'normal':
-          safeTop    = Math.max(28, baseSafeH);
-          safeBottom = Math.max(20, baseSafeH);
-          break;
-        case 'ultrawide':
-          safeTop    = Math.max(44, baseSafeH); // 長型手機瀏海更深
-          safeBottom = Math.max(28, baseSafeH);
-          break;
+      // 直屏：優先使用 CSS env() 實際值（Android overlay 模式下最準確）
+      // 若 CSS env() 回傳 0（舊裝置不支援），fallback 至比例估算
+      if (cssInsets.top > 0) {
+        // 有實際 safe-area 資料：直接使用，加 8px 視覺緩衝
+        safeTop    = Math.round(cssInsets.top) + 8;
+        safeBottom = Math.max(16, Math.round(cssInsets.bottom) + 8);
+        safeLeft   = Math.max(baseSafeW, Math.round(cssInsets.left));
+        safeRight  = Math.max(baseSafeW, Math.round(cssInsets.right));
+      } else {
+        // Fallback：依比例估算（舊裝置或不支援 env() 的環境）
+        switch (aspectClass) {
+          case 'compact':
+            safeTop    = Math.max(16, baseSafeH);
+            safeBottom = Math.max(16, baseSafeH);
+            break;
+          case 'normal':
+            safeTop    = Math.max(28, baseSafeH);
+            safeBottom = Math.max(20, baseSafeH);
+            break;
+          case 'ultrawide':
+            safeTop    = Math.max(44, baseSafeH); // 長型手機瀏海更深
+            safeBottom = Math.max(28, baseSafeH);
+            break;
+        }
+        safeLeft  = baseSafeW;
+        safeRight = baseSafeW;
       }
     } else {
-      safeTop    = baseSafeH;
-      safeBottom = baseSafeH;
+      safeTop    = cssInsets.top    > 0 ? Math.round(cssInsets.top)    + 4 : baseSafeH;
+      safeBottom = cssInsets.bottom > 0 ? Math.round(cssInsets.bottom) + 4 : baseSafeH;
+      safeLeft   = cssInsets.left   > 0 ? Math.round(cssInsets.left)       : baseSafeW;
+      safeRight  = cssInsets.right  > 0 ? Math.round(cssInsets.right)      : baseSafeW;
     }
 
     // ── UI 縮放（直屏以寬度為基準）──────────────────────────────────

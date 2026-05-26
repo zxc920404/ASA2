@@ -227,15 +227,15 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.lastDamageTime = -Infinity;
 
     // ── 個體差異初始化（讓怪物不完全同速同方向）──────────────────────
-    // 包圍角度偏移：-60° ~ +60°，讓怪物趨向玩家周圍不同位置
-    this.approachAngleOffset = (Math.random() - 0.5) * (Math.PI / 1.5);
+    // 包圍角度偏移：-35° ~ +35°，讓怪物趨向玩家周圍不同位置
+    this.approachAngleOffset = (Math.random() - 0.5) * (Math.PI / 2.57);
     // 速度個體差異：±12%
     this.speedVariance = 0.88 + Math.random() * 0.24;
-    // 個人空間：普通怪 28~44px，giant 40~56px
+    // 個人空間：普通怪 20~32px，giant 40~56px
     const isLarge = (enemyData.id === 'giant' || enemyData.id === 'tank');
     this.personalSpace = isLarge
       ? 40 + Math.random() * 16
-      : 28 + Math.random() * 16;
+      : 20 + Math.random() * 12;
 
     scene.add.existing(this);
     // Rectangle 本身只作碰撞邊界用，不顯示
@@ -370,7 +370,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   public moveTowardPlayer(
     playerX: number, playerY: number, delta: number,
-    separationX: number = 0, separationY: number = 0
+    separationX: number = 0, separationY: number = 0,
+    surroundSlotX: number = 0, surroundSlotY: number = 0,
+    sectorRepelX: number = 0, sectorRepelY: number = 0
   ): void {
     if (this.isDying) return;
     // charger 技能施放中或前搖中：停止移動
@@ -420,13 +422,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
         // 理想射擊距離：停止移動，等 updateRangedSkill 觸發攻擊
         this.syncVisual();
       } else {
-        // 太近：後退
+        // 太近：後退並加入側向分離，避免跟近戰怪擠在一起
         if (this.archerState !== 'attacking') {
-          const backX = -(dx / dist);
-          const backY = -(dy / dist);
+          const backX = -(dx / dist) + separationX * 0.5;
+          const backY = -(dy / dist) + separationY * 0.5;
+          const backLen = Math.sqrt(backX * backX + backY * backY);
+          const nbx = backLen > 0 ? backX / backLen : -(dx / dist);
+          const nby = backLen > 0 ? backY / backLen : -(dy / dist);
           this.setPosition(
-            this.x + backX * this.moveSpeed * 0.5 * dt,
-            this.y + backY * this.moveSpeed * 0.5 * dt
+            this.x + nbx * this.moveSpeed * 0.5 * dt,
+            this.y + nby * this.moveSpeed * 0.5 * dt
           );
           this.syncVisual();
         }
@@ -445,30 +450,24 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.syncVisual();
       return;
     }
+
     const chaseX = dx / dist;
     const chaseY = dy / dist;
-    let finalX = chaseX + separationX;
-    let finalY = chaseY + separationY;
-    const finalLen = Math.sqrt(finalX * finalX + finalY * finalY);
-    if (finalLen > 0) { finalX /= finalLen; finalY /= finalLen; }
 
     // ── 包圍點偏移：讓怪物趨向玩家周圍不同角度，而非全部擠向中心 ──
-    // 計算玩家方向的角度，加上個體偏移後得到目標方向
     const baseAngle = Math.atan2(dy, dx);
     const targetAngle = baseAngle + this.approachAngleOffset;
     const approachX = Math.cos(targetAngle);
     const approachY = Math.sin(targetAngle);
 
-    // 怪物與玩家最小距離（個人空間）：避免完全重疊在玩家中心
+    // ── 個人空間：已進入最小距離，側向移動形成包圍感 ─────────────────
     if (dist <= this.personalSpace) {
-      // 已進入個人空間：加入側向移動，形成包圍感而非硬推
-      // 側向向量 = 垂直於玩家方向，方向由 approachAngleOffset 正負決定
       const sideSign = this.approachAngleOffset >= 0 ? 1 : -1;
       const sideX = -chaseY * sideSign;
       const sideY =  chaseX * sideSign;
-      // 混合：70% 側向 + 30% 分離，讓怪物繞圈而非硬停
-      const blendX = sideX * 0.7 + separationX * 0.3;
-      const blendY = sideY * 0.7 + separationY * 0.3;
+      // 混合：60% 側向 + 25% 分離 + 15% sector repel
+      const blendX = sideX * 0.60 + separationX * 0.25 + sectorRepelX * 0.15;
+      const blendY = sideY * 0.60 + separationY * 0.25 + sectorRepelY * 0.15;
       const blendLen = Math.sqrt(blendX * blendX + blendY * blendY);
       if (blendLen > 0.01) {
         const nx = blendX / blendLen;
@@ -487,19 +486,59 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       return;
     }
 
-    // ── 正常追擊：混合包圍方向 + 分離向量 ───────────────────────────
-    // 距離越近，包圍偏移越強（讓遠處怪物直線衝，近處怪物分散包圍）
+    // ── Surround Slot：進入包圍範圍時，目標改為 slot 點而非玩家中心 ──
+    // surroundSlotX/Y 由 GameScene 計算後傳入（非零時代表已分配 slot）
+    let targetDx: number;
+    let targetDy: number;
+    let targetDist: number;
+
+    if (surroundSlotX !== 0 || surroundSlotY !== 0) {
+      // 目標是 slot 點（相對於怪物的向量）
+      const slotDx = surroundSlotX - this.x;
+      const slotDy = surroundSlotY - this.y;
+      const slotDist = Math.sqrt(slotDx * slotDx + slotDy * slotDy);
+      if (slotDist > 2) {
+        targetDx = slotDx;
+        targetDy = slotDy;
+        targetDist = slotDist;
+      } else {
+        // 已到達 slot，側向移動
+        targetDx = dx;
+        targetDy = dy;
+        targetDist = dist;
+      }
+    } else {
+      targetDx = dx;
+      targetDy = dy;
+      targetDist = dist;
+    }
+
+    const tChaseX = targetDx / targetDist;
+    const tChaseY = targetDy / targetDist;
+
+    // ── 正常追擊：混合包圍方向 + 分離 + sector repel + lateral ──────
     const approachWeight = Math.min(1.0, (this.personalSpace * 2.5) / dist);
-    const mixX = chaseX * (1 - approachWeight) + approachX * approachWeight + separationX;
-    const mixY = chaseY * (1 - approachWeight) + approachY * approachWeight + separationY;
-    const mixLen = Math.sqrt(mixX * mixX + mixY * mixY);
-    if (mixLen > 0) { finalX = mixX / mixLen; finalY = mixY / mixLen; }
+    const baseX = tChaseX * (1 - approachWeight) + approachX * approachWeight;
+    const baseY = tChaseY * (1 - approachWeight) + approachY * approachWeight;
+
+    // Lateral force：側向分流（距離越遠越弱）
+    const lateralStrength = 0.16;
+    const sideSign = this.approachAngleOffset >= 0 ? 1 : -1;
+    const lateralFade = Math.min(1.0, dist / 300);
+    const latX = -chaseY * sideSign * lateralStrength * lateralFade;
+    const latY =  chaseX * sideSign * lateralStrength * lateralFade;
+
+    // 合力：chase/surround + separation + sector repel + lateral
+    const totalX = baseX + separationX * 0.8 + sectorRepelX * 0.5 + latX;
+    const totalY = baseY + separationY * 0.8 + sectorRepelY * 0.5 + latY;
+    const mixLen = Math.sqrt(totalX * totalX + totalY * totalY);
+    let finalX = mixLen > 0 ? totalX / mixLen : chaseX;
+    let finalY = mixLen > 0 ? totalY / mixLen : chaseY;
 
     this.setPosition(
       this.x + finalX * this.moveSpeed * this.speedVariance * dt,
       this.y + finalY * this.moveSpeed * this.speedVariance * dt
     );
-    // 依水平移動方向翻轉 Sprite / Image（Graphics 不支援 flipX，跳過）
     if (finalX !== 0 &&
         (this.visual instanceof Phaser.GameObjects.Sprite ||
          this.visual instanceof Phaser.GameObjects.Image)) {

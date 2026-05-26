@@ -103,22 +103,41 @@ export class HUD {
     const safeY = layout.safeTop;
     const s = layout.uiScale;
 
-    // ── 上方 HUD 條（高度 H*0.10，固定在頂部）──────────────────────────
-    const hudH = Math.round(H * 0.10);
+    // ── 上方 HUD：局部小底板，不畫全寬黑色橫幅 ─────────────────────────
     const hudY = safeY;
+    const barH = 12;
+    const expBarH = 7;
+    // HP + EXP 兩條 bar 的總高度
+    const barsH = barH + 4 + expBarH; // 12 + 4 + 7 = 23px
 
-    this.panelGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
-    this.panelGraphics.fillStyle(0x000000, 0.72);
-    this.panelGraphics.fillRoundedRect(0, 0, W, hudY + hudH + 4, 0);
-    this.panelGraphics.lineStyle(1, 0xd4af37, 0.30);
-    this.panelGraphics.lineBetween(0, hudY + hudH + 4, W, hudY + hudH + 4);
-
-    // HP 條（左側，寬 W*0.42，高 12px）
-    this.hpBarWidth = Math.round(W * 0.42);
+    // HP 條（左側，寬 W*0.50，高 12px）
+    this.hpBarWidth = Math.round(W * 0.50);
     this.hpBarX = safeX + 4;
     this.hpBarY = hudY + 6;
-    const barH = 12;
 
+    // EXP 條（HP 條下方，同寬，高 7px）
+    this.expBarWidth = this.hpBarWidth;
+    this.expBarX = this.hpBarX;
+    this.expBarY = this.hpBarY + barH + 4;
+
+    // Lv 圓形（HP 條右側）
+    const lvRadius = 14;
+    const lvX = this.hpBarX + this.hpBarWidth + lvRadius + 4;
+    const lvY = this.hpBarY + barH / 2;
+
+    // 左側小底板：只包住 HP/EXP 兩條 bar（不延伸到 Lv 圓形，圓形有自己的底板）
+    const hpPanelW = this.hpBarWidth + 8; // 左右各 4px padding
+    const hpPanelH = barsH + 10;          // 上下各 5px padding
+    const hpPanelX = this.hpBarX - 4;
+    const hpPanelY = hudY + 2;
+
+    // panelGraphics 只畫 HP/EXP 小底板（不再全寬）
+    this.panelGraphics = this.scene.add.graphics().setScrollFactor(0).setDepth(9);
+    this.panelGraphics.fillStyle(0x000000, 0.45);
+    this.panelGraphics.fillRoundedRect(hpPanelX, hpPanelY, hpPanelW, hpPanelH, 4);
+    // 不畫全寬分隔線，移除壓暗感
+
+    // HP 條
     this.hpBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
     this.hpBarBg.fillStyle(0x330000, 1);
     this.hpBarBg.fillRoundedRect(this.hpBarX, this.hpBarY, this.hpBarWidth, barH, 3);
@@ -135,12 +154,7 @@ export class HUD {
       uiText(9, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 2 })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(12);
 
-    // EXP 條（HP 條下方，寬 W*0.42，高 7px）
-    this.expBarWidth = Math.round(W * 0.42);
-    this.expBarX = this.hpBarX;
-    this.expBarY = this.hpBarY + barH + 4;
-    const expBarH = 7;
-
+    // EXP 條
     this.expBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
     this.expBarBg.fillStyle(0x001133, 1);
     this.expBarBg.fillRoundedRect(this.expBarX, this.expBarY, this.expBarWidth, expBarH, 2);
@@ -150,28 +164,32 @@ export class HUD {
     this.expBarFg = this.scene.add.graphics().setScrollFactor(0).setDepth(11);
     this.drawExpBar(0);
 
-    // Lv 圓形（HP 條右側）
-    const lvX = this.hpBarX + this.hpBarWidth + 18;
-    const lvY = this.hpBarY + barH / 2;
+    // Lv 圓形（獨立底板，不連成整條黑底）
     this.levelBg = this.scene.add.graphics().setScrollFactor(0).setDepth(10);
     this.levelBg.fillStyle(0x1a1a00, 0.9);
-    this.levelBg.fillCircle(lvX, lvY, 14);
+    this.levelBg.fillCircle(lvX, lvY, lvRadius);
     this.levelBg.lineStyle(1.5, 0xffd700, 0.8);
-    this.levelBg.strokeCircle(lvX, lvY, 14);
+    this.levelBg.strokeCircle(lvX, lvY, lvRadius);
     this.levelText = this.scene.add.text(lvX, lvY, 'Lv.1',
       uiText(9, '#ffd700', { fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(11);
 
-    // 時間（右側，上行）
+    // 右側時間/擊殺數：小底板（只包住文字，不橫跨全寬）
+    const timerX = W - safeX - 4;
+    const timerY = hudY + 6;
+    const infoW = Math.round(W * 0.22); // 約 80px on 360px phone
+    const infoH = barsH + 10;
+    this.panelGraphics.fillStyle(0x000000, 0.40);
+    this.panelGraphics.fillRoundedRect(timerX - infoW, hpPanelY, infoW, infoH, 4);
+
     this.timerText = this.scene.add.text(
-      W - safeX - 4, hudY + 8,
-      '⏱ 00:00', uiText(Math.round(11 * s), '#dddddd')
+      timerX, timerY,
+      '⏱ 00:00', uiText(Math.round(10 * s), '#dddddd', { stroke: '#000000', strokeThickness: 2 })
     ).setOrigin(1, 0).setScrollFactor(0).setDepth(11);
 
-    // 擊殺數（右側，下行）
     this.killText = this.scene.add.text(
-      W - safeX - 4, hudY + 8 + 18,
-      '⚔ 0', uiText(Math.round(11 * s), '#ffccaa')
+      timerX, timerY + 16,
+      '⚔ 0', uiText(Math.round(10 * s), '#ffccaa', { stroke: '#000000', strokeThickness: 2 })
     ).setOrigin(1, 0).setScrollFactor(0).setDepth(11);
 
     // ── 右下角按鈕（暫停 + 屬性，避開 safe area bottom）────────────────
@@ -204,8 +222,9 @@ export class HUD {
     this.pauseHitArea.on('pointerover', () => this.drawPauseBtn(true));
     this.pauseHitArea.on('pointerout', () => this.drawPauseBtn(false));
 
-    // ── 武器格 + 被動格（上方 HUD 條下方，小圖示水平排列）──────────────
-    this.buildSlotsPortrait(W, H, hudY + hudH + 6);
+    // ── 武器格 + 被動格（HP/EXP 面板下方，小圖示水平排列）──────────────
+    // startY = hpPanelY + hpPanelH + 4（緊接在 HP/EXP 面板下方）
+    this.buildSlotsPortrait(W, H, hpPanelY + hpPanelH + 4);
   }
 
   /** 橫屏 HUD 佈局（原有設計） */
@@ -581,8 +600,15 @@ export class HUD {
     const MAX_SLOTS = 4;
     const slotSize = 30;
     const slotGap = 3;
-    const hudH = Math.round(_H * 0.10);
-    const slotY = layout.safeTop + hudH + 8;
+
+    // 與 buildLayoutPortrait 保持一致：slotY = hpPanelY + hpPanelH + 4 + 2
+    // hpPanelY = safeTop + 2, hpPanelH = barsH + 10 = (12+4+7) + 10 = 33
+    const barH = 12;
+    const expBarH = 7;
+    const barsH = barH + 4 + expBarH; // 23
+    const hpPanelY = layout.safeTop + 2;
+    const hpPanelH = barsH + 10;      // 33
+    const slotY = hpPanelY + hpPanelH + 4 + 2; // startY + 2 (buildSlotsPortrait adds +2)
 
     // 左右對稱：與 buildSlotsPortrait 保持一致
     const sidePad = 6;

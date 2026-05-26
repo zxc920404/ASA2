@@ -57,10 +57,38 @@ const CONTACT_DAMAGE_COOLDOWN_MS = 500;
 const ENEMY_SEPARATION_RADIUS = 48;
 
 /** 敵人分離強度：分離向量的權重 */
-const ENEMY_SEPARATION_STRENGTH = 0.60;
+const ENEMY_SEPARATION_STRENGTH = 0.62;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
+
+// ── Spatial Grid 分離系統參數 ─────────────────────────────────────────────
+/** Grid cell 大小（px）：怪物只與同 cell 及周圍 8 格的怪物計算分離 */
+const GRID_CELL_SIZE = 72;
+/** 緊急重疊距離（px）：兩怪距離小於此值時給予強制推開力 */
+const EMERGENCY_OVERLAP_DIST = 14;
+/** 緊急推開強度 */
+const EMERGENCY_SEP_STRENGTH = 1.2;
+/** 每 cell 密度上限：超過此數量時對 cell 內怪物施加密度壓力 */
+const DENSITY_LIMIT_PER_CELL = 5;
+/** 密度壓力強度 */
+const DENSITY_PRESSURE_STRENGTH = 0.45;
+
+// ── Player-centric Surround Slot 系統參數 ────────────────────────────────
+/** 進入包圍模式的距離（px）：怪物在此距離內改追 slot 點 */
+const SURROUND_RANGE = 220;
+/** 包圍扇區數量 */
+const SURROUND_SECTORS = 16;
+/** 普通近戰怪包圍半徑（px） */
+const MELEE_SURROUND_RADIUS = 46;
+/** giant/tank 包圍半徑（px） */
+const TANK_SURROUND_RADIUS = 70;
+/** ranged 包圍半徑（px）：保持射擊距離 */
+const RANGED_SURROUND_RADIUS = 230;
+/** 每個 sector 怪物上限：超過時施加 sector repel */
+const SECTOR_DENSITY_LIMIT = 6;
+/** Sector repel 強度 */
+const SECTOR_REBALANCE_STRENGTH = 0.22;
 
 /** 勝利所需存活時間（毫秒）：10 分鐘 */
 const VICTORY_TIME_MS = 10 * 60 * 1000;
@@ -164,6 +192,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   // 敵人分離向量快取（key: Enemy 物件，value: {x, y}）
   // 每 4 幀更新一次，避免每幀重算
   private separationCache: Map<Enemy, { x: number; y: number }> = new Map();
+
+  // Surround slot 快取（key: Enemy，value: {slotX, slotY, repelX, repelY}）
+  // 每 4 幀與 separationCache 同步更新
+  private surroundCache: Map<Enemy, { slotX: number; slotY: number; repelX: number; repelY: number }> = new Map();
 
   // 分離向量更新幀計數器
   private separationFrameCount: number = 0;
@@ -327,6 +359,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.victoryPanel = null;
     this.isPortrait = false;
     this.separationCache = new Map();
+    this.surroundCache = new Map();
     this.separationFrameCount = 0;
 
     // 重置精英怪 flag
@@ -702,9 +735,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 取得此敵人的分離向量（若無則使用零向量）
       const sep = this.separationCache.get(enemy) ?? { x: 0, y: 0 };
+      const sur = this.surroundCache.get(enemy) ?? { slotX: 0, slotY: 0, repelX: 0, repelY: 0 };
 
       // 每幀朝玩家移動，並套用分離向量（Requirement 6.1）
-      enemy.moveTowardPlayer(this.player.x, this.player.y, delta, sep.x, sep.y);
+      enemy.moveTowardPlayer(
+        this.player.x, this.player.y, delta,
+        sep.x, sep.y,
+        sur.slotX, sur.slotY,
+        sur.repelX, sur.repelY
+      );
 
       // 接觸傷害檢測（Requirement 6.2）
       const dx = this.player.x - enemy.x;
@@ -1472,11 +1511,35 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 更新敵人分離向量快取（每 4 幀呼叫一次）
-   * 每隻敵人只檢查陣列中前後 8 個索引的鄰居，避免 O(n²) 效能問題
+   *
+   * 使用 Spatial Grid 加速：怪物只與同 cell 及周圍 8 格的怪物計算分離，
+   * 避免 O(n²) 全量檢查。同時加入：
+   * - Emergency separation：兩怪幾乎重疊時強制推開
+   * - Density pressure：cell 內怪物過多時向外推散
    */
   private updateSeparationCache(enemies: Enemy[]): void {
     const count = enemies.length;
+    if (count === 0) return;
 
+    // ── Step 1：建立 Spatial Grid ──────────────────────────────────────
+    // key = "cellX,cellY"，value = 該 cell 內的怪物陣列
+    const grid = new Map<string, Enemy[]>();
+    const cellOf = (e: Enemy) => {
+      const cx = Math.floor(e.x / GRID_CELL_SIZE);
+      const cy = Math.floor(e.y / GRID_CELL_SIZE);
+      return { cx, cy, key: `${cx},${cy}` };
+    };
+
+    for (let i = 0; i < count; i++) {
+      const e = enemies[i];
+      if (e.isDying) continue;
+      const { key } = cellOf(e);
+      let cell = grid.get(key);
+      if (!cell) { cell = []; grid.set(key, cell); }
+      cell.push(e);
+    }
+
+    // ── Step 2：對每隻怪物計算分離向量 ────────────────────────────────
     for (let i = 0; i < count; i++) {
       const enemy = enemies[i];
       if (enemy.isDying) {
@@ -1487,34 +1550,83 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       let sepX = 0;
       let sepY = 0;
 
-      // 只檢查前後 8 個索引的鄰居（固定範圍，不檢查全部）
-      const checkStart = Math.max(0, i - 8);
-      const checkEnd = Math.min(count - 1, i + 8);
+      const { cx, cy } = cellOf(enemy);
 
-      for (let j = checkStart; j <= checkEnd; j++) {
-        if (j === i) continue;
-        const other = enemies[j];
-        if (other.isDying) continue;
+      // 收集周圍 9 格（含自身 cell）的鄰居
+      for (let nx = cx - 1; nx <= cx + 1; nx++) {
+        for (let ny = cy - 1; ny <= cy + 1; ny++) {
+          const neighbors = grid.get(`${nx},${ny}`);
+          if (!neighbors) continue;
 
-        const dx = enemy.x - other.x;
-        const dy = enemy.y - other.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+          for (const other of neighbors) {
+            if (other === enemy || other.isDying) continue;
 
-        // 距離小於分離半徑時，產生遠離對方的推力
-        if (dist < ENEMY_SEPARATION_RADIUS && dist > 0) {
-          // 推力強度與距離成反比（越近推力越大）
-          const force = (ENEMY_SEPARATION_RADIUS - dist) / ENEMY_SEPARATION_RADIUS;
-          sepX += (dx / dist) * force;
-          sepY += (dy / dist) * force;
+            const dx = enemy.x - other.x;
+            const dy = enemy.y - other.y;
+            const distSq = dx * dx + dy * dy;
+            const dist = Math.sqrt(distSq);
+
+            if (dist < 0.5) {
+              // 完全重疊：隨機推開
+              const angle = Math.random() * Math.PI * 2;
+              sepX += Math.cos(angle) * EMERGENCY_SEP_STRENGTH;
+              sepY += Math.sin(angle) * EMERGENCY_SEP_STRENGTH;
+              continue;
+            }
+
+            // ── Emergency separation：幾乎重疊時強制推開 ──────────────
+            if (dist < EMERGENCY_OVERLAP_DIST) {
+              const emergencyForce = EMERGENCY_SEP_STRENGTH * (1 - dist / EMERGENCY_OVERLAP_DIST);
+              sepX += (dx / dist) * emergencyForce;
+              sepY += (dy / dist) * emergencyForce;
+            }
+
+            // ── 一般分離力 ────────────────────────────────────────────
+            if (dist < ENEMY_SEPARATION_RADIUS) {
+              const force = (ENEMY_SEPARATION_RADIUS - dist) / ENEMY_SEPARATION_RADIUS;
+              // giant/tank 佔更大空間，對周圍怪物施加更強推力
+              const isLarge = other.dataId === 'giant' || other.dataId === 'tank';
+              const weight = isLarge ? 1.6 : 1.0;
+              sepX += (dx / dist) * force * weight;
+              sepY += (dy / dist) * force * weight;
+            }
+          }
         }
       }
 
-      // 正規化分離向量並乘以強度
+      // ── Step 3：Density Pressure（cell 過密時向外推）──────────────────
+      const myCell = grid.get(`${cx},${cy}`);
+      if (myCell && myCell.length > DENSITY_LIMIT_PER_CELL) {
+        // 計算 cell 內怪物平均位置
+        let avgX = 0, avgY = 0;
+        for (const e of myCell) { avgX += e.x; avgY += e.y; }
+        avgX /= myCell.length;
+        avgY /= myCell.length;
+        const pdx = enemy.x - avgX;
+        const pdy = enemy.y - avgY;
+        const pLen = Math.sqrt(pdx * pdx + pdy * pdy);
+        // 密度越高壓力越大（線性比例）
+        const densityRatio = Math.min((myCell.length - DENSITY_LIMIT_PER_CELL) / DENSITY_LIMIT_PER_CELL, 1.0);
+        const pressure = DENSITY_PRESSURE_STRENGTH * densityRatio;
+        if (pLen > 0.5) {
+          sepX += (pdx / pLen) * pressure;
+          sepY += (pdy / pLen) * pressure;
+        } else {
+          // 在平均位置中心：隨機方向推開
+          const angle = Math.random() * Math.PI * 2;
+          sepX += Math.cos(angle) * pressure;
+          sepY += Math.sin(angle) * pressure;
+        }
+      }
+
+      // ── Step 4：正規化並寫入 cache ────────────────────────────────────
       const sepLen = Math.sqrt(sepX * sepX + sepY * sepY);
       if (sepLen > 0) {
+        // clamp 最大分離力，避免抖動
+        const clampedLen = Math.min(sepLen, 2.0);
         this.separationCache.set(enemy, {
-          x: (sepX / sepLen) * ENEMY_SEPARATION_STRENGTH,
-          y: (sepY / sepLen) * ENEMY_SEPARATION_STRENGTH,
+          x: (sepX / sepLen) * ENEMY_SEPARATION_STRENGTH * clampedLen,
+          y: (sepY / sepLen) * ENEMY_SEPARATION_STRENGTH * clampedLen,
         });
       } else {
         this.separationCache.set(enemy, { x: 0, y: 0 });
@@ -1525,6 +1637,86 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     for (const [e] of this.separationCache) {
       if (!enemies.includes(e)) {
         this.separationCache.delete(e);
+      }
+    }
+
+    // ── Surround Slot 計算 ────────────────────────────────────────────
+    // 計算玩家周圍每個 sector 的怪物數量，分配 slot 點，並計算 sector repel
+    const px = this.player.x;
+    const py = this.player.y;
+
+    // Step A：統計每個 sector 的怪物數量
+    const sectorCount = new Array<number>(SURROUND_SECTORS).fill(0);
+    for (let i = 0; i < count; i++) {
+      const e = enemies[i];
+      if (e.isDying) continue;
+      const edx = e.x - px;
+      const edy = e.y - py;
+      const eDist = Math.sqrt(edx * edx + edy * edy);
+      if (eDist > SURROUND_RANGE) continue;
+      const angle = Math.atan2(edy, edx);
+      const sectorIdx = Math.floor(((angle + Math.PI) / (Math.PI * 2)) * SURROUND_SECTORS) % SURROUND_SECTORS;
+      sectorCount[sectorIdx]++;
+    }
+
+    // Step B：為每隻怪物分配 slot 點與 sector repel
+    for (let i = 0; i < count; i++) {
+      const e = enemies[i];
+      if (e.isDying) {
+        this.surroundCache.delete(e);
+        continue;
+      }
+
+      const edx = e.x - px;
+      const edy = e.y - py;
+      const eDist = Math.sqrt(edx * edx + edy * edy);
+
+      if (eDist > SURROUND_RANGE) {
+        // 超出包圍範圍：清除 slot，讓怪物正常追玩家
+        this.surroundCache.set(e, { slotX: 0, slotY: 0, repelX: 0, repelY: 0 });
+        continue;
+      }
+
+      // 決定此怪物的包圍半徑
+      const isLarge = e.dataId === 'giant' || e.dataId === 'tank';
+      const isRanged = e.isRanged;
+      const surroundR = isRanged
+        ? RANGED_SURROUND_RADIUS
+        : isLarge
+          ? TANK_SURROUND_RADIUS
+          : MELEE_SURROUND_RADIUS;
+
+      // 根據 approachAngleOffset 決定目標 sector
+      const baseAngle = Math.atan2(edy, edx);
+      const slotAngle = baseAngle + e.approachAngleOffset;
+      // 加入少量 radius 隨機偏移，避免死板圓圈
+      const radiusOffset = (e.speedVariance - 1.0) * 20; // ±2.4px
+      const slotR = surroundR + radiusOffset;
+      const slotX = px + Math.cos(slotAngle) * slotR;
+      const slotY = py + Math.sin(slotAngle) * slotR;
+
+      // Sector repel：若此 sector 過擠，往相鄰 sector 偏移
+      const sectorIdx = Math.floor(((slotAngle + Math.PI) / (Math.PI * 2)) * SURROUND_SECTORS) % SURROUND_SECTORS;
+      let repelX = 0;
+      let repelY = 0;
+      if (sectorCount[sectorIdx] > SECTOR_DENSITY_LIMIT) {
+        const excess = sectorCount[sectorIdx] - SECTOR_DENSITY_LIMIT;
+        const repelStrength = Math.min(excess * SECTOR_REBALANCE_STRENGTH, 0.6);
+        // 往角度增加方向偏移（讓怪物分散到相鄰 sector）
+        const sideSign = e.approachAngleOffset >= 0 ? 1 : -1;
+        const perpX = -Math.sin(slotAngle) * sideSign;
+        const perpY =  Math.cos(slotAngle) * sideSign;
+        repelX = perpX * repelStrength;
+        repelY = perpY * repelStrength;
+      }
+
+      this.surroundCache.set(e, { slotX, slotY, repelX, repelY });
+    }
+
+    // 清理已不在場上的 surround cache
+    for (const [e] of this.surroundCache) {
+      if (!enemies.includes(e)) {
+        this.surroundCache.delete(e);
       }
     }
   }
