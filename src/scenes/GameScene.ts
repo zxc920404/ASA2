@@ -306,6 +306,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 驚鴻派玩家動畫（wave_stand / wave_run，供 assassin 使用）────────
     this.createPlayerAnimations();
 
+    // ── 第一關普通小怪動畫（henchman / giant，8 fps 循環）────────────
+    this.createEnemyAnimations();
+
     // ── Physics world bounds（6000×6000）────────────────────────────
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
@@ -1340,16 +1343,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
 
     const r = Math.random();
-    if (rangedRatio > 0 && r < rangedRatio) return 'ranged';
+    if (rangedRatio > 0 && r < rangedRatio) return 'archer';
 
     // 剩餘比例分配給原有三種
     const remaining = r - rangedRatio;
     const scale = 1 - rangedRatio;
     const adjBasic = ratio.basic * scale;
     const adjFast  = ratio.fast  * scale;
-    if (remaining < adjBasic) return 'basic';
-    if (remaining < adjBasic + adjFast) return 'fast';
-    return 'tank';
+    if (remaining < adjBasic) return 'henchman';
+    if (remaining < adjBasic + adjFast) return 'scout';
+    return 'giant';
   }
 
   /**
@@ -3445,15 +3448,39 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
+   * 建立第一關普通小怪動畫（henchman / giant）
+   * 各 8 幀，8 fps，循環播放。
+   * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他敵人）。
+   */
+  private createEnemyAnimations(): void {
+    const anims = this.anims;
+
+    // ── henchman（山賊嘍囉）：8 幀，8 fps ────────────────────────────
+    if (!anims.exists('henchman_walk')) {
+      const frames = ['henchman_01','henchman_02','henchman_03','henchman_04',
+                      'henchman_05','henchman_06','henchman_07','henchman_08']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'henchman_walk', frames, frameRate: 8, repeat: -1 });
+      }
+    }
+
+    // ── giant（巨漢）：8 幀，8 fps ───────────────────────────────────
+    if (!anims.exists('giant_walk')) {
+      const frames = ['giant_01','giant_02','giant_03','giant_04',
+                      'giant_05','giant_06','giant_07','giant_08']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'giant_walk', frames, frameRate: 8, repeat: -1 });
+      }
+    }
+  }
+
+  /**
    * 預先生成所有 Sprite Texture（用 Phaser Graphics 繪製後 generateTexture 快取）
    * 只在 texture 不存在時生成，避免 scene restart 重複建立。
-   * 若外部 PNG 已載入（enemy_img_<id>），則直接複製為 enemy_<id> key，
-   * 否則 fallback 至程式繪製圖形。
-   * key 清單：
-   *   player_swordsman / player_assassin / player_taoist
-   *   enemy_basic / enemy_fast / enemy_tank / enemy_ranged
-   *   xp_gem
-   *   item_heal / item_speed / item_bomb
    */
   private generateSpriteTextures(): void {
     const tex = this.textures;

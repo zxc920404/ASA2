@@ -103,6 +103,27 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'wave_run_07', 'assets/sprites/player/wave/wave-run/07.png');
     AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/08.png');
     AssetLoader.loadImage(scene, 'wave_run_09', 'assets/sprites/player/wave/wave-run/09.png');
+
+    // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
+    // henchman（山賊嘍囉）：8 幀移動動畫，8 fps
+    AssetLoader.loadImage(scene, 'henchman_01', 'assets/sprites/enemies/Level_1/henchman/01.png');
+    AssetLoader.loadImage(scene, 'henchman_02', 'assets/sprites/enemies/Level_1/henchman/02.png');
+    AssetLoader.loadImage(scene, 'henchman_03', 'assets/sprites/enemies/Level_1/henchman/03.png');
+    AssetLoader.loadImage(scene, 'henchman_04', 'assets/sprites/enemies/Level_1/henchman/04.png');
+    AssetLoader.loadImage(scene, 'henchman_05', 'assets/sprites/enemies/Level_1/henchman/05.png');
+    AssetLoader.loadImage(scene, 'henchman_06', 'assets/sprites/enemies/Level_1/henchman/06.png');
+    AssetLoader.loadImage(scene, 'henchman_07', 'assets/sprites/enemies/Level_1/henchman/07.png');
+    AssetLoader.loadImage(scene, 'henchman_08', 'assets/sprites/enemies/Level_1/henchman/08.png');
+
+    // giant（巨漢）：8 幀移動動畫，8 fps
+    AssetLoader.loadImage(scene, 'giant_01', 'assets/sprites/enemies/Level_1/giant/01.png');
+    AssetLoader.loadImage(scene, 'giant_02', 'assets/sprites/enemies/Level_1/giant/02.png');
+    AssetLoader.loadImage(scene, 'giant_03', 'assets/sprites/enemies/Level_1/giant/03.png');
+    AssetLoader.loadImage(scene, 'giant_04', 'assets/sprites/enemies/Level_1/giant/04.png');
+    AssetLoader.loadImage(scene, 'giant_05', 'assets/sprites/enemies/Level_1/giant/05.png');
+    AssetLoader.loadImage(scene, 'giant_06', 'assets/sprites/enemies/Level_1/giant/06.png');
+    AssetLoader.loadImage(scene, 'giant_07', 'assets/sprites/enemies/Level_1/giant/07.png');
+    AssetLoader.loadImage(scene, 'giant_08', 'assets/sprites/enemies/Level_1/giant/08.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────

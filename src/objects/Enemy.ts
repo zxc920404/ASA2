@@ -5,6 +5,11 @@ import { AssetLoader } from '../utils/AssetLoader';
 
 /** 每種普通小怪的視覺顯示尺寸設定（與碰撞半徑無關，純視覺） */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
+  henchman: { w: 36, h: 36 },
+  scout:    { w: 28, h: 28 },
+  giant:    { w: 48, h: 48 },
+  archer:   { w: 36, h: 36 },
+  // 舊 id 保留作 fallback，避免 scene restart 殘留物件出錯
   basic:  { w: 36, h: 36 },
   fast:   { w: 28, h: 28 },
   tank:   { w: 48, h: 48 },
@@ -59,8 +64,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 回呼：由 GameScene 注入，用於生成遠程小怪投射物 */
   public onRangedShoot?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
-  /** 視覺圖形（Image，使用 generateTexture 生成的 key；fallback 為 Graphics） */
-  private visual!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+  /** 視覺圖形（Sprite 動畫 / Image 靜態圖；fallback 為 Graphics） */
+  private visual!: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   /** 護盾光圈（shield 用） */
   private shieldVisual?: Phaser.GameObjects.Graphics;
   /** 衝撞警示線（charger 用） */
@@ -215,7 +220,21 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // 取得此 enemy type 的視覺尺寸（fallback 為碰撞直徑）
     const vSize = ENEMY_VISUAL_SIZE[enemyData.id] ?? { w: enemyData.collisionRadius * 2, h: enemyData.collisionRadius * 2 };
 
-    if (AssetLoader.hasTexture(scene, imgKey)) {
+    // 有動畫素材的敵人 id → 動畫 key 對照表
+    const ANIM_KEY: Record<string, string> = {
+      henchman: 'henchman_walk',
+      giant:    'giant_walk',
+    };
+    const animKey = ANIM_KEY[enemyData.id];
+
+    if (animKey && scene.anims.exists(animKey)) {
+      // 使用 Sprite 播放逐幀動畫
+      const spr = scene.add.sprite(x, y, `${enemyData.id}_01`);
+      spr.setDepth(5);
+      spr.setDisplaySize(vSize.w, vSize.h);
+      spr.play(animKey);
+      this.visual = spr;
+    } else if (AssetLoader.hasTexture(scene, imgKey)) {
       // 真實 PNG（AssetLoader 載入成功）
       const img = scene.add.image(x, y, imgKey);
       img.setDepth(5);
@@ -876,7 +895,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.fillStyle(0xffd700, 0.9); g.fillRect(-r * 0.43, r * 0.2, r * 0.87, r * 0.13);
       g.lineStyle(2, 0xffd700, 0.8); g.strokeCircle(0, 0, r * 0.87);
 
-    } else if (enemyId === 'basic') {
+    } else if (enemyId === 'henchman') {
       // ── 紅衣邪修小兵（r ≈ 18，尺寸 36×36）──────────────────────────
       // 頭（膚色圓）
       g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.55, r * 0.32);
@@ -899,7 +918,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineStyle(1.5, 0xff6666, 0.9);
       g.strokeRect(-r * 0.32, -r * 0.22, r * 0.64, r * 0.5);
 
-    } else if (enemyId === 'fast') {
+    } else if (enemyId === 'scout') {
       // ── 疾行刺客（r ≈ 14，尺寸 28×28）──────────────────────────────
       // 頭（小，膚色）
       g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.6, r * 0.26);
@@ -922,7 +941,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineStyle(1.5, 0xffaa44, 0.9);
       g.strokeRect(-r * 0.24, -r * 0.28, r * 0.48, r * 0.52);
 
-    } else if (enemyId === 'tank') {
+    } else if (enemyId === 'giant') {
       // ── 重甲力士（r ≈ 24，尺寸 48×48）──────────────────────────────
       // 頭（膚色，較大）
       g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.52, r * 0.35);
@@ -950,7 +969,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       g.lineStyle(2.5, 0xff4444, 1);
       g.strokeRect(-r * 0.42, -r * 0.18, r * 0.84, r * 0.55);
 
-    } else if (enemyId === 'ranged') {
+    } else if (enemyId === 'archer') {
       // ── 紫袍術士（r ≈ 18，尺寸 36×36）──────────────────────────────
       // 頭（膚色）
       g.fillStyle(0xddccaa, 1); g.fillCircle(0, -r * 0.55, r * 0.3);
