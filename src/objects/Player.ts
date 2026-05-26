@@ -8,19 +8,19 @@ const MAX_PLAYER_DAMAGE_NUMBERS = 20;
 let activePlayerDamageNumbers = 0;
 
 // ── Wave（驚鴻派）視覺尺寸設定 ────────────────────────────────────────────
-// stand 幀原始尺寸 864×480，有效角色區域約佔圖片高度 65%
-// run   幀原始尺寸 317×409，有效角色區域約佔圖片高度 85%
-// 目標有效角色高度 = 60px（比最大普通小怪 tank 48px 略大）
-// displayHeight 設定讓兩個動畫的有效角色高度一致，切換時不忽大忽小
-/** wave_stand 動畫的 displayHeight（px）：60 / 0.65 ≈ 92 */
-const WAVE_STAND_DISPLAY_HEIGHT = 92;
-/** wave_run 動畫的 displayHeight（px）：60 / 0.85 ≈ 71 */
-const WAVE_RUN_DISPLAY_HEIGHT = 71;
+// idle 幀原始尺寸 444×444（正方形），有效角色區域約佔圖片高度 85%
+// run  幀原始尺寸 317×409，有效角色區域約佔圖片高度 85%
+// 兩者有效比例相近，使用相同 displayHeight 讓大小一致
+// 目標有效角色高度 = 70px（比最大普通小怪 tank 48px 略大）
+/** wave_stand（idle）動畫的 displayHeight（px）：70 / 0.85 ≈ 82 */
+const WAVE_STAND_DISPLAY_HEIGHT = 82;
+/** wave_run 動畫的 displayHeight（px）：與 stand 相同，確保切換時大小一致 */
+const WAVE_RUN_DISPLAY_HEIGHT = 82;
 /** wave sprite 的 origin（水平置中，垂直錨點靠近腳底） */
 const WAVE_ORIGIN_X = 0.5;
 const WAVE_ORIGIN_Y = 0.88;
-/** wave_stand 幀原始寬高比（864 / 480） */
-const WAVE_STAND_ASPECT = 864 / 480;
+/** wave_stand（idle）幀原始寬高比（444 / 444 = 1.0） */
+const WAVE_STAND_ASPECT = 444 / 444;
 /** wave_run 幀原始寬高比（317 / 409） */
 const WAVE_RUN_ASPECT = 317 / 409;
 
@@ -134,19 +134,19 @@ export class Player extends Phaser.GameObjects.Rectangle {
     // 使用 AssetLoader.hasTexture 而非 textures.exists，
     // 避免 Phaser 將 404 失敗的圖片登記為 __MISSING 後仍回傳 true
     const waveTexturesReady = isAssassin
-      && AssetLoader.hasTexture(scene, 'wave_stand_1')
+      && AssetLoader.hasTexture(scene, 'wave_idle_01')
       && AssetLoader.hasTexture(scene, 'wave_run_01');
 
     console.log('[Player] charData.id:', charData.id,
       '| isAssassin:', isAssassin,
-      '| wave_stand_1 exists:', scene.textures.exists('wave_stand_1'),
-      '| wave_stand_1 valid:', AssetLoader.hasTexture(scene, 'wave_stand_1'),
+      '| wave_idle_01 exists:', scene.textures.exists('wave_idle_01'),
+      '| wave_idle_01 valid:', AssetLoader.hasTexture(scene, 'wave_idle_01'),
       '| wave_run_01 valid:', AssetLoader.hasTexture(scene, 'wave_run_01'),
       '| waveTexturesReady:', waveTexturesReady);
 
     if (waveTexturesReady) {
-      // 驚鴻派：建立 Sprite，初始幀為 wave_stand_1
-      const sprite = scene.add.sprite(x, y, 'wave_stand_1');
+      // 驚鴻派：建立 Sprite，初始幀為 wave_idle_01
+      const sprite = scene.add.sprite(x, y, 'wave_idle_01');
       sprite.setDepth(5);
       // Wave sprite：使用 displayHeight 固定有效角色高度，避免 stand/run 切換時忽大忽小。
       // stand 幀 864×480，run 幀 317×409，原始比例不同，同一 scale 下視覺大小不一致。

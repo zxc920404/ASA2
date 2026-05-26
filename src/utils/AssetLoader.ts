@@ -118,11 +118,12 @@ export class AssetLoader {
 
     // ── 驚鴻派（assassin）玩家動畫幀 ────────────────────────────────────
     // wave-stand / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
-    // wave-stand：只取 4 幀（image_1, 5, 9, 13），frameRate 3～4 fps
-    AssetLoader.loadImage(scene, 'wave_stand_1',  'assets/sprites/player/wave/wave-stand/image_1.png');
-    AssetLoader.loadImage(scene, 'wave_stand_5',  'assets/sprites/player/wave/wave-stand/image_5.png');
-    AssetLoader.loadImage(scene, 'wave_stand_9',  'assets/sprites/player/wave/wave-stand/image_9.png');
-    AssetLoader.loadImage(scene, 'wave_stand_13', 'assets/sprites/player/wave/wave-stand/image_13.png');
+    // wave-stand（idle）：5 幀（idle_01~05），frameRate 5 fps
+    AssetLoader.loadImage(scene, 'wave_idle_01', 'assets/sprites/player/wave/wave-stand/idle_01.png');
+    AssetLoader.loadImage(scene, 'wave_idle_02', 'assets/sprites/player/wave/wave-stand/idle_02.png');
+    AssetLoader.loadImage(scene, 'wave_idle_03', 'assets/sprites/player/wave/wave-stand/idle_03.png');
+    AssetLoader.loadImage(scene, 'wave_idle_04', 'assets/sprites/player/wave/wave-stand/idle_04.png');
+    AssetLoader.loadImage(scene, 'wave_idle_05', 'assets/sprites/player/wave/wave-stand/idle_05.png');
 
     // wave-run：8 幀（frames_uniform/run_01~08），frameRate 8 fps
     // 使用 frames_uniform 版本（等比例裁切，無多餘空白），避免 frames_fixed 的比例問題

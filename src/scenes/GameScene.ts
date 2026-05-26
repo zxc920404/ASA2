@@ -3384,20 +3384,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 避免 scene restart 時重複建立
     if (anims.exists('wave_stand') && anims.exists('wave_run')) return;
 
-    // ── wave_stand：4 幀，4 fps，循環 ────────────────────────────────
+    // ── wave_stand（idle）：5 幀，5 fps，循環（idle_01~05）────────────
     if (!anims.exists('wave_stand')) {
       // 使用 AssetLoader.hasTexture 排除 __MISSING（404 失敗的圖片）
-      const standFrames = ['wave_stand_1', 'wave_stand_5', 'wave_stand_9', 'wave_stand_13']
+      const standFrames = ['wave_idle_01', 'wave_idle_02', 'wave_idle_03', 'wave_idle_04', 'wave_idle_05']
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
 
-      console.log('[GameScene] wave_stand frames valid:', standFrames.length, '/', 4);
+      console.log('[GameScene] wave_stand frames valid:', standFrames.length, '/', 5);
 
       if (standFrames.length > 0) {
         anims.create({
           key: 'wave_stand',
           frames: standFrames,
-          frameRate: 4,
+          frameRate: 5,
           repeat: -1,
         });
       }
