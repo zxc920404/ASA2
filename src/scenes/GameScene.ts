@@ -3537,10 +3537,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── scout（赤侯）：8 幀，10 fps（快速追擊）────────────────────────
+    // ── scout（赤侯）：6 幀，10 fps（快速追擊）────────────────────────
     if (!anims.exists('scout_walk')) {
       const frames = ['scout_01','scout_02','scout_03','scout_04',
-                      'scout_05','scout_06','scout_07','scout_08']
+                      'scout_05','scout_06']
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
       if (frames.length > 0) {

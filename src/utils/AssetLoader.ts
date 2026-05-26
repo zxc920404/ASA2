@@ -136,15 +136,13 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'giant_07', 'assets/sprites/enemies/Level_1/giant/07.png');
     AssetLoader.loadImage(scene, 'giant_08', 'assets/sprites/enemies/Level_1/giant/08.png');
 
-    // scout（赤侯）：8 幀移動動畫，8 fps
+    // scout（赤侯）：6 幀移動動畫，8 fps
     AssetLoader.loadImage(scene, 'scout_01', 'assets/sprites/enemies/Level_1/scout/01.png');
     AssetLoader.loadImage(scene, 'scout_02', 'assets/sprites/enemies/Level_1/scout/02.png');
     AssetLoader.loadImage(scene, 'scout_03', 'assets/sprites/enemies/Level_1/scout/03.png');
     AssetLoader.loadImage(scene, 'scout_04', 'assets/sprites/enemies/Level_1/scout/04.png');
     AssetLoader.loadImage(scene, 'scout_05', 'assets/sprites/enemies/Level_1/scout/05.png');
     AssetLoader.loadImage(scene, 'scout_06', 'assets/sprites/enemies/Level_1/scout/06.png');
-    AssetLoader.loadImage(scene, 'scout_07', 'assets/sprites/enemies/Level_1/scout/07.png');
-    AssetLoader.loadImage(scene, 'scout_08', 'assets/sprites/enemies/Level_1/scout/08.png');
 
     // archer（山賊射手）：6 幀移動動畫 + 10 幀攻擊動畫，8 fps
     AssetLoader.loadImage(scene, 'archer_01', 'assets/sprites/enemies/Level_1/archer/01.png');
