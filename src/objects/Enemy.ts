@@ -7,10 +7,10 @@ import { AssetLoader } from '../utils/AssetLoader';
  * Sprite 動畫敵人使用目標顯示尺寸（px），Graphics fallback 使用 w/h 作為繪製半徑基準。
  */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
-  henchman: { w: 135, h: 130 },   // 接近玩家大小
-  scout:    { w: 130, h: 130 },   // 快速小怪，略小
-  giant:    { w: 190, h: 190 },   // 巨漢略大於玩家
-  archer:   { w: 125, h: 125 },   // 射手，接近玩家大小
+  henchman: { w: 120, h: 135 },   // 接近玩家大小
+  scout:    { w: 130, h: 110 },   // 快速小怪，略小
+  giant:    { w: 175, h: 175 },   // 巨漢略大於玩家
+  archer:   { w: 120, h: 135 },   // 射手，接近玩家大小
   // 舊 id 保留作 fallback，避免 scene restart 殘留物件出錯
   basic:  { w: 36, h: 36 },
   fast:   { w: 28, h: 28 },
@@ -200,6 +200,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 回呼：由 GameScene 注入，用於觸發直線攻擊 */
   public onLineAttack?: (targetX: number, targetY: number, count: number) => void;
 
+  // ── 個體差異（spawn 時隨機產生，讓怪物不完全同速同方向）──────────
+  /** 包圍角度偏移（弧度）：讓每隻怪物趨向玩家周圍不同位置 */
+  public approachAngleOffset: number = 0;
+  /** 速度個體差異倍率（0.88 ~ 1.12） */
+  public speedVariance: number = 1.0;
+  /** 個人空間半徑（px）：怪物希望與玩家保持的最小距離 */
+  public personalSpace: number = 32;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -217,6 +225,17 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.contactDamage = Math.ceil(enemyData.baseDamage * damageMultiplier);
     this.collisionRadius = enemyData.collisionRadius;
     this.lastDamageTime = -Infinity;
+
+    // ── 個體差異初始化（讓怪物不完全同速同方向）──────────────────────
+    // 包圍角度偏移：-60° ~ +60°，讓怪物趨向玩家周圍不同位置
+    this.approachAngleOffset = (Math.random() - 0.5) * (Math.PI / 1.5);
+    // 速度個體差異：±12%
+    this.speedVariance = 0.88 + Math.random() * 0.24;
+    // 個人空間：普通怪 28~44px，giant 40~56px
+    const isLarge = (enemyData.id === 'giant' || enemyData.id === 'tank');
+    this.personalSpace = isLarge
+      ? 40 + Math.random() * 16
+      : 28 + Math.random() * 16;
 
     scene.add.existing(this);
     // Rectangle 本身只作碰撞邊界用，不顯示
@@ -433,18 +452,52 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const finalLen = Math.sqrt(finalX * finalX + finalY * finalY);
     if (finalLen > 0) { finalX /= finalLen; finalY /= finalLen; }
 
-    // 怪物與玩家最小距離：避免完全重疊在玩家中心
-    // giant 體型較大，最小距離略大
-    const minPlayerDist = (this.dataId === 'giant' || this.dataId === 'tank') ? 40 : 28;
-    if (dist <= minPlayerDist) {
-      // 已到達最小距離，停止推進（只做分離，不再靠近）
+    // ── 包圍點偏移：讓怪物趨向玩家周圍不同角度，而非全部擠向中心 ──
+    // 計算玩家方向的角度，加上個體偏移後得到目標方向
+    const baseAngle = Math.atan2(dy, dx);
+    const targetAngle = baseAngle + this.approachAngleOffset;
+    const approachX = Math.cos(targetAngle);
+    const approachY = Math.sin(targetAngle);
+
+    // 怪物與玩家最小距離（個人空間）：避免完全重疊在玩家中心
+    if (dist <= this.personalSpace) {
+      // 已進入個人空間：加入側向移動，形成包圍感而非硬推
+      // 側向向量 = 垂直於玩家方向，方向由 approachAngleOffset 正負決定
+      const sideSign = this.approachAngleOffset >= 0 ? 1 : -1;
+      const sideX = -chaseY * sideSign;
+      const sideY =  chaseX * sideSign;
+      // 混合：70% 側向 + 30% 分離，讓怪物繞圈而非硬停
+      const blendX = sideX * 0.7 + separationX * 0.3;
+      const blendY = sideY * 0.7 + separationY * 0.3;
+      const blendLen = Math.sqrt(blendX * blendX + blendY * blendY);
+      if (blendLen > 0.01) {
+        const nx = blendX / blendLen;
+        const ny = blendY / blendLen;
+        this.setPosition(
+          this.x + nx * this.moveSpeed * this.speedVariance * 0.4 * dt,
+          this.y + ny * this.moveSpeed * this.speedVariance * 0.4 * dt
+        );
+        if (nx !== 0 &&
+            (this.visual instanceof Phaser.GameObjects.Sprite ||
+             this.visual instanceof Phaser.GameObjects.Image)) {
+          this.visual.setFlipX(nx < 0);
+        }
+      }
       this.syncVisual();
       return;
     }
 
+    // ── 正常追擊：混合包圍方向 + 分離向量 ───────────────────────────
+    // 距離越近，包圍偏移越強（讓遠處怪物直線衝，近處怪物分散包圍）
+    const approachWeight = Math.min(1.0, (this.personalSpace * 2.5) / dist);
+    const mixX = chaseX * (1 - approachWeight) + approachX * approachWeight + separationX;
+    const mixY = chaseY * (1 - approachWeight) + approachY * approachWeight + separationY;
+    const mixLen = Math.sqrt(mixX * mixX + mixY * mixY);
+    if (mixLen > 0) { finalX = mixX / mixLen; finalY = mixY / mixLen; }
+
     this.setPosition(
-      this.x + finalX * this.moveSpeed * dt,
-      this.y + finalY * this.moveSpeed * dt
+      this.x + finalX * this.moveSpeed * this.speedVariance * dt,
+      this.y + finalY * this.moveSpeed * this.speedVariance * dt
     );
     // 依水平移動方向翻轉 Sprite / Image（Graphics 不支援 flipX，跳過）
     if (finalX !== 0 &&
