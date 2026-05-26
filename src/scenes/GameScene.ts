@@ -306,6 +306,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 驚鴻派玩家動畫（wave_stand / wave_run，供 assassin 使用）────────
     this.createPlayerAnimations();
 
+    // ── Physics world bounds（6000×6000）────────────────────────────
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
     // ── 武俠訓練場背景（Polish 3）──────────────────────────────────────
     this.drawGameBackground();
 
@@ -1357,11 +1360,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 這樣可避免建立 6000×6000 的超大 WebGL 紋理導致黑屏或崩潰。
    *
    * depth -100，確保在所有遊戲物件之下。
+   * 注意：physics.world.setBounds 已移至 create() 呼叫，不在此處設定。
    */
   private drawGameBackground(): void {
-    // ── 設定 Physics world bounds（6000×6000）────────────────────────
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-
     const W = this.scale.width;
     const H = this.scale.height;
 
