@@ -42,9 +42,10 @@ const MAX_XP_GEMS = 80;
 /** 玩家等級上限（提高至 99，不再過早封頂） */
 const MAX_LEVEL = 99;
 
-/** 敵人生成距離範圍（Requirement 6.4） */
-const SPAWN_DIST_MIN = 150;
-const SPAWN_DIST_MAX = 200;
+/** 敵人生成距離範圍（Requirement 6.4）
+ * 使用較大距離確保怪物從玩家視野外四面八方生成 */
+const SPAWN_DIST_MIN = 320;
+const SPAWN_DIST_MAX = 480;
 
 /** 玩家碰撞半徑（Requirement 6.2） */
 const PLAYER_COLLISION_RADIUS = 14;
@@ -52,11 +53,11 @@ const PLAYER_COLLISION_RADIUS = 14;
 /** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
 const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
 
-/** 敵人分離半徑（px）：距離小於此值時產生推力 */
-const ENEMY_SEPARATION_RADIUS = 28;
+/** 敵人分離半徑（px）：距離小於此值時產生推力（下調讓後期可形成密集怪潮） */
+const ENEMY_SEPARATION_RADIUS = 18;
 
-/** 敵人分離強度：分離向量的權重（相對於追玩家方向） */
-const ENEMY_SEPARATION_STRENGTH = 0.3;
+/** 敵人分離強度：分離向量的權重（下調讓怪物可以稍微重疊，不互相硬推） */
+const ENEMY_SEPARATION_STRENGTH = 0.12;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
@@ -1078,6 +1079,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     this.setPauseReason('levelup');
     if (this.spawnTimer) this.spawnTimer.paused = true;
     this.weaponSystem.pause();
+    // 暫停所有敵人 Sprite 動畫（升級面板開啟時背景靜止）
+    this.pauseEnemyAnimations(true);
   }
 
   public resumeFromLevelUp(): void {
@@ -1086,7 +1089,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     if (this.spawnTimer) this.spawnTimer.paused = false;
     this.weaponSystem.resume();
     this.weaponSystem.syncWeapons(this.player);
+    // 恢復所有敵人 Sprite 動畫
+    this.pauseEnemyAnimations(false);
     this.checkLevelUp();
+  }
+
+  /**
+   * 暫停或恢復場上所有敵人的 Sprite 動畫
+   * @param pause true = 暫停，false = 恢復
+   */
+  private pauseEnemyAnimations(pause: boolean): void {
+    const enemies = this.enemyGroup.getChildren() as Enemy[];
+    for (const enemy of enemies) {
+      if (enemy.isDying || enemy.isDead) continue;
+      // 透過 Enemy 的公開方法控制動畫
+      enemy.setAnimationPaused(pause);
+    }
   }
 
   public pauseForStatus(): void {
@@ -1685,9 +1703,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   private trySpawnDropItem(x: number, y: number): void {
     const r = Math.random();
     let type: DropItemType | null = null;
-    if      (r < 0.05) type = 'heal';
-    else if (r < 0.09) type = 'speed';
-    else if (r < 0.12) type = 'bomb';
+    if      (r < 0.02) type = 'heal';
+    else if (r < 0.015) type = 'speed';
+    else if (r < 0.01) type = 'bomb';
     if (!type) return;
 
     if (this.dropItems.length >= this.MAX_DROP_ITEMS) {
@@ -3273,48 +3291,48 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 計算合法的生成位置：
-   * 1. 在距玩家 150～200px 的隨機方向上取一點
-   * 2. 若該點在畫面可視範圍內，則調整至畫面邊緣外最近的合法位置
+   * 以玩家為中心，隨機 0～360° 方向，在 SPAWN_DIST_MIN～SPAWN_DIST_MAX 距離生成。
+   * 確保生成點在攝影機視野外，並限制在世界邊界內。
    * （Requirement 6.4）
    */
   private calcSpawnPosition(): { x: number; y: number } {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = SPAWN_DIST_MIN + Math.random() * (SPAWN_DIST_MAX - SPAWN_DIST_MIN);
-
-    let spawnX = this.player.x + Math.cos(angle) * dist;
-    let spawnY = this.player.y + Math.sin(angle) * dist;
-
-    // 取得攝影機可視範圍（畫面座標轉世界座標）
     const cam = this.cameras.main;
-    const camLeft   = cam.scrollX;
-    const camRight  = cam.scrollX + cam.width;
-    const camTop    = cam.scrollY;
-    const camBottom = cam.scrollY + cam.height;
+    const camHalfW = cam.width  * 0.5 + 32;
+    const camHalfH = cam.height * 0.5 + 32;
 
-    // 若生成點在畫面內，調整至畫面邊緣外最近的位置
-    const isInsideView =
-      spawnX > camLeft && spawnX < camRight &&
-      spawnY > camTop  && spawnY < camBottom;
+    // 嘗試最多 8 次，找到一個在視野外的合法位置
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = SPAWN_DIST_MIN + Math.random() * (SPAWN_DIST_MAX - SPAWN_DIST_MIN);
 
-    if (isInsideView) {
-      // 計算到各邊的距離，選最近的邊推出去
-      const dLeft   = spawnX - camLeft;
-      const dRight  = camRight - spawnX;
-      const dTop    = spawnY - camTop;
-      const dBottom = camBottom - spawnY;
+      let spawnX = this.player.x + Math.cos(angle) * dist;
+      let spawnY = this.player.y + Math.sin(angle) * dist;
 
-      const minDist = Math.min(dLeft, dRight, dTop, dBottom);
+      // 限制在世界邊界內
+      spawnX = Phaser.Math.Clamp(spawnX, 16, WORLD_WIDTH  - 16);
+      spawnY = Phaser.Math.Clamp(spawnY, 16, WORLD_HEIGHT - 16);
 
-      if (minDist === dLeft)        spawnX = camLeft - 1;
-      else if (minDist === dRight)  spawnX = camRight + 1;
-      else if (minDist === dTop)    spawnY = camTop - 1;
-      else                          spawnY = camBottom + 1;
+      // 若在視野外則直接使用
+      const relX = spawnX - this.player.x;
+      const relY = spawnY - this.player.y;
+      if (Math.abs(relX) > camHalfW || Math.abs(relY) > camHalfH) {
+        return { x: spawnX, y: spawnY };
+      }
     }
 
-    // 限制在世界邊界內（避免生成在地圖外）
-    spawnX = Phaser.Math.Clamp(spawnX, 0, WORLD_WIDTH);
-    spawnY = Phaser.Math.Clamp(spawnY, 0, WORLD_HEIGHT);
-
+    // fallback：強制推到視野邊緣外（隨機選一邊）
+    const side = Math.floor(Math.random() * 4);
+    const px = this.player.x;
+    const py = this.player.y;
+    let spawnX: number, spawnY: number;
+    switch (side) {
+      case 0: spawnX = px + (Math.random() - 0.5) * cam.width;  spawnY = py - camHalfH - 16; break; // 上
+      case 1: spawnX = px + (Math.random() - 0.5) * cam.width;  spawnY = py + camHalfH + 16; break; // 下
+      case 2: spawnX = px - camHalfW - 16; spawnY = py + (Math.random() - 0.5) * cam.height; break; // 左
+      default: spawnX = px + camHalfW + 16; spawnY = py + (Math.random() - 0.5) * cam.height; break; // 右
+    }
+    spawnX = Phaser.Math.Clamp(spawnX, 16, WORLD_WIDTH  - 16);
+    spawnY = Phaser.Math.Clamp(spawnY, 16, WORLD_HEIGHT - 16);
     return { x: spawnX, y: spawnY };
   }
 

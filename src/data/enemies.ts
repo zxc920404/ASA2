@@ -56,7 +56,7 @@ export const ENEMIES: EnemyData[] = [
     baseDamage: 5,
     expDrop: 10,
     collisionRadius: 14,
-    attackRange: 290,
+    attackRange: 435,
     fireInterval: 2.8,
     projectileSpeed: 200,
     projectileDamage: 7,

@@ -69,8 +69,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private readonly ARCHER_WALK_ANIM   = 'archer_walk';
   private readonly ARCHER_ATTACK_ANIM = 'archer_attack';
   /** 射手保持距離的理想範圍（px） */
-  private readonly ARCHER_IDEAL_MIN = 160;
-  private readonly ARCHER_IDEAL_MAX = 260;
+  private readonly ARCHER_IDEAL_MIN = 240;
+  private readonly ARCHER_IDEAL_MAX = 390;
   /** 回呼：由 GameScene 注入，用於生成遠程小怪投射物 */
   public onRangedShoot?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
@@ -433,6 +433,15 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const finalLen = Math.sqrt(finalX * finalX + finalY * finalY);
     if (finalLen > 0) { finalX /= finalLen; finalY /= finalLen; }
 
+    // 怪物與玩家最小距離：避免完全重疊在玩家中心
+    // giant 體型較大，最小距離略大
+    const minPlayerDist = (this.dataId === 'giant' || this.dataId === 'tank') ? 40 : 28;
+    if (dist <= minPlayerDist) {
+      // 已到達最小距離，停止推進（只做分離，不再靠近）
+      this.syncVisual();
+      return;
+    }
+
     this.setPosition(
       this.x + finalX * this.moveSpeed * dt,
       this.y + finalY * this.moveSpeed * dt
@@ -444,6 +453,19 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.visual.setFlipX(finalX < 0);
     }
     this.syncVisual();
+  }
+
+  /**
+   * 暫停或恢復此敵人的 Sprite 動畫（升級面板開啟時由 GameScene 呼叫）
+   */
+  public setAnimationPaused(pause: boolean): void {
+    if (this.visual instanceof Phaser.GameObjects.Sprite && this.visual.active) {
+      if (pause) {
+        this.visual.anims.pause();
+      } else {
+        this.visual.anims.resume();
+      }
+    }
   }
 
   /**

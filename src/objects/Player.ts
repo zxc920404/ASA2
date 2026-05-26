@@ -101,7 +101,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 無敵幀計時（ms）：> 0 時不受傷 */
   public invincibleTimer: number = 0;
   /** 無敵幀持續時間（ms） */
-  private readonly INVINCIBLE_DURATION = 600;
+  private readonly INVINCIBLE_DURATION = 500;
   /** 閃白計時（ms） */
   private hitFlashTimer: number = 0;
 

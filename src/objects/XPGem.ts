@@ -10,7 +10,7 @@ export class XPGem extends Phaser.GameObjects.Rectangle {
   public expValue: number;
   public isAttracting: boolean;
 
-  private static readonly ATTRACT_SPEED = 200;
+  private static readonly ATTRACT_SPEED = 350;
 
   /** 視覺圖形（Image 或 Graphics） */
   private visual!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
