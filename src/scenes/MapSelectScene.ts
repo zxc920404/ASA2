@@ -15,8 +15,8 @@ interface MapData {
 const MAPS: MapData[] = [
   {
     id: 'qingyuan',
-    name: '青原試煉場',
-    description: '靈氣初聚之地，適合宗門弟子試煉。',
+    name: '山賊營寨',
+    description: '山腰營寨，山賊盤踞之地，適合宗門弟子試煉。',
     available: true,
   },
   {

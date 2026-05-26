@@ -216,6 +216,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /** 距離過遠的普通小怪重新定位計時器 */
   private recycleTimer: number = 0;
 
+  // ── 地表 tileSprite（山賊營寨背景，跟隨攝影機更新 tilePosition）────
+  private groundTile!: Phaser.GameObjects.TileSprite;
   // ── Debug 顯示 ────────────────────────────────────────────────────────
   private debugText!: Phaser.GameObjects.Text;
   private debugUpdateTimer: number = 0;
@@ -531,6 +533,13 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // 累積遊戲時間
     this.elapsedSeconds += delta / 1000;
+
+    // ── 地表 tileSprite 視差更新（模擬世界移動感）──────────────────────
+    // 攝影機偏移量 = 玩家世界座標 - 攝影機中心，映射到 tilePosition
+    if (this.groundTile) {
+      const cam = this.cameras.main;
+      this.groundTile.setTilePosition(cam.scrollX, cam.scrollY);
+    }
 
     // 氣血回復（局外升級 hp_recovery）
     const hpRecoveryPerSec = MetaProgression.getUpgradeBonus('hp_recovery');
@@ -1341,26 +1350,35 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 繪製第一關「山賊營寨」地表背景（tileSprite 無縫鋪滿 6000×6000 世界）
-   * 使用 Phaser tileSprite 做出類似 Vampire Survivors 的地圖延伸感。
+   * 繪製第一關「山賊營寨」地表背景
+   *
+   * 使用攝影機尺寸的 tileSprite（非世界尺寸），setScrollFactor(0) 固定在畫面上，
+   * 每幀在 _updateInternal 中更新 tilePosition 模擬世界移動感。
+   * 這樣可避免建立 6000×6000 的超大 WebGL 紋理導致黑屏或崩潰。
+   *
    * depth -100，確保在所有遊戲物件之下。
    */
   private drawGameBackground(): void {
     // ── 設定 Physics world bounds（6000×6000）────────────────────────
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // ── tileSprite 地表（無縫鋪滿整個世界）──────────────────────────
+    const W = this.scale.width;
+    const H = this.scale.height;
+
     if (AssetLoader.hasTexture(this, 'bandit_ground_tile')) {
-      // 素材存在：用 tileSprite 鋪滿世界
-      this.add.tileSprite(0, 0, WORLD_WIDTH, WORLD_HEIGHT, 'bandit_ground_tile')
+      // 素材存在：建立攝影機尺寸的 tileSprite，固定在畫面上
+      // 寬高加 128px 緩衝，避免邊緣露出黑邊
+      this.groundTile = this.add.tileSprite(0, 0, W + 128, H + 128, 'bandit_ground_tile')
         .setOrigin(0, 0)
+        .setScrollFactor(0)
         .setDepth(-100);
+      console.log('[GameScene] bandit_ground_tile tileSprite 建立成功');
     } else {
-      // 素材不存在：fallback 至深橄欖綠底色，確保不黑屏
+      // 素材不存在：fallback 至純色背景，確保不黑屏
       console.warn('[GameScene] bandit_ground_tile 未載入，使用 fallback 底色');
-      const bg = this.add.graphics().setDepth(-100);
+      const bg = this.add.graphics().setScrollFactor(0).setDepth(-100);
       bg.fillStyle(0x2d4a1e, 1);
-      bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      bg.fillRect(0, 0, W, H);
     }
 
     // 地圖裝飾物（靜態，不可碰撞，depth 0，不每幀更新）
