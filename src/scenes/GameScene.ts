@@ -3448,8 +3448,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 建立第一關普通小怪動畫（henchman / giant）
-   * 各 8 幀，8 fps，循環播放。
+   * 建立第一關普通小怪動畫（henchman / giant / scout / archer）
+   * 各 8 fps，循環播放。
    * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他敵人）。
    */
   private createEnemyAnimations(): void {
@@ -3474,6 +3474,40 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         .map(key => ({ key }));
       if (frames.length > 0) {
         anims.create({ key: 'giant_walk', frames, frameRate: 8, repeat: -1 });
+      }
+    }
+
+    // ── scout（赤侯）：8 幀，10 fps（快速追擊）────────────────────────
+    if (!anims.exists('scout_walk')) {
+      const frames = ['scout_01','scout_02','scout_03','scout_04',
+                      'scout_05','scout_06','scout_07','scout_08']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'scout_walk', frames, frameRate: 10, repeat: -1 });
+      }
+    }
+
+    // ── archer（山賊射手）移動：6 幀，8 fps ──────────────────────────
+    if (!anims.exists('archer_walk')) {
+      const frames = ['archer_01','archer_02','archer_03','archer_04','archer_05','archer_06']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'archer_walk', frames, frameRate: 8, repeat: -1 });
+      }
+    }
+
+    // ── archer（山賊射手）攻擊：10 幀，10 fps，不循環 ────────────────
+    if (!anims.exists('archer_attack')) {
+      const frames = [
+        'archer_atk_01','archer_atk_02','archer_atk_03','archer_atk_04','archer_atk_05',
+        'archer_atk_06','archer_atk_07','archer_atk_08','archer_atk_09','archer_atk_10',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'archer_attack', frames, frameRate: 10, repeat: 0 });
       }
     }
   }

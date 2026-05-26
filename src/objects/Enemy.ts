@@ -3,12 +3,14 @@ import { EnemyData } from '../types/index';
 import { EliteProjectile, getActiveEliteProjectileCount, evictOldestIfNeeded } from './EliteProjectile';
 import { AssetLoader } from '../utils/AssetLoader';
 
-/** 每種普通小怪的視覺顯示尺寸設定（與碰撞半徑無關，純視覺） */
+/** 每種普通小怪的視覺顯示尺寸設定（與碰撞半徑無關，純視覺）
+ * Sprite 動畫敵人使用目標顯示尺寸（px），Graphics fallback 使用 w/h 作為繪製半徑基準。
+ */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
-  henchman: { w: 36, h: 36 },
-  scout:    { w: 28, h: 28 },
-  giant:    { w: 48, h: 48 },
-  archer:   { w: 36, h: 36 },
+  henchman: { w: 135, h: 130 },   // 接近玩家大小
+  scout:    { w: 130, h: 130 },   // 快速小怪，略小
+  giant:    { w: 190, h: 190 },   // 巨漢略大於玩家
+  archer:   { w: 125, h: 125 },   // 射手，接近玩家大小
   // 舊 id 保留作 fallback，避免 scene restart 殘留物件出錯
   basic:  { w: 36, h: 36 },
   fast:   { w: 28, h: 28 },
@@ -61,11 +63,22 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private rangedProjSpeed: number = 200;
   private rangedProjDamage: number = 7;
   private rangedAttackRange: number = 290;
+  /** 射手攻擊狀態：'idle'=移動中，'attacking'=攻擊動畫播放中 */
+  private archerState: 'idle' | 'attacking' = 'idle';
+  /** 射手攻擊動畫 key（有素材時使用） */
+  private readonly ARCHER_WALK_ANIM   = 'archer_walk';
+  private readonly ARCHER_ATTACK_ANIM = 'archer_attack';
+  /** 射手保持距離的理想範圍（px） */
+  private readonly ARCHER_IDEAL_MIN = 160;
+  private readonly ARCHER_IDEAL_MAX = 260;
   /** 回呼：由 GameScene 注入，用於生成遠程小怪投射物 */
   public onRangedShoot?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
   /** 視覺圖形（Sprite 動畫 / Image 靜態圖；fallback 為 Graphics） */
   private visual!: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+  /** visual 的基準縮放（setDisplaySize 後記錄，受擊 tween 以此為基準） */
+  private visualBaseScaleX: number = 1;
+  private visualBaseScaleY: number = 1;
   /** 護盾光圈（shield 用） */
   private shieldVisual?: Phaser.GameObjects.Graphics;
   /** 衝撞警示線（charger 用） */
@@ -220,10 +233,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // 取得此 enemy type 的視覺尺寸（fallback 為碰撞直徑）
     const vSize = ENEMY_VISUAL_SIZE[enemyData.id] ?? { w: enemyData.collisionRadius * 2, h: enemyData.collisionRadius * 2 };
 
-    // 有動畫素材的敵人 id → 動畫 key 對照表
+    // 有動畫素材的敵人 id → 初始動畫 key 對照表
     const ANIM_KEY: Record<string, string> = {
       henchman: 'henchman_walk',
       giant:    'giant_walk',
+      scout:    'scout_walk',
+      archer:   'archer_walk',
     };
     const animKey = ANIM_KEY[enemyData.id];
 
@@ -234,6 +249,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       spr.setDisplaySize(vSize.w, vSize.h);
       spr.play(animKey);
       this.visual = spr;
+      // 記錄 setDisplaySize 後的實際 scale，作為受擊 tween 的基準
+      this.visualBaseScaleX = spr.scaleX;
+      this.visualBaseScaleY = spr.scaleY;
     } else if (AssetLoader.hasTexture(scene, imgKey)) {
       // 真實 PNG（AssetLoader 載入成功）
       const img = scene.add.image(x, y, imgKey);
@@ -242,11 +260,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       // 強制設定顯示尺寸，確保 Android WebView 上 texture 尺寸異常時也正確顯示
       img.setDisplaySize(vSize.w, vSize.h);
       this.visual = img;
+      this.visualBaseScaleX = img.scaleX;
+      this.visualBaseScaleY = img.scaleY;
     } else {
       // 即時 Graphics fallback（最保險，一定可見，不依賴任何外部資源）
       const g = scene.add.graphics();
       g.setAlpha(1);
       this.visual = g;
+      // Graphics 不使用 scale，baseScale 保持 1
+      this.visualBaseScaleX = 1;
+      this.visualBaseScaleY = 1;
       // 傳入視覺半徑，確保 Graphics 繪製尺寸與 vSize 一致
       this.drawVisual(enemyData.id, Math.floor(vSize.w / 2));
     }
@@ -318,9 +341,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       if (this.hitFlashTimer <= 0) {
         this.hitFlashTimer = 0;
         if (this.visual && this.visual.active) {
-          // 強制恢復完全不透明與正常縮放
+          // 強制恢復完全不透明與基準縮放（不能硬寫 1，Sprite 有自己的 displaySize scale）
           this.visual.setAlpha(1);
-          this.visual.setScale(1);
+          this.visual.setScale(this.visualBaseScaleX, this.visualBaseScaleY);
         }
       }
     }
@@ -345,9 +368,55 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     const dt = delta / 1000;
 
-    // 遠程小怪：進入攻擊範圍後保持距離，不貼臉
+    // ── 射手（archer）：三段距離邏輯 ────────────────────────────────
+    if (this.isRanged && this.dataId === 'archer') {
+      // 面向玩家（flipX）
+      if (this.visual instanceof Phaser.GameObjects.Sprite ||
+          this.visual instanceof Phaser.GameObjects.Image) {
+        this.visual.setFlipX(dx < 0);
+      }
+
+      if (dist > this.ARCHER_IDEAL_MAX) {
+        // 太遠：慢跑靠近
+        if (this.archerState === 'attacking') {
+          // 攻擊動畫播放中不移動，等動畫結束
+        } else {
+          const chaseX = dx / dist;
+          const chaseY = dy / dist;
+          this.setPosition(
+            this.x + chaseX * this.moveSpeed * 0.6 * dt,
+            this.y + chaseY * this.moveSpeed * 0.6 * dt
+          );
+          this.syncVisual();
+          // 確保播放移動動畫
+          if (this.visual instanceof Phaser.GameObjects.Sprite) {
+            const spr = this.visual;
+            if (spr.anims.currentAnim?.key !== this.ARCHER_WALK_ANIM &&
+                this.scene.anims.exists(this.ARCHER_WALK_ANIM)) {
+              spr.play(this.ARCHER_WALK_ANIM);
+            }
+          }
+        }
+      } else if (dist >= this.ARCHER_IDEAL_MIN) {
+        // 理想射擊距離：停止移動，等 updateRangedSkill 觸發攻擊
+        this.syncVisual();
+      } else {
+        // 太近：後退
+        if (this.archerState !== 'attacking') {
+          const backX = -(dx / dist);
+          const backY = -(dy / dist);
+          this.setPosition(
+            this.x + backX * this.moveSpeed * 0.5 * dt,
+            this.y + backY * this.moveSpeed * 0.5 * dt
+          );
+          this.syncVisual();
+        }
+      }
+      return;
+    }
+
+    // ── 舊版 ranged fallback（非 archer 的遠程怪）────────────────────
     if (this.isRanged && dist < this.rangedAttackRange * 0.75) {
-      // 緩慢後退
       const chaseX = -(dx / dist);
       const chaseY = -(dy / dist);
       this.setPosition(
@@ -368,6 +437,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.x + finalX * this.moveSpeed * dt,
       this.y + finalY * this.moveSpeed * dt
     );
+    // 依水平移動方向翻轉 Sprite / Image（Graphics 不支援 flipX，跳過）
+    if (finalX !== 0 &&
+        (this.visual instanceof Phaser.GameObjects.Sprite ||
+         this.visual instanceof Phaser.GameObjects.Image)) {
+      this.visual.setFlipX(finalX < 0);
+    }
     this.syncVisual();
   }
 
@@ -393,6 +468,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const g = this.scene.add.graphics();
     g.setAlpha(1);
     this.visual = g;
+    // 精英怪使用 Graphics，scale 固定為 1
+    this.visualBaseScaleX = 1;
+    this.visualBaseScaleY = 1;
     // 精英怪使用固定半徑 30（不受 ENEMY_VISUAL_SIZE 影響）
     this.drawVisual(type, 30);
   }
@@ -412,6 +490,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
   /**
    * 每幀更新遠程小怪射擊（由 GameScene.update 呼叫）
+   * archer：在理想距離內觸發攻擊動畫，動畫播放到約 30% 時延遲發射箭矢
    */
   public updateRangedSkill(delta: number, playerX: number, playerY: number): void {
     if (this.isDying || !this.isRanged || !this.onRangedShoot) return;
@@ -420,9 +499,53 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const dy = playerY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // 只在攻擊範圍內射擊
-    if (dist > this.rangedAttackRange) return;
+    // ── archer 專用邏輯 ──────────────────────────────────────────────
+    if (this.dataId === 'archer') {
+      // 攻擊動畫播放中：等動畫結束，不重複觸發
+      if (this.archerState === 'attacking') return;
 
+      // 只在理想射擊距離內觸發
+      if (dist < this.ARCHER_IDEAL_MIN || dist > this.rangedAttackRange) return;
+
+      this.rangedFireTimer -= delta;
+      if (this.rangedFireTimer > 0) return;
+
+      // 重置冷卻
+      this.rangedFireTimer = this.rangedFireInterval;
+      this.archerState = 'attacking';
+
+      // 播放攻擊動畫
+      if (this.visual instanceof Phaser.GameObjects.Sprite &&
+          this.scene.anims.exists(this.ARCHER_ATTACK_ANIM)) {
+        const spr = this.visual;
+        spr.play(this.ARCHER_ATTACK_ANIM);
+        // 動畫結束後回到移動動畫
+        spr.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+          this.archerState = 'idle';
+          if (spr.active && this.scene.anims.exists(this.ARCHER_WALK_ANIM)) {
+            spr.play(this.ARCHER_WALK_ANIM);
+          }
+        });
+      } else {
+        // 無動畫素材：直接結束攻擊狀態
+        this.scene.time.delayedCall(300, () => { this.archerState = 'idle'; });
+      }
+
+      // 延遲 300ms 發射箭矢（接近拉弓放箭時間點，約攻擊動畫 30% 處）
+      if (dist > 1) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        this.scene.time.delayedCall(300, () => {
+          if (this.isDying || !this.active || !this.onRangedShoot) return;
+          if (!this.scene || !this.scene.scene.isActive()) return;
+          this.onRangedShoot!(this.x, this.y, nx * this.rangedProjSpeed, ny * this.rangedProjSpeed, this.rangedProjDamage);
+        });
+      }
+      return;
+    }
+
+    // ── 舊版 ranged fallback（非 archer）────────────────────────────
+    if (dist > this.rangedAttackRange) return;
     this.rangedFireTimer -= delta;
     if (this.rangedFireTimer <= 0) {
       this.rangedFireTimer = this.rangedFireInterval;
@@ -1024,17 +1147,19 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       },
     });
 
-    // 輕量縮放回饋（scale 1.0 → 1.08 → 1.0）
-    // yoyo 結束後強制 scale 回 1，防止 Android 上縮放殘留
+    // 輕量縮放回饋（baseScale → baseScale*1.08 → baseScale）
+    // 使用 visualBaseScaleX/Y 確保 Sprite 不會被強制 reset 到 scale=1
     if (this.visual && this.visual.active && !this.isDying) {
+      const bsx = this.visualBaseScaleX;
+      const bsy = this.visualBaseScaleY;
       this.scene.tweens.add({
         targets: this.visual,
-        scaleX: 1.08, scaleY: 1.08,
+        scaleX: bsx * 1.08, scaleY: bsy * 1.08,
         duration: 55, ease: 'Power1',
         yoyo: true,
         onComplete: () => {
           if (this.visual && this.visual.active && !this.isDying) {
-            this.visual.setScale(1);
+            this.visual.setScale(bsx, bsy);
           }
         },
       });

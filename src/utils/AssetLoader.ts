@@ -124,6 +124,34 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'giant_06', 'assets/sprites/enemies/Level_1/giant/06.png');
     AssetLoader.loadImage(scene, 'giant_07', 'assets/sprites/enemies/Level_1/giant/07.png');
     AssetLoader.loadImage(scene, 'giant_08', 'assets/sprites/enemies/Level_1/giant/08.png');
+
+    // scout（赤侯）：8 幀移動動畫，8 fps
+    AssetLoader.loadImage(scene, 'scout_01', 'assets/sprites/enemies/Level_1/scout/01.png');
+    AssetLoader.loadImage(scene, 'scout_02', 'assets/sprites/enemies/Level_1/scout/02.png');
+    AssetLoader.loadImage(scene, 'scout_03', 'assets/sprites/enemies/Level_1/scout/03.png');
+    AssetLoader.loadImage(scene, 'scout_04', 'assets/sprites/enemies/Level_1/scout/04.png');
+    AssetLoader.loadImage(scene, 'scout_05', 'assets/sprites/enemies/Level_1/scout/05.png');
+    AssetLoader.loadImage(scene, 'scout_06', 'assets/sprites/enemies/Level_1/scout/06.png');
+    AssetLoader.loadImage(scene, 'scout_07', 'assets/sprites/enemies/Level_1/scout/07.png');
+    AssetLoader.loadImage(scene, 'scout_08', 'assets/sprites/enemies/Level_1/scout/08.png');
+
+    // archer（山賊射手）：6 幀移動動畫 + 10 幀攻擊動畫，8 fps
+    AssetLoader.loadImage(scene, 'archer_01', 'assets/sprites/enemies/Level_1/archer/01.png');
+    AssetLoader.loadImage(scene, 'archer_02', 'assets/sprites/enemies/Level_1/archer/02.png');
+    AssetLoader.loadImage(scene, 'archer_03', 'assets/sprites/enemies/Level_1/archer/03.png');
+    AssetLoader.loadImage(scene, 'archer_04', 'assets/sprites/enemies/Level_1/archer/04.png');
+    AssetLoader.loadImage(scene, 'archer_05', 'assets/sprites/enemies/Level_1/archer/05.png');
+    AssetLoader.loadImage(scene, 'archer_06', 'assets/sprites/enemies/Level_1/archer/06.png');
+    AssetLoader.loadImage(scene, 'archer_atk_01', 'assets/sprites/enemies/Level_1/archer/attack/01.png');
+    AssetLoader.loadImage(scene, 'archer_atk_02', 'assets/sprites/enemies/Level_1/archer/attack/02.png');
+    AssetLoader.loadImage(scene, 'archer_atk_03', 'assets/sprites/enemies/Level_1/archer/attack/03.png');
+    AssetLoader.loadImage(scene, 'archer_atk_04', 'assets/sprites/enemies/Level_1/archer/attack/04.png');
+    AssetLoader.loadImage(scene, 'archer_atk_05', 'assets/sprites/enemies/Level_1/archer/attack/05.png');
+    AssetLoader.loadImage(scene, 'archer_atk_06', 'assets/sprites/enemies/Level_1/archer/attack/06.png');
+    AssetLoader.loadImage(scene, 'archer_atk_07', 'assets/sprites/enemies/Level_1/archer/attack/07.png');
+    AssetLoader.loadImage(scene, 'archer_atk_08', 'assets/sprites/enemies/Level_1/archer/attack/08.png');
+    AssetLoader.loadImage(scene, 'archer_atk_09', 'assets/sprites/enemies/Level_1/archer/attack/09.png');
+    AssetLoader.loadImage(scene, 'archer_atk_10', 'assets/sprites/enemies/Level_1/archer/attack/10.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────
