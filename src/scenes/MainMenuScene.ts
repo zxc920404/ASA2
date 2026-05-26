@@ -3,6 +3,7 @@ import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { BGMManager } from '../systems/BGMManager';
 import { SFXManager } from '../systems/SFXManager';
+import { FONT_FAMILY } from '../ui/UIStyles';
 
 // ── 設定面板資料 ──────────────────────────────────────────────────────────
 interface SettingsState {
@@ -39,6 +40,47 @@ export class MainMenuScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'MainMenuScene' });
+  }
+
+  preload(): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // ── 黑色底色（避免白屏）──────────────────────────────────────────
+    const bg = this.add.graphics();
+    bg.fillStyle(0x020810, 1);
+    bg.fillRect(0, 0, W, H);
+
+    // ── 簡單 loading 文字（BGM 下載期間顯示）────────────────────────
+    const loadingText = this.add.text(
+      Math.round(W / 2),
+      Math.round(H / 2),
+      '載入中...',
+      {
+        fontSize: '16px',
+        color: '#d4af37',
+        fontFamily: FONT_FAMILY,
+        resolution: 2,
+      }
+    ).setOrigin(0.5, 0.5);
+
+    this.load.on('progress', (value: number) => {
+      loadingText.setText(`載入中... ${Math.round(value * 100)}%`);
+    });
+
+    this.load.on('complete', () => {
+      loadingText.destroy();
+      bg.destroy();
+    });
+
+    // ── 主選單 BGM（約 5.9MB，延遲到此處才載入）──────────────────────
+    // 若 audio key 已存在（場景重入），AssetLoader 會自動跳過
+    AssetLoader.preloadMainMenuBGM(this);
+
+    // ── 載入失敗靜默處理 ──────────────────────────────────────────────
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn(`[MainMenuScene] 資源載入失敗（已 fallback）: ${file.key} → ${file.url}`);
+    });
   }
 
   create(): void {

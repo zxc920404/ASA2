@@ -230,7 +230,72 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   preload(): void {
-    // 延遲載入群組 3：敵人 sprite、戰鬥 BGM、宗門立繪
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // ── Loading 畫面（避免玩家看到黑屏誤以為當機）────────────────────
+    // 黑色底色
+    const loadBg = this.add.graphics();
+    loadBg.fillStyle(0x020810, 1);
+    loadBg.fillRect(0, 0, W, H);
+
+    // 標題文字
+    const titleText = this.add.text(
+      Math.round(W / 2),
+      Math.round(H / 2) - 40,
+      '進入戰場中...',
+      {
+        fontSize: '20px',
+        color: '#d4af37',
+        resolution: 2,
+      }
+    ).setOrigin(0.5, 0.5);
+
+    // 進度條背景
+    const barW = Math.round(Math.min(W * 0.55, 280));
+    const barH = 8;
+    const barX = Math.round(W / 2 - barW / 2);
+    const barY = Math.round(H / 2) - 8;
+
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x1a1a2e, 1);
+    barBg.fillRoundedRect(barX, barY, barW, barH, 4);
+    barBg.lineStyle(1, 0x333355, 0.8);
+    barBg.strokeRoundedRect(barX, barY, barW, barH, 4);
+
+    const barFg = this.add.graphics();
+
+    // 進度文字
+    const pctText = this.add.text(
+      Math.round(W / 2),
+      barY + barH + 14,
+      '0%',
+      {
+        fontSize: '13px',
+        color: '#8899aa',
+        resolution: 2,
+      }
+    ).setOrigin(0.5, 0);
+
+    // 進度條更新
+    this.load.on('progress', (value: number) => {
+      barFg.clear();
+      const fillW = Math.max(6, Math.round(barW * value));
+      barFg.fillStyle(0xd4af37, 0.9);
+      barFg.fillRoundedRect(barX, barY, fillW, barH, 4);
+      pctText.setText(`${Math.round(value * 100)}%`);
+    });
+
+    // 載入完成後移除 loading UI
+    this.load.on('complete', () => {
+      loadBg.destroy();
+      titleText.destroy();
+      barBg.destroy();
+      barFg.destroy();
+      pctText.destroy();
+    });
+
+    // ── 延遲載入群組 3：敵人 sprite、戰鬥 BGM、宗門立繪
     // 已載入的資源會被 AssetLoader 自動跳過（不重複載入）
     AssetLoader.preloadGameAssets(this);
 

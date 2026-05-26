@@ -25,7 +25,9 @@ export class AssetLoader {
    * 啟動時只載入最小必要資源：
    * - UI SFX（按鈕音效，主選單立即需要）
    * - 主選單背景圖（menuback.png）
-   * - 主選單 BGM（Chenxi Village.mp3）
+   *
+   * 注意：主選單 BGM（bgm_main_menu）已移至 MainMenuScene.preload() 載入，
+   * 避免 BootScene 一開始就下載 5.9MB 的音檔拖慢啟動速度。
    */
   static preloadCritical(scene: Phaser.Scene): void {
     // UI SFX（主選單按鈕立即需要）
@@ -34,7 +36,16 @@ export class AssetLoader {
     // 主選單背景圖
     AssetLoader.loadImage(scene, 'ui_bg_main_menu', 'assets/ui/menuback.png');
 
-    // 主選單 BGM（啟動後立即播放）
+    // 主選單 BGM 已移至 MainMenuScene.preload() 延遲載入
+  }
+
+  // ── 群組 1b：主選單 BGM（MainMenuScene preload 載入）─────────────────
+  /**
+   * 主選單 BGM 單獨拆出，由 MainMenuScene.preload() 呼叫。
+   * 原因：Chenxi Village.mp3 約 5.9MB，不應在 BootScene 啟動時就下載。
+   * 若 audio key 已存在（場景重入），自動跳過。
+   */
+  static preloadMainMenuBGM(scene: Phaser.Scene): void {
     AssetLoader.loadAudio(scene, 'bgm_main_menu', 'assets/audio/bgm/Chenxi Village.mp3');
   }
 
