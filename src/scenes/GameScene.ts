@@ -57,7 +57,7 @@ const CONTACT_DAMAGE_COOLDOWN_MS = 1000;
 const ENEMY_SEPARATION_RADIUS = 18;
 
 /** 敵人分離強度：分離向量的權重（下調讓怪物可以稍微重疊，不互相硬推） */
-const ENEMY_SEPARATION_STRENGTH = 0.12;
+const ENEMY_SEPARATION_STRENGTH = 0.45;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
