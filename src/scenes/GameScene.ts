@@ -29,8 +29,8 @@ interface GameSceneData {
 }
 
 // 世界尺寸（邊界限制用）
-const WORLD_WIDTH = 3200;
-const WORLD_HEIGHT = 3200;
+const WORLD_WIDTH = 6000;
+const WORLD_HEIGHT = 6000;
 
 /** 場上敵人上限（設計層面 80，Requirement 6.5 / design.md）
  * @deprecated 已由 DifficultyScaler 的公式曲線動態計算，此常數僅作保底上限 */
@@ -1341,49 +1341,27 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 繪製武俠訓練場背景（Polish 3）
-   * 靜態背景，depth -1，不影響效能
+   * 繪製第一關「山賊營寨」地表背景（tileSprite 無縫鋪滿 6000×6000 世界）
+   * 使用 Phaser tileSprite 做出類似 Vampire Survivors 的地圖延伸感。
+   * depth -100，確保在所有遊戲物件之下。
    */
   private drawGameBackground(): void {
-    const bg = this.add.graphics().setDepth(-1);
+    // ── 設定 Physics world bounds（6000×6000）────────────────────────
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // 底色：深橄欖綠
-    bg.fillStyle(0x1a2a1a, 1);
-    bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-
-    // 石板格紋（64×64，深色線條，alpha 降至 0.12 避免干擾戰鬥視覺）
-    const gridG = this.add.graphics().setDepth(-1);
-    gridG.lineStyle(1, 0x000000, 0.12);
-    const tileSize = 64;
-    for (let x = 0; x <= WORLD_WIDTH; x += tileSize) {
-      gridG.lineBetween(x, 0, x, WORLD_HEIGHT);
+    // ── tileSprite 地表（無縫鋪滿整個世界）──────────────────────────
+    if (AssetLoader.hasTexture(this, 'bandit_ground_tile')) {
+      // 素材存在：用 tileSprite 鋪滿世界
+      this.add.tileSprite(0, 0, WORLD_WIDTH, WORLD_HEIGHT, 'bandit_ground_tile')
+        .setOrigin(0, 0)
+        .setDepth(-100);
+    } else {
+      // 素材不存在：fallback 至深橄欖綠底色，確保不黑屏
+      console.warn('[GameScene] bandit_ground_tile 未載入，使用 fallback 底色');
+      const bg = this.add.graphics().setDepth(-100);
+      bg.fillStyle(0x2d4a1e, 1);
+      bg.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     }
-    for (let y = 0; y <= WORLD_HEIGHT; y += tileSize) {
-      gridG.lineBetween(0, y, WORLD_WIDTH, y);
-    }
-
-    // 地面中央訓練場地標（淡色圓形，alpha 0.12）
-    const centerG = this.add.graphics().setDepth(-1);
-    centerG.lineStyle(3, 0x4a6a4a, 0.12);
-    centerG.strokeCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 200);
-    centerG.lineStyle(2, 0x4a6a4a, 0.08);
-    centerG.strokeCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 350);
-    centerG.fillStyle(0x2a3a2a, 0.10);
-    centerG.fillCircle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 200);
-
-    // 四個角落山林輪廓（深色三角形，alpha 0.4）
-    const cornerG = this.add.graphics().setDepth(-1);
-    cornerG.fillStyle(0x0a1a0a, 0.4);
-    // 左上
-    cornerG.fillTriangle(0, 0, 180, 0, 0, 160);
-    cornerG.fillTriangle(0, 0, 260, 0, 0, 220);
-    // 右上
-    cornerG.fillTriangle(WORLD_WIDTH, 0, WORLD_WIDTH - 180, 0, WORLD_WIDTH, 160);
-    cornerG.fillTriangle(WORLD_WIDTH, 0, WORLD_WIDTH - 260, 0, WORLD_WIDTH, 220);
-    // 左下
-    cornerG.fillTriangle(0, WORLD_HEIGHT, 180, WORLD_HEIGHT, 0, WORLD_HEIGHT - 160);
-    // 右下
-    cornerG.fillTriangle(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH - 180, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT - 160);
 
     // 地圖裝飾物（靜態，不可碰撞，depth 0，不每幀更新）
     this.spawnMapDecorations();

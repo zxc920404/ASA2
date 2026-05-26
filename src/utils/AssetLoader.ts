@@ -116,6 +116,9 @@ export class AssetLoader {
     // ── 戰鬥背景圖 ────────────────────────────────────────────────────
     AssetLoader.loadImage(scene, 'bg_grass_battle', 'assets/backgrounds/grass_battle_tile.png');
 
+    // ── 第一關「山賊營寨」地表 tileSprite 素材 ────────────────────────
+    AssetLoader.loadImage(scene, 'bandit_ground_tile', 'assets/backgrounds/ground_tile.png');
+
     // ── 驚鴻派（assassin）玩家動畫幀 ────────────────────────────────────
     // wave-stand / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
     // wave-stand（idle）：5 幀（idle_01~05），frameRate 5 fps
