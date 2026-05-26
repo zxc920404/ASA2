@@ -41,20 +41,22 @@ export class AssetLoader {
   // ── 群組 2：選單資源（CharacterSelectScene preload 載入）─────────────
   /**
    * 宗門選擇畫面所需資源：
-   * - 宗門小圖示（64×64）
-   * - 宗門選擇背景圖
-   * - 宗門選擇 BGM
-   * - 武器圖示（升級面板需要）
-   * - 被動圖示（升級面板需要）
-   * - 升級面板 UI 圖
+   * - 宗門小圖示（64×64）— 已確認存在
+   * - 宗門選擇背景圖 — 已確認存在
+   * - BGM
+   *
+   * 注意：以下素材目前尚未提供，已移除 preload 避免 404：
+   * - 武器圖示（icons/weapons/*.png）→ LevelUpPanel 使用文字 fallback
+   * - 被動圖示（icons/passives/*.png）→ LevelUpPanel 使用文字 fallback
+   * - 升級面板 UI 圖（panel_levelup.png、panel_hud.png）→ 使用程式繪製
    */
   static preloadMenuAssets(scene: Phaser.Scene): void {
-    // ── 宗門圖示（64×64）──────────────────────────────────────────────
+    // ── 宗門圖示（64×64，已確認存在）────────────────────────────────
     AssetLoader.loadImage(scene, 'sect_icon_swordsman', 'assets/sects/icons/Shield.png');
     AssetLoader.loadImage(scene, 'sect_icon_assassin',  'assets/sects/icons/SWORD.png');
     AssetLoader.loadImage(scene, 'sect_icon_taoist',    'assets/sects/icons/GUA.png');
 
-    // ── 宗門選擇背景圖 ────────────────────────────────────────────────
+    // ── 宗門選擇背景圖（已確認存在）──────────────────────────────────
     AssetLoader.loadImage(scene, 'ui_bg_char_select', 'assets/ui/classback.png');
 
     // ── 宗門選擇 BGM ──────────────────────────────────────────────────
@@ -62,62 +64,26 @@ export class AssetLoader {
 
     // ── 關卡選擇 BGM ──────────────────────────────────────────────────
     AssetLoader.loadAudio(scene, 'bgm_map_select', 'assets/audio/bgm/map_select.mp3');
-
-    // ── 武器圖示（32×32，升級面板需要）──────────────────────────────
-    AssetLoader.loadImage(scene, 'weapon_icon_guardian_ring',     'assets/icons/weapons/guardian_ring.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_swift_blade',       'assets/icons/weapons/swift_blade.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_flame_seal',        'assets/icons/weapons/flame_seal.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_ice_spike',         'assets/icons/weapons/ice_spike.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_ice_spike_evolved', 'assets/icons/weapons/ice_spike_evolved.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_swift_blade_evolved', 'assets/icons/weapons/swift_blade_evolved.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_thunder_claw',      'assets/icons/weapons/thunder_claw.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_poison_mist',       'assets/icons/weapons/poison_mist.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_light_shuttle',     'assets/icons/weapons/light_shuttle.png');
-    AssetLoader.loadImage(scene, 'weapon_icon_soul_chasing_needle', 'assets/icons/weapons/soul_chasing_needle.png');
-
-    // ── 被動圖示（32×32，升級面板需要）──────────────────────────────
-    AssetLoader.loadImage(scene, 'passive_icon_swift_step',    'assets/icons/passives/swift_step.png');
-    AssetLoader.loadImage(scene, 'passive_icon_life_jade',     'assets/icons/passives/life_jade.png');
-    AssetLoader.loadImage(scene, 'passive_icon_break_seal',    'assets/icons/passives/break_seal.png');
-    AssetLoader.loadImage(scene, 'passive_icon_spirit_bead',   'assets/icons/passives/spirit_bead.png');
-    AssetLoader.loadImage(scene, 'passive_icon_vein_talisman', 'assets/icons/passives/vein_talisman.png');
-    AssetLoader.loadImage(scene, 'passive_icon_swift_strike',  'assets/icons/passives/swift_strike.png');
-
-    // ── UI 面板圖（升級面板）─────────────────────────────────────────
-    AssetLoader.loadImage(scene, 'ui_panel_levelup', 'assets/ui/panel_levelup.png');
-    AssetLoader.loadImage(scene, 'ui_panel_hud',     'assets/ui/panel_hud.png');
   }
 
   // ── 群組 3：戰鬥資源（GameScene preload 載入）────────────────────────
   /**
    * 戰鬥場景所需資源：
-   * - 敵人 Sprite（48×48）
-   * - 宗門立繪（160×220，戰鬥 HUD 可能顯示）
+   * - 第一關「山賊營寨」地表 tileSprite 素材（ground_tile.png）
    * - 戰鬥 BGM
-   * - 戰鬥背景圖
-   * - 驚鴻派（assassin）玩家動畫幀（wave-stand × 4、wave-run × 8）
+   * - 驚鴻派（assassin）玩家動畫幀（wave-stand × 5、wave-run × 8）
+   *
+   * 注意：以下素材目前尚未提供，已移除 preload 避免 404 黑屏：
+   * - 敵人 Sprite（enemy_basic/fast/tank/ranged.png）→ Enemy.ts 使用 Graphics fallback
+   * - 宗門立繪（swordsman/assassin/taoist.png）→ HUD 使用 icon fallback
+   * - 舊背景（grass_battle_tile.png）→ 已改用 bandit_ground_tile
    */
   static preloadGameAssets(scene: Phaser.Scene): void {
-    // ── 敵人 Sprite（48×48）──────────────────────────────────────────
-    AssetLoader.loadImage(scene, 'enemy_img_basic',  'assets/sprites/enemies/enemy_basic.png');
-    AssetLoader.loadImage(scene, 'enemy_img_fast',   'assets/sprites/enemies/enemy_fast.png');
-    AssetLoader.loadImage(scene, 'enemy_img_tank',   'assets/sprites/enemies/enemy_tank.png');
-    AssetLoader.loadImage(scene, 'enemy_img_ranged', 'assets/sprites/enemies/enemy_ranged.png');
-
-    // ── 宗門立繪（160×220）───────────────────────────────────────────
-    AssetLoader.loadImage(scene, 'sect_portrait_swordsman', 'assets/sects/portraits/swordsman.png');
-    AssetLoader.loadImage(scene, 'sect_portrait_assassin',  'assets/sects/portraits/assassin.png');
-    AssetLoader.loadImage(scene, 'sect_portrait_taoist',    'assets/sects/portraits/taoist.png');
-    // 注意：wave_stand / wave_run 動畫素材供驚鴻派（assassin）使用，不是獨立宗門
+    // ── 第一關「山賊營寨」地表 tileSprite 素材 ────────────────────────
+    AssetLoader.loadImage(scene, 'bandit_ground_tile', 'assets/backgrounds/ground_tile.png');
 
     // ── 戰鬥 BGM ──────────────────────────────────────────────────────
     AssetLoader.loadAudio(scene, 'bgm_battle', 'assets/audio/bgm/Bandits.mp3');
-
-    // ── 戰鬥背景圖 ────────────────────────────────────────────────────
-    AssetLoader.loadImage(scene, 'bg_grass_battle', 'assets/backgrounds/grass_battle_tile.png');
-
-    // ── 第一關「山賊營寨」地表 tileSprite 素材 ────────────────────────
-    AssetLoader.loadImage(scene, 'bandit_ground_tile', 'assets/backgrounds/ground_tile.png');
 
     // ── 驚鴻派（assassin）玩家動畫幀 ────────────────────────────────────
     // wave-stand / wave-run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用
