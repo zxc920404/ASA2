@@ -51,13 +51,13 @@ const SPAWN_DIST_MAX = 1200;
 const PLAYER_COLLISION_RADIUS = 15;
 
 /** 接觸傷害冷卻時間（毫秒，Requirement 6.2） */
-const CONTACT_DAMAGE_COOLDOWN_MS = 500;
+const CONTACT_DAMAGE_COOLDOWN_MS = 100;
 
 /** 敵人分離半徑（px）：距離小於此值時產生推力 */
-const ENEMY_SEPARATION_RADIUS = 48;
+const ENEMY_SEPARATION_RADIUS = 55;
 
 /** 敵人分離強度：分離向量的權重 */
-const ENEMY_SEPARATION_STRENGTH = 0.62;
+const ENEMY_SEPARATION_STRENGTH = 1;
 
 /** 分離向量更新間隔（幀數）：每 4 幀更新一次 */
 const SEPARATION_UPDATE_INTERVAL = 4;
