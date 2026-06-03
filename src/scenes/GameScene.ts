@@ -3625,20 +3625,19 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 建立驚鴻派玩家動畫（wave_stand / wave_run）
-   * wave_stand / wave_run 是玩家動畫素材，供 id: 'assassin'（驚鴻派）使用。
+   * 建立玩家動畫
+   * - wave_stand / wave_run：驚鴻派（assassin）
+   * - ink_stand / ink_run：墨守閣（swordsman）
+   * - guiyuan_stand / guiyuan_run：歸元宗（taoist）
    * 使用個別載入的 PNG 幀，透過 frames 陣列指定 texture key。
    * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他角色）。
    */
   private createPlayerAnimations(): void {
     const anims = this.anims;
 
-    // 避免 scene restart 時重複建立
-    if (anims.exists('wave_stand') && anims.exists('wave_run')) return;
-
-    // ── wave_stand（idle）：4 幀，4 fps，循環（wave-idle/01~04）────────
+    // ── 驚鴻派（assassin）：wave_stand / wave_run ────────────────────────
+    // wave_stand（idle）：4 幀，4 fps，循環（wave-idle/01~04）
     if (!anims.exists('wave_stand')) {
-      // 使用 AssetLoader.hasTexture 排除 __MISSING（404 失敗的圖片）
       const standFrames = ['wave_idle_01', 'wave_idle_02', 'wave_idle_03', 'wave_idle_04']
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
@@ -3655,7 +3654,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── wave_run：9 幀，12 fps，循環（wave-run/01~09）────────────────
+    // wave_run：9 幀，12 fps，循環（wave-run/01~09）
     if (!anims.exists('wave_run')) {
       const runFrames = [
         'wave_run_01', 'wave_run_02', 'wave_run_03', 'wave_run_04', 'wave_run_05',
@@ -3676,23 +3675,81 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── wave_run：8 幀，8 fps，循環（frames_uniform/run_01~08）────────
-    // 使用 frames_uniform 版本（等比例裁切），frameRate 8 降低播放速度避免滑步感
-    if (!anims.exists('wave_run')) {
+    // ── 墨守閣（swordsman）：ink_stand / ink_run ──────────────────────────
+    // ink_stand（idle）：4 幀，4 fps，循環（ink_idle/01~04）
+    if (!anims.exists('ink_stand')) {
+      const standFrames = ['ink_idle_01', 'ink_idle_02', 'ink_idle_03', 'ink_idle_04']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+
+      console.log('[GameScene] ink_stand frames valid:', standFrames.length, '/', 4);
+
+      if (standFrames.length > 0) {
+        anims.create({
+          key: 'ink_stand',
+          frames: standFrames,
+          frameRate: 4,
+          repeat: -1,
+        });
+      }
+    }
+
+    // ink_run：8 幀，12 fps，循環（ink_run/01~08）
+    if (!anims.exists('ink_run')) {
       const runFrames = [
-        'wave_run_01', 'wave_run_02', 'wave_run_03', 'wave_run_04',
-        'wave_run_05', 'wave_run_06', 'wave_run_07', 'wave_run_08',
+        'ink_run_01', 'ink_run_02', 'ink_run_03', 'ink_run_04',
+        'ink_run_05', 'ink_run_06', 'ink_run_07', 'ink_run_08',
       ]
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
 
-      console.log('[GameScene] wave_run frames valid:', runFrames.length, '/', 8);
+      console.log('[GameScene] ink_run frames valid:', runFrames.length, '/', 8);
 
       if (runFrames.length > 0) {
         anims.create({
-          key: 'wave_run',
+          key: 'ink_run',
           frames: runFrames,
-          frameRate: 8,
+          frameRate: 12,
+          repeat: -1,
+        });
+      }
+    }
+
+    // ── 歸元宗（taoist）：guiyuan_stand / guiyuan_run ─────────────────────
+    // guiyuan_stand（idle）：4 幀，4 fps，循環（Guiyuan_idle/01~04）
+    if (!anims.exists('guiyuan_stand')) {
+      const standFrames = ['guiyuan_idle_01', 'guiyuan_idle_02', 'guiyuan_idle_03', 'guiyuan_idle_04']
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+
+      console.log('[GameScene] guiyuan_stand frames valid:', standFrames.length, '/', 4);
+
+      if (standFrames.length > 0) {
+        anims.create({
+          key: 'guiyuan_stand',
+          frames: standFrames,
+          frameRate: 4,
+          repeat: -1,
+        });
+      }
+    }
+
+    // guiyuan_run：8 幀，12 fps，循環（Guiyuan_run/01~08）
+    if (!anims.exists('guiyuan_run')) {
+      const runFrames = [
+        'guiyuan_run_01', 'guiyuan_run_02', 'guiyuan_run_03', 'guiyuan_run_04',
+        'guiyuan_run_05', 'guiyuan_run_06', 'guiyuan_run_07', 'guiyuan_run_08',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+
+      console.log('[GameScene] guiyuan_run frames valid:', runFrames.length, '/', 8);
+
+      if (runFrames.length > 0) {
+        anims.create({
+          key: 'guiyuan_run',
+          frames: runFrames,
+          frameRate: 12,
           repeat: -1,
         });
       }

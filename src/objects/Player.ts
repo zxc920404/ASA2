@@ -97,6 +97,10 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 上一幀是否在移動（用於切換動畫） */
   private wasMoving: boolean = false;
 
+  /** 當前角色的動畫 key（idle / run） */
+  private animIdleKey: string = '';
+  private animRunKey: string = '';
+
   // ── 受傷回饋狀態 ──────────────────────────────────────────────────────
   /** 無敵幀計時（ms）：> 0 時不受傷 */
   public invincibleTimer: number = 0;
@@ -136,42 +140,60 @@ export class Player extends Phaser.GameObjects.Rectangle {
     scene.add.existing(this);
 
     // 建立視覺圖形
-    // 驚鴻派（assassin）：使用 Sprite + wave_stand / wave_run 動畫；其他角色：使用 Image（程式繪製 texture）
+    // 各門派使用不同動畫：assassin→wave, swordsman→ink, taoist→guiyuan
     const textureKey = `player_${charData.id}`;
-    const isAssassin = charData.id === 'assassin';
+    
+    // 判斷角色動畫類型
+    let idleFrame01 = '';
+    let runFrame01 = '';
+    
+    if (charData.id === 'assassin') {
+      // 驚鴻派
+      this.animIdleKey = 'wave_stand';
+      this.animRunKey = 'wave_run';
+      idleFrame01 = 'wave_idle_01';
+      runFrame01 = 'wave_run_01';
+    } else if (charData.id === 'swordsman') {
+      // 墨守閣
+      this.animIdleKey = 'ink_stand';
+      this.animRunKey = 'ink_run';
+      idleFrame01 = 'ink_idle_01';
+      runFrame01 = 'ink_run_01';
+    } else if (charData.id === 'taoist') {
+      // 歸元宗
+      this.animIdleKey = 'guiyuan_stand';
+      this.animRunKey = 'guiyuan_run';
+      idleFrame01 = 'guiyuan_idle_01';
+      runFrame01 = 'guiyuan_run_01';
+    }
 
-    // 使用 AssetLoader.hasTexture 而非 textures.exists，
-    // 避免 Phaser 將 404 失敗的圖片登記為 __MISSING 後仍回傳 true
-    const waveTexturesReady = isAssassin
-      && AssetLoader.hasTexture(scene, 'wave_idle_01')
-      && AssetLoader.hasTexture(scene, 'wave_run_01');
+    // 檢查動畫素材是否就緒
+    const hasAnimTextures = this.animIdleKey !== ''
+      && AssetLoader.hasTexture(scene, idleFrame01)
+      && AssetLoader.hasTexture(scene, runFrame01);
 
     console.log('[Player] charData.id:', charData.id,
-      '| isAssassin:', isAssassin,
-      '| wave_idle_01 exists:', scene.textures.exists('wave_idle_01'),
-      '| wave_idle_01 valid:', AssetLoader.hasTexture(scene, 'wave_idle_01'),
-      '| wave_run_01 valid:', AssetLoader.hasTexture(scene, 'wave_run_01'),
-      '| waveTexturesReady:', waveTexturesReady);
+      '| animIdleKey:', this.animIdleKey,
+      '| animRunKey:', this.animRunKey,
+      '| idleFrame01:', idleFrame01,
+      '| hasAnimTextures:', hasAnimTextures);
 
-    if (waveTexturesReady) {
-      // 驚鴻派：建立 Sprite，初始幀為 wave_idle_01
-      const sprite = scene.add.sprite(x, y, 'wave_idle_01');
+    if (hasAnimTextures) {
+      // 建立 Sprite，使用對應角色的第一幀
+      const sprite = scene.add.sprite(x, y, idleFrame01);
       sprite.setDepth(5);
-      // Wave sprite：使用 displayHeight 固定有效角色高度，避免 stand/run 切換時忽大忽小。
-      // stand 幀 864×480，run 幀 317×409，原始比例不同，同一 scale 下視覺大小不一致。
-      // 改用各自的 WAVE_STAND_DISPLAY_HEIGHT / WAVE_RUN_DISPLAY_HEIGHT，讓有效角色高度一致。
+      // 使用統一的 displayHeight 設定（所有角色使用相同尺寸）
       sprite.setOrigin(WAVE_ORIGIN_X, WAVE_ORIGIN_Y);
-      // 初始為 stand 動畫，套用 stand 的 displayHeight（使用預先量測的寬高比常數）
       sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);
       this.visual = sprite;
       this.useSprite = true;
       this.waveCurrentAnim = 'stand';
-      // 動畫已在 GameScene.createPlayerAnimations() 中建立（Player 建立前執行）
-      if (scene.anims.exists('wave_stand')) {
-        sprite.play('wave_stand');
-        console.log('[Player] wave_stand animation started');
+      // 播放對應角色的 idle 動畫
+      if (scene.anims.exists(this.animIdleKey)) {
+        sprite.play(this.animIdleKey);
+        console.log(`[Player] ${this.animIdleKey} animation started`);
       } else {
-        console.warn('[Player] wave_stand animation not found — check createPlayerAnimations()');
+        console.warn(`[Player] ${this.animIdleKey} animation not found — check createPlayerAnimations()`);
       }
     } else if (AssetLoader.hasTexture(scene, textureKey)) {
       this.visual = scene.add.image(x, y, textureKey);
@@ -402,7 +424,7 @@ export class Player extends Phaser.GameObjects.Rectangle {
 
     const isMoving = vx !== 0 || vy !== 0;
 
-    // ── 驚濤派動畫切換 ────────────────────────────────────────────────
+    // ── 角色動畫切換 ──────────────────────────────────────────────────
     if (this.useSprite && this.visual && this.visual.active) {
       const sprite = this.visual as Phaser.GameObjects.Sprite;
 
@@ -414,8 +436,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
           sprite.setFlipX(false);
         }
         // 切換至跑步動畫（若尚未播放）
-        if (!this.wasMoving) {
-          sprite.play('wave_run', true);
+        if (!this.wasMoving && this.animRunKey) {
+          sprite.play(this.animRunKey, true);
           this.waveCurrentAnim = 'run';
           // 切換動畫後立即套用 run 的 displayHeight，避免忽然變大
           sprite.setDisplaySize(WAVE_RUN_DISPLAY_HEIGHT * WAVE_RUN_ASPECT, WAVE_RUN_DISPLAY_HEIGHT);
@@ -425,8 +447,8 @@ export class Player extends Phaser.GameObjects.Rectangle {
         }
       } else {
         // 切換至待機動畫（若尚未停止）
-        if (this.wasMoving) {
-          sprite.play('wave_stand', true);
+        if (this.wasMoving && this.animIdleKey) {
+          sprite.play(this.animIdleKey, true);
           this.waveCurrentAnim = 'stand';
           // 切換動畫後立即套用 stand 的 displayHeight，避免忽然縮小
           sprite.setDisplaySize(WAVE_STAND_DISPLAY_HEIGHT * WAVE_STAND_ASPECT, WAVE_STAND_DISPLAY_HEIGHT);

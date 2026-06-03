@@ -115,6 +115,42 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'wave_run_08', 'assets/sprites/player/wave/wave-run/08.png');
     AssetLoader.loadImage(scene, 'wave_run_09', 'assets/sprites/player/wave/wave-run/09.png');
 
+    // ── 墨守閣（swordsman）玩家動畫幀 ────────────────────────────────────
+    // ink-idle / ink-run 是玩家動畫素材，供 id: 'swordsman'（墨守閣）使用
+    // ink-idle：4 幀（ink_idle/01~04.png），frameRate 4 fps
+    AssetLoader.loadImage(scene, 'ink_idle_01', 'assets/sprites/player/ink/ink_idle/01.png');
+    AssetLoader.loadImage(scene, 'ink_idle_02', 'assets/sprites/player/ink/ink_idle/02.png');
+    AssetLoader.loadImage(scene, 'ink_idle_03', 'assets/sprites/player/ink/ink_idle/03.png');
+    AssetLoader.loadImage(scene, 'ink_idle_04', 'assets/sprites/player/ink/ink_idle/04.png');
+
+    // ink-run：8 幀（ink_run/01~08.png），frameRate 12 fps
+    AssetLoader.loadImage(scene, 'ink_run_01', 'assets/sprites/player/ink/ink_run/01.png');
+    AssetLoader.loadImage(scene, 'ink_run_02', 'assets/sprites/player/ink/ink_run/02.png');
+    AssetLoader.loadImage(scene, 'ink_run_03', 'assets/sprites/player/ink/ink_run/03.png');
+    AssetLoader.loadImage(scene, 'ink_run_04', 'assets/sprites/player/ink/ink_run/04.png');
+    AssetLoader.loadImage(scene, 'ink_run_05', 'assets/sprites/player/ink/ink_run/05.png');
+    AssetLoader.loadImage(scene, 'ink_run_06', 'assets/sprites/player/ink/ink_run/06.png');
+    AssetLoader.loadImage(scene, 'ink_run_07', 'assets/sprites/player/ink/ink_run/07.png');
+    AssetLoader.loadImage(scene, 'ink_run_08', 'assets/sprites/player/ink/ink_run/08.png');
+
+    // ── 歸元宗（taoist）玩家動畫幀 ────────────────────────────────────────
+    // Guiyuan-idle / Guiyuan-run 是玩家動畫素材，供 id: 'taoist'（歸元宗）使用
+    // Guiyuan-idle：4 幀（Guiyuan_idle/01~04.png），frameRate 4 fps
+    AssetLoader.loadImage(scene, 'guiyuan_idle_01', 'assets/sprites/player/Guiyuan/Guiyuan_idle/01.png');
+    AssetLoader.loadImage(scene, 'guiyuan_idle_02', 'assets/sprites/player/Guiyuan/Guiyuan_idle/02.png');
+    AssetLoader.loadImage(scene, 'guiyuan_idle_03', 'assets/sprites/player/Guiyuan/Guiyuan_idle/03.png');
+    AssetLoader.loadImage(scene, 'guiyuan_idle_04', 'assets/sprites/player/Guiyuan/Guiyuan_idle/04.png');
+
+    // Guiyuan-run：8 幀（Guiyuan_run/01~08.png），frameRate 12 fps
+    AssetLoader.loadImage(scene, 'guiyuan_run_01', 'assets/sprites/player/Guiyuan/Guiyuan_run/01.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_02', 'assets/sprites/player/Guiyuan/Guiyuan_run/02.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_03', 'assets/sprites/player/Guiyuan/Guiyuan_run/03.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_04', 'assets/sprites/player/Guiyuan/Guiyuan_run/04.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_05', 'assets/sprites/player/Guiyuan/Guiyuan_run/05.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_06', 'assets/sprites/player/Guiyuan/Guiyuan_run/06.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_07', 'assets/sprites/player/Guiyuan/Guiyuan_run/07.png');
+    AssetLoader.loadImage(scene, 'guiyuan_run_08', 'assets/sprites/player/Guiyuan/Guiyuan_run/08.png');
+
     // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
     // henchman（山賊嘍囉）：8 幀移動動畫，8 fps
     AssetLoader.loadImage(scene, 'henchman_01', 'assets/sprites/enemies/Level_1/henchman/01.png');

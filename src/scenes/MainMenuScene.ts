@@ -3,20 +3,8 @@ import { uiText, uiTitle } from '../ui/UIStyles';
 import { AssetLoader } from '../utils/AssetLoader';
 import { BGMManager } from '../systems/BGMManager';
 import { SFXManager } from '../systems/SFXManager';
+import { SettingsManager, Settings } from '../systems/SettingsManager';
 import { FONT_FAMILY } from '../ui/UIStyles';
-
-// ── 設定面板資料 ──────────────────────────────────────────────────────────
-interface SettingsState {
-  bgmVolume: number;   // 0.0 ~ 1.0
-  sfxVolume: number;   // 0.0 ~ 1.0
-  particles: boolean;
-}
-
-const DEFAULT_SETTINGS: SettingsState = {
-  bgmVolume: 0.7,
-  sfxVolume: 0.8,
-  particles: true,
-};
 
 export class MainMenuScene extends Phaser.Scene {
   private W: number = 960;
@@ -33,7 +21,7 @@ export class MainMenuScene extends Phaser.Scene {
   // 設定面板
   private settingsContainer!: Phaser.GameObjects.Container;
   private settingsOpen: boolean = false;
-  private settings: SettingsState = { ...DEFAULT_SETTINGS };
+  private settings: Settings = SettingsManager.loadSettings();
 
   // 離開確認
   private exitContainer!: Phaser.GameObjects.Container;
@@ -93,7 +81,11 @@ export class MainMenuScene extends Phaser.Scene {
     this.particleTimer = 0;
     this.logoBreathTimer = 0;
     this.settingsOpen = false;
-    this.settings = { ...DEFAULT_SETTINGS };
+    
+    // 載入設定並套用到 BGM / SFX
+    this.settings = SettingsManager.loadSettings();
+    BGMManager.setVolume(this.settings.bgmVolume);
+    SFXManager.setVolume(this.settings.sfxVolume);
 
     // ── 背景 ──────────────────────────────────────────────────────────────
     this.drawBackground(W, H);
@@ -456,18 +448,19 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private buildSettingsPanel(W: number, H: number): void {
-    const panelW = Math.min(360, W * 0.42);
-    const panelH = 260;
+    const panelW = Math.min(W * 0.86, 360);
+    const panelH = 340;
     const cx = Math.round(W * 0.5);
     const cy = Math.round(H * 0.5);
     const px = Math.round(cx - panelW / 2);
     const py = Math.round(cy - panelH / 2);
     const r = 10;
 
-    // 遮罩
+    // 遮罩（降低透明度到 0.6）
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.65);
+    overlay.fillStyle(0x000000, 0.6);
     overlay.fillRect(0, 0, W, H);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, W, H), Phaser.Geom.Rectangle.Contains);
     this.settingsContainer.add(overlay);
 
     // 面板背景
@@ -494,17 +487,23 @@ export class MainMenuScene extends Phaser.Scene {
     sep.lineBetween(px + 20, py + 50, px + panelW - 20, py + 50);
     this.settingsContainer.add(sep);
 
-    // BGM 音量
-    this.buildSliderRow('BGM 音量', cx, py + 90, panelW - 40, 'bgmVolume');
-    // SFX 音量
-    this.buildSliderRow('SFX 音量', cx, py + 140, panelW - 40, 'sfxVolume');
-    // 粒子效果開關
-    this.buildToggleRow('粒子效果', cx, py + 190, 'particles');
+    // 設定項目起始 y 位置
+    const rowStartY = py + 78;
+    const rowSpacing = 52;
 
-    // 關閉按鈕
+    // BGM 音量
+    this.buildSliderRow('音樂', px, panelW, rowStartY, 'bgmVolume');
+    // SFX 音量
+    this.buildSliderRow('音效', px, panelW, rowStartY + rowSpacing, 'sfxVolume');
+    // 特效簡化
+    this.buildToggleRow('特效簡化', px, panelW, rowStartY + rowSpacing * 2, 'reducedEffects');
+    // 震動回饋
+    this.buildToggleRow('震動回饋', px, panelW, rowStartY + rowSpacing * 3, 'hapticsEnabled');
+
+    // 關閉按鈕（右上角內側，不貼邊）
+    const closeX = px + panelW - 32;
+    const closeY = py + 22;
     const closeG = this.add.graphics();
-    const closeX = px + panelW - 22;
-    const closeY = py + 18;
     closeG.fillStyle(0x330000, 0.8);
     closeG.fillCircle(closeX, closeY, 12);
     closeG.lineStyle(1.5, 0xaa4444, 0.9);
@@ -515,7 +514,7 @@ export class MainMenuScene extends Phaser.Scene {
     closeTxt.setOrigin(0.5, 0.5);
     this.settingsContainer.add(closeTxt);
 
-    const closeHit = this.add.rectangle(closeX, closeY, 32, 32, 0, 0).setInteractive({ useHandCursor: true });
+    const closeHit = this.add.rectangle(closeX, closeY, 44, 44, 0, 0).setInteractive({ useHandCursor: true });
     closeHit.on('pointerdown', () => {
       SFXManager.playButtonClick(this);
       this.closeSettings();
@@ -523,21 +522,30 @@ export class MainMenuScene extends Phaser.Scene {
     this.settingsContainer.add(closeHit);
   }
 
-  private buildSliderRow(label: string, cx: number, cy: number, rowW: number, key: 'bgmVolume' | 'sfxVolume'): void {
-    const lbl = this.add.text(cx - rowW / 2, cy, label, uiText(13, '#cccccc'));
+  private buildSliderRow(label: string, panelX: number, panelW: number, cy: number, key: 'bgmVolume' | 'sfxVolume'): void {
+    const labelX = panelX + 28;
+    const controlRightX = panelX + panelW - 32;
+    const sliderWidth = Math.min(panelW * 0.34, 120);
+    const sliderX = controlRightX - sliderWidth / 2;
+    
+    const lbl = this.add.text(labelX, cy, label, uiText(15, '#cccccc'));
     lbl.setOrigin(0, 0.5);
     this.settingsContainer.add(lbl);
 
-    const trackW = 120;
+    // 百分比顯示
+    const percentText = this.add.text(controlRightX - sliderWidth - 12, cy, '', uiText(13, '#888888'));
+    percentText.setOrigin(1, 0.5);
+    this.settingsContainer.add(percentText);
+
     const trackH = 6;
-    const trackX = cx + rowW / 2 - trackW;
+    const trackX = sliderX - sliderWidth / 2;
     const trackY = cy;
 
     const track = this.add.graphics();
     track.fillStyle(0x222233, 1);
-    track.fillRoundedRect(trackX, trackY - trackH / 2, trackW, trackH, 3);
+    track.fillRoundedRect(trackX, trackY - trackH / 2, sliderWidth, trackH, 3);
     track.lineStyle(1, 0x444455, 0.8);
-    track.strokeRoundedRect(trackX, trackY - trackH / 2, trackW, trackH, 3);
+    track.strokeRoundedRect(trackX, trackY - trackH / 2, sliderWidth, trackH, 3);
     this.settingsContainer.add(track);
 
     const fillG = this.add.graphics();
@@ -547,69 +555,94 @@ export class MainMenuScene extends Phaser.Scene {
     this.settingsContainer.add(knob);
 
     const redraw = () => {
-      const val = this.settings[key] as number;
-      const fillW = Math.max(6, val * trackW);
+      const val = this.settings[key];
+      const fillW = Math.max(6, val * sliderWidth);
+      const percent = Math.round(val * 100);
+      
+      percentText.setText(`${percent}%`);
+      
       fillG.clear();
       fillG.fillStyle(0xd4af37, 0.9);
       fillG.fillRoundedRect(trackX, trackY - trackH / 2, fillW, trackH, 3);
+      
       knob.clear();
       knob.fillStyle(0xffd700, 1);
-      knob.fillCircle(trackX + fillW, trackY, 8);
-      knob.lineStyle(1.5, 0xffffff, 0.5);
-      knob.strokeCircle(trackX + fillW, trackY, 8);
+      knob.fillCircle(trackX + fillW, trackY, 9);
+      knob.lineStyle(2, 0xffffff, 0.5);
+      knob.strokeCircle(trackX + fillW, trackY, 9);
     };
     redraw();
 
-    const hitZone = this.add.rectangle(trackX + trackW / 2, trackY, trackW + 20, 28, 0, 0)
+    const hitZone = this.add.rectangle(sliderX, trackY, sliderWidth + 24, 48, 0, 0)
       .setInteractive({ useHandCursor: true });
+    
     hitZone.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      const rel = Phaser.Math.Clamp((ptr.x - trackX) / trackW, 0, 1);
-      (this.settings as unknown as Record<string, number | boolean>)[key] = rel;
+      const rel = Phaser.Math.Clamp((ptr.x - trackX) / sliderWidth, 0, 1);
+      this.settings[key] = rel;
       redraw();
-      // BGM 音量滑桿：即時套用到 BGMManager
+      
+      // 即時套用並儲存
       if (key === 'bgmVolume') {
         BGMManager.setVolume(rel);
       }
-      // SFX 音量滑桿：即時套用到 SFXManager
       if (key === 'sfxVolume') {
         SFXManager.setVolume(rel);
         SFXManager.playButtonClick(this);
       }
+      SettingsManager.updateSetting(key, rel);
     });
+    
     this.settingsContainer.add(hitZone);
   }
 
-  private buildToggleRow(label: string, cx: number, cy: number, key: 'particles'): void {
-    const rowW = 200;
-    const lbl = this.add.text(cx - rowW / 2, cy, label, uiText(13, '#cccccc'));
+  private buildToggleRow(label: string, panelX: number, panelW: number, cy: number, key: 'reducedEffects' | 'hapticsEnabled'): void {
+    const labelX = panelX + 28;
+    const controlRightX = panelX + panelW - 32;
+    
+    const lbl = this.add.text(labelX, cy, label, uiText(15, '#cccccc'));
     lbl.setOrigin(0, 0.5);
     this.settingsContainer.add(lbl);
 
+    const toggleW = 44;
+    const toggleH = 20;
+    const toggleX = controlRightX - toggleW;
+
     const toggleG = this.add.graphics();
     this.settingsContainer.add(toggleG);
-    const toggleTxt = this.add.text(cx + rowW / 2, cy, '', uiText(12, '#aaaaaa'));
-    toggleTxt.setOrigin(1, 0.5);
+    
+    const toggleTxt = this.add.text(controlRightX + 12, cy, '', uiText(13, '#888888'));
+    toggleTxt.setOrigin(0, 0.5);
     this.settingsContainer.add(toggleTxt);
 
     const redraw = () => {
       const on = this.settings[key];
       toggleG.clear();
+      
+      // Toggle 背景
       toggleG.fillStyle(on ? 0x1a5533 : 0x221a1a, 1);
-      toggleG.fillRoundedRect(cx + rowW / 2 - 44, cy - 10, 44, 20, 10);
+      toggleG.fillRoundedRect(toggleX, cy - toggleH / 2, toggleW, toggleH, 10);
       toggleG.lineStyle(1.5, on ? 0x44cc88 : 0x444455, 0.9);
-      toggleG.strokeRoundedRect(cx + rowW / 2 - 44, cy - 10, 44, 20, 10);
+      toggleG.strokeRoundedRect(toggleX, cy - toggleH / 2, toggleW, toggleH, 10);
+      
+      // Toggle 圓鈕
       toggleG.fillStyle(on ? 0x44cc88 : 0x555566, 1);
-      toggleG.fillCircle(on ? cx + rowW / 2 - 12 : cx + rowW / 2 - 32, cy, 8);
+      const knobX = on ? toggleX + toggleW - 12 : toggleX + 12;
+      toggleG.fillCircle(knobX, cy, 8);
+      
       toggleTxt.setText(on ? '開' : '關').setColor(on ? '#44cc88' : '#666677');
     };
     redraw();
 
-    const hit = this.add.rectangle(cx + rowW / 2 - 22, cy, 60, 32, 0, 0).setInteractive({ useHandCursor: true });
+    const hit = this.add.rectangle(toggleX + toggleW / 2, cy, toggleW + 20, 48, 0, 0)
+      .setInteractive({ useHandCursor: true });
+    
     hit.on('pointerdown', () => {
       SFXManager.playButtonClick(this);
       this.settings[key] = !this.settings[key];
       redraw();
+      SettingsManager.updateSetting(key, this.settings[key]);
     });
+    
     this.settingsContainer.add(hit);
   }
 
