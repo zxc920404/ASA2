@@ -2117,6 +2117,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
    * 霸山墜：跳躍砸地
    * 三當家跳起後朝玩家位置砸落，落地前有預警圈，落地造成範圍傷害與擊退
    * 使用 boss1_skill1 動畫（13 幀）同步技能效果
+   * 
+   * 節奏設計（13 幀 @ 8 fps = 1625ms）：
+   * - 預警期（0-500ms）：紅圈出現，Boss 尚未播放動畫
+   * - 動畫開始（500ms）：Boss 播放 boss1_skill1
+   * - 第 1-2 幀（500-750ms）：起跳蓄力
+   * - 第 3-8 幀（750-1500ms）：Boss 隱藏（空中）
+   * - 第 9-10 幀（1500-1750ms）：落地砸擊，觸發傷害
+   * - 第 11-13 幀（1750-2125ms）：收招
+   * 總計玩家反應時間：約 1500ms（紅圈出現到落地）
    */
   private spawnLeapSlam(fromX: number, fromY: number, targetX: number, targetY: number, dmg: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
@@ -2125,6 +2134,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     const IMPACT_FRAME = 9;   // 落地幀：第 9 幀觸發傷害
     const HIDE_START_FRAME = 3;   // 隱藏開始：第 3 幀
     const HIDE_END_FRAME = 8;     // 隱藏結束：第 8 幀
+    const WARNING_DURATION = 500; // 預警圈提前顯示時間（ms）
 
     // 落點：玩家當前位置（鎖定）
     const landX = Phaser.Math.Clamp(targetX, 32, WORLD_WIDTH  - 32);
@@ -2174,7 +2184,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 檢查是否有動畫素材 ───────────────────────────────────────────
     if (!(eliteVisual instanceof Phaser.GameObjects.Sprite) || !this.anims.exists('boss1_skill1')) {
       // Fallback：無動畫素材，使用舊版 timer-based 邏輯
-      this.time.delayedCall(900, () => {
+      this.time.delayedCall(1400, () => {
         if (warnTween) warnTween.stop();
         if (warnG && warnG.active) warnG.destroy();
 
@@ -2225,6 +2235,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 動畫同步邏輯：使用 boss1_skill1 動畫 ─────────────────────────
     const spr = eliteVisual as Phaser.GameObjects.Sprite;
     let hasImpacted = false; // 傷害只觸發一次
+    let animStarted = false;  // 動畫是否已開始
 
     // 動畫幀更新監聽
     const onAnimUpdate = (anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
@@ -2327,8 +2338,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     spr.on(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
     spr.on(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
 
-    // 播放技能動畫
-    spr.play('boss1_skill1');
+    // ── 延遲播放動畫：讓預警圈先顯示 500ms ─────────────────────────
+    this.time.delayedCall(WARNING_DURATION, () => {
+      // 暫停/死亡/中斷檢查
+      if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+        cleanup();
+        return;
+      }
+
+      // 播放技能動畫
+      if (spr.active && !animStarted) {
+        animStarted = true;
+        spr.play('boss1_skill1');
+      }
+    });
   }
 
   /**
@@ -3746,7 +3769,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
       if (frames.length > 0) {
-        anims.create({ key: 'boss1_skill1', frames, frameRate: 10, repeat: 0 });
+        anims.create({ key: 'boss1_skill1', frames, frameRate: 8, repeat: 0 });
       }
     }
 
