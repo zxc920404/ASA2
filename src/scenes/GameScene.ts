@@ -1436,7 +1436,8 @@ export class GameScene extends Phaser.Scene implements IGameScene {
             const oldest = this.rangedProjectiles.shift();
             if (oldest && !oldest.isDead) oldest.destroy();
           }
-          const proj = new EliteProjectile(this, px, py, vx, vy, dmg);
+          // 射手小怪使用箭矢圖片投射物（朝飛行方向旋轉）
+          const proj = new EliteProjectile(this, px, py, vx, vy, dmg, 'archer_arrow');
           this.rangedProjectiles.push(proj);
         };
       }
@@ -1771,10 +1772,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 黑洞生成回呼已移除
 
-      // 直線射擊回呼（單發高傷害狙擊型，主要壓迫技能）
-      elite.onLineShot = (originX: number, originY: number, angle: number) => {
+      // 直線射擊回呼（三段連續射擊：1 → 2 → 3 條，紫色系，主要壓迫技能）
+      elite.onLineShot = (originX: number, originY: number, baseAngle: number, lineCount: number) => {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.spawnLineShot(originX, originY, angle);
+        this.spawnLineShot(originX, originY, baseAngle, lineCount);
       };
     }
 
@@ -1987,38 +1988,55 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成單發直線射擊（shooter 二當家技能）
-   * 從 Boss 自身位置沿鎖定方向發射一次高傷害狙擊型直線攻擊。
+   * 生成單一波直線射擊（shooter 二當家技能，三段連射之一波）
+   * 從 Boss 自身位置沿鎖定的基準方向發射 lineCount 條紫色直線攻擊。
    * 警示線與實際彈道使用相同起點與方向，確保警示與傷害區一致。
-   * @param originX 射擊起點 X（Boss 自身位置）
-   * @param originY 射擊起點 Y
-   * @param angle   射擊方向角度（Boss → 玩家施法瞬間位置，鎖定不追蹤）
+   * 角度排列：
+   *   1 條：正中（0°）
+   *   2 條：基準方向左右各 8°（-8° / +8°）
+   *   3 條：基準方向 -12° / 0° / +12°
+   * @param originX   射擊起點 X（Boss 自身位置）
+   * @param originY   射擊起點 Y
+   * @param baseAngle 該波鎖定的基準方向（Boss → 玩家當下位置）
+   * @param lineCount 該波直線數量（1 / 2 / 3）
    */
-  private spawnLineShot(originX: number, originY: number, angle: number): void {
+  private spawnLineShot(originX: number, originY: number, baseAngle: number, lineCount: number): void {
     if (this.isPaused || this.isGameOver || this.isVictory) return;
     if (!this.scene.isActive()) return;
 
     // 攻擊參數
     const LINE_LENGTH = 1600;  // 攻擊線長度（px）：延伸到畫面外 / 最大射程
     const LINE_WIDTH = 50;     // 攻擊線寬度（px）：手機畫面易讀（40~60）
-    const WARNING_TIME = 1300; // 警示時間（ms）：拉長給玩家閃避空間（1.2~1.5s）
+    const WARNING_TIME = 900;  // 警示時間（ms）：需與 Enemy.LINE_SHOT_WARNING 一致
 
-    // 高傷害：玩家最大生命的 60%（屬於 Boss 危險技能，至少 60）
+    // 中高傷害：每條約玩家最大生命的 30%（連射三波，避免每條都過高造成秒殺），至少 35
     const maxHP = this.player?.stats?.maxHP ?? 100;
-    const damage = Math.max(60, Math.round(maxHP * 0.6));
+    const damage = Math.max(35, Math.round(maxHP * 0.3));
 
-    const la = new EliteLineAttack(
-      this,
-      originX, originY,
-      angle,
-      LINE_LENGTH,
-      LINE_WIDTH,
-      damage,
-      WARNING_TIME
-    );
+    // 各波角度偏移（度 → 弧度）
+    const DEG = Math.PI / 180;
+    let offsets: number[];
+    if (lineCount <= 1) {
+      offsets = [0];
+    } else if (lineCount === 2) {
+      offsets = [-8 * DEG, 8 * DEG];
+    } else {
+      offsets = [-12 * DEG, 0, 12 * DEG];
+    }
 
-    this.lineAttacks.push(la);
-    la.showWarning();
+    for (const off of offsets) {
+      const la = new EliteLineAttack(
+        this,
+        originX, originY,
+        baseAngle + off,
+        LINE_LENGTH,
+        LINE_WIDTH,
+        damage,
+        WARNING_TIME
+      );
+      this.lineAttacks.push(la);
+      la.showWarning();
+    }
   }
 
   /**
@@ -3791,7 +3809,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // skill2（attack2）：11 幀直線射擊準備動畫 @ 9 fps ≈ 1.22s（涵蓋警示期間，僅供直線射擊使用）
+    // skill2（attack2）：11 幀直線射擊準備動畫 @ 12 fps ≈ 0.92s（對齊每波 0.9s 警示出手，僅供直線射擊使用）
     if (!anims.exists('boss2_skill2')) {
       const frames = [
         'boss2_skill2_01','boss2_skill2_02','boss2_skill2_03','boss2_skill2_04',
@@ -3801,7 +3819,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
       if (frames.length > 0) {
-        anims.create({ key: 'boss2_skill2', frames, frameRate: 9, repeat: 0 });
+        anims.create({ key: 'boss2_skill2', frames, frameRate: 12, repeat: 0 });
       }
     }
 

@@ -178,20 +178,25 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /**
    * 直線射擊施法中：true 時停止移動、播放 boss2_skill2 準備動畫、鎖定方向，
    * 且不可被 walk / idle 動畫覆蓋。由 startLineShotCast 設為 true，
-   * lineShotCastTimer 倒數歸零後（endLineShotCast）設回 false 並恢復 walk。
+   * 三段連射全部結束後（endLineShotCast）設回 false 並恢復 walk。
    */
   private lineShotCasting: boolean = false;
-  /** 直線射擊施法倒數（ms），由 updateShooter 累減，歸零後結束施法 */
-  private lineShotCastTimer: number = 0;
-  /** 直線射擊施法總時長（ms）：警示 + 射擊 + 緩衝，期間 Boss 凍結 */
-  private readonly LINE_SHOT_CAST_DURATION = 1600;
+  /** 已觸發的射擊波數（0 = 尚未開始，1/2/3 = 第幾波，>3 = 等待最後一波結束） */
+  private lineShotWaveIndex: number = 0;
+  /** 下一波倒數計時（ms），由 updateShooter 累減 */
+  private lineShotWaveTimer: number = 0;
+  /** 每一波警示時間（ms）：必須與 GameScene.spawnLineShot 的 WARNING_TIME 一致 */
+  private readonly LINE_SHOT_WARNING = 900;
+  /** 每一波射擊後到下一波的間隔（ms） */
+  private readonly LINE_SHOT_INTERVAL = 300;
   /**
-   * 回呼：由 GameScene 注入，觸發單發直線射擊。
-   * @param originX 射擊起點 X（Boss 自身位置，鎖定）
-   * @param originY 射擊起點 Y
-   * @param angle   射擊方向角度（Boss → 玩家施法瞬間位置，鎖定不追蹤）
+   * 回呼：由 GameScene 注入，觸發單一波直線射擊。
+   * @param originX   射擊起點 X（Boss 自身位置）
+   * @param originY   射擊起點 Y
+   * @param baseAngle 該波鎖定的射擊基準方向（Boss → 玩家當下位置）
+   * @param lineCount 該波直線數量（1 / 2 / 3）
    */
-  public onLineShot?: (originX: number, originY: number, angle: number) => void;
+  public onLineShot?: (originX: number, originY: number, baseAngle: number, lineCount: number) => void;
 
   // ── 個體差異（spawn 時隨機產生，讓怪物不完全同速同方向）──────────
   /** 包圍角度偏移（弧度）：讓每隻怪物趨向玩家周圍不同位置 */
@@ -790,11 +795,21 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ── tryChargerMeleeSlash 已移除（霸刀橫斬普通攻擊）──────────────────
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
-    // 直線射擊施法中：倒數計時，期間停止所有 shooter 邏輯與移動（移動由 isCastingSkill 鎖定）
+    // 直線射擊三段連射施法中：以波狀態機驅動，期間停止其他 shooter 邏輯與移動
     if (this.lineShotCasting) {
-      this.lineShotCastTimer -= delta;
-      if (this.lineShotCastTimer <= 0) {
-        this.endLineShotCast();
+      this.lineShotWaveTimer -= delta;
+      if (this.lineShotWaveTimer <= 0) {
+        this.lineShotWaveIndex++;
+        if (this.lineShotWaveIndex <= 3) {
+          // 觸發第 N 波：重新瞄準玩家、重播動畫、生成 N 條警示線 + 光束
+          this.fireLineShotWave(this.lineShotWaveIndex, playerX, playerY);
+          // 第 1、2 波：等「警示 + 間隔」後進入下一波
+          // 第 3 波：等最後一波警示結束（+ 間隔緩衝）後結束施法
+          this.lineShotWaveTimer = this.LINE_SHOT_WARNING + this.LINE_SHOT_INTERVAL;
+        } else {
+          // 三波全部結束
+          this.endLineShotCast();
+        }
       }
       return;
     }
@@ -832,38 +847,48 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     // ── 黑洞技能已移除 ────────────────────────────────────────────────
 
-    // ── 直線射擊技能（單發高傷害狙擊型）────────────────────────────────
+    // ── 直線射擊技能（三段連續射擊：1 → 2 → 3 條）──────────────────────
     this.lineAttackCooldown -= delta;
     if (this.lineAttackCooldown <= 0) {
       // 下次冷卻時間：6～8 秒隨機
       this.lineAttackCooldown = this.LINE_ATTACK_COOLDOWN_MIN +
         Math.random() * (this.LINE_ATTACK_COOLDOWN_MAX - this.LINE_ATTACK_COOLDOWN_MIN);
 
-      // 記錄玩家當下位置，計算 Boss → 玩家方向（鎖定，不追蹤）
-      const dx = playerX - this.x;
-      const dy = playerY - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist >= 1 && this.onLineShot) {
-        const angle = Math.atan2(dy, dx);
-        // 進入施法狀態：停止移動、面向方向、播放準備動畫
-        this.startLineShotCast(dx);
-        // 觸發 GameScene 生成警示線 + 單發直線攻擊（方向已鎖定）
-        this.onLineShot(this.x, this.y, angle);
+      if (this.onLineShot) {
+        // 進入三段連射施法（實際各波射擊由 wave 狀態機觸發）
+        this.startLineShotCast();
       }
     }
   }
 
   /**
-   * 開始直線射擊施法：鎖定方向、停止移動、播放 boss2_skill2 準備動畫。
-   * 設定 isCastingSkill = true（moveTowardPlayer 會因此停止移動），
-   * 並啟動 lineShotCastTimer，倒數結束後由 endLineShotCast 恢復。
-   * 不使用 timer/delayedCall：施法倒數由 updateShooter 累減，暫停 / 死亡時自然停止。
-   * @param dx 玩家相對 Boss 的水平向量（用於決定面向）
+   * 開始直線射擊三段連射施法：停止移動並啟動波狀態機。
+   * 設定 isCastingSkill = true（moveTowardPlayer 會因此停止移動）。
+   * lineShotWaveTimer 設 0，使下一幀立即觸發第 1 波。
+   * 不使用 timer/delayedCall：波計時由 updateShooter 累減，暫停 / 死亡時自然停止。
    */
-  private startLineShotCast(dx: number): void {
+  private startLineShotCast(): void {
     this.lineShotCasting = true;
     this.isCastingSkill = true;
-    this.lineShotCastTimer = this.LINE_SHOT_CAST_DURATION;
+    this.lineShotWaveIndex = 0;
+    this.lineShotWaveTimer = 0; // 立即觸發第 1 波
+  }
+
+  /**
+   * 觸發單一波直線射擊：重新瞄準玩家、面向方向、重播射擊動畫，並透過 onLineShot
+   * 請 GameScene 生成該波警示線 + 光束。該波方向在此鎖定，警示期間不再追蹤玩家。
+   * @param wave    第幾波（1 / 2 / 3），對應直線數量
+   * @param playerX 玩家當下 X
+   * @param playerY 玩家當下 Y
+   */
+  private fireLineShotWave(wave: number, playerX: number, playerY: number): void {
+    if (this.isDying || !this.onLineShot) return;
+
+    // 重新瞄準玩家當下方向（該波鎖定）
+    const dx = playerX - this.x;
+    const dy = playerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const baseAngle = dist >= 1 ? Math.atan2(dy, dx) : 0;
 
     // 面向射擊方向（朝左時翻轉）
     if (this.visual instanceof Phaser.GameObjects.Sprite ||
@@ -871,11 +896,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.visual.setFlipX(dx < 0);
     }
 
-    // 播放直線射擊專用準備動畫（boss2_skill2，不套用 skill1）
+    // 重播直線射擊專用動畫（每一波都重新出手，不套用 skill1）
     if (this.visual instanceof Phaser.GameObjects.Sprite &&
         this.scene.anims.exists('boss2_skill2')) {
       this.visual.play('boss2_skill2');
     }
+
+    // 觸發 GameScene 生成該波警示線 + 光束（方向已鎖定，wave = 直線數量）
+    this.onLineShot(this.x, this.y, baseAngle, wave);
   }
 
   /**
@@ -884,6 +912,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private endLineShotCast(): void {
     this.lineShotCasting = false;
     this.isCastingSkill = false;
+    this.lineShotWaveIndex = 0;
     if (!this.isDying &&
         this.visual instanceof Phaser.GameObjects.Sprite && this.visual.active &&
         this.scene.anims.exists('boss2_walk')) {

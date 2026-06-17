@@ -1,7 +1,17 @@
 import Phaser from 'phaser';
+import { AssetLoader } from '../utils/AssetLoader';
 
 /** 場上精英投射物上限（避免 FPS 掉） */
 const MAX_ELITE_PROJECTILES = 45;
+
+/** 箭矢 / 圖片投射物的目標最長邊（px），維持原圖比例縮放 */
+const ARROW_TARGET_SIZE = 28;
+/**
+ * 箭矢圖片的朝向補正（弧度）。
+ * 預設假設 arrow.png 原圖朝右（→，0 弧度）。
+ * 若實際圖片朝上 / 朝左，可調整此值（例：朝上為 +Math.PI / 2）。
+ */
+const ARROW_ROTATION_OFFSET = 0;
 
 /** 全域精英投射物計數 */
 let activeEliteProjectiles = 0;
@@ -32,9 +42,11 @@ export function resetEliteProjectileGlobals(): void {
 }
 
 /**
- * EliteProjectile — 精英怪（shooter）發射的敵方投射物
+ * EliteProjectile — 精英怪（shooter）與遠程小怪（archer）發射的敵方投射物
  * 繼承 Phaser.GameObjects.Rectangle（透明碰撞體，12×12）
- * 視覺為紫色光球
+ * 視覺：
+ *   - 預設為紫色光球（Graphics）
+ *   - 傳入 textureKey（且 texture 有效）時改用該圖片（如箭矢），並朝飛行方向旋轉
  * 飛行 3 秒或超出射程後自動銷毀
  */
 export class EliteProjectile extends Phaser.GameObjects.Rectangle {
@@ -48,8 +60,10 @@ export class EliteProjectile extends Phaser.GameObjects.Rectangle {
   /** 剩餘存活時間（毫秒） */
   private lifetime: number = 3000;
 
-  /** 視覺圖形 */
-  private visual!: Phaser.GameObjects.Graphics;
+  /** 視覺圖形：使用圖片時為 Image，否則為紫色光球 Graphics */
+  private visual!: Phaser.GameObjects.Graphics | Phaser.GameObjects.Image;
+  /** 是否使用圖片視覺（true 時依飛行方向旋轉） */
+  private useImage: boolean = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -57,7 +71,8 @@ export class EliteProjectile extends Phaser.GameObjects.Rectangle {
     y: number,
     velocityX: number,
     velocityY: number,
-    damage: number
+    damage: number,
+    textureKey?: string
   ) {
     super(scene, x, y, 12, 12, 0x000000, 0);
 
@@ -67,15 +82,30 @@ export class EliteProjectile extends Phaser.GameObjects.Rectangle {
 
     scene.add.existing(this);
 
-    this.visual = scene.add.graphics();
-    this.drawVisual();
+    // 有提供有效 texture（如箭矢）時用 Image，否則 fallback 紫色光球
+    if (textureKey && AssetLoader.hasTexture(scene, textureKey)) {
+      const img = scene.add.image(x, y, textureKey);
+      img.setDepth(8);
+      // 維持原圖比例，縮放到目標尺寸
+      const maxDim = Math.max(img.width, img.height) || ARROW_TARGET_SIZE;
+      img.setScale(ARROW_TARGET_SIZE / maxDim);
+      // 朝飛行方向旋轉
+      img.setRotation(Math.atan2(velocityY, velocityX) + ARROW_ROTATION_OFFSET);
+      this.visual = img;
+      this.useImage = true;
+    } else {
+      const g = scene.add.graphics();
+      this.visual = g;
+      this.useImage = false;
+      this.drawVisual(g);
+    }
 
     activeEliteProjectiles++;
     allEliteProjectiles.push(this);
   }
 
-  private drawVisual(): void {
-    const g = this.visual;
+  /** 繪製紫色光球（fallback 視覺） */
+  private drawVisual(g: Phaser.GameObjects.Graphics): void {
     g.clear();
     // 外圈紫色光暈
     g.fillStyle(0xaa44ff, 0.35);

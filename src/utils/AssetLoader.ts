@@ -267,6 +267,8 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'archer_atk_08', 'assets/sprites/enemies/Level_1/archer/attack/08.png');
     AssetLoader.loadImage(scene, 'archer_atk_09', 'assets/sprites/enemies/Level_1/archer/attack/09.png');
     AssetLoader.loadImage(scene, 'archer_atk_10', 'assets/sprites/enemies/Level_1/archer/attack/10.png');
+    // archer 箭矢投射物
+    AssetLoader.loadImage(scene, 'archer_arrow', 'assets/sprites/enemies/Level_1/archer/arrow/arrow.png');
   }
 
   // ── 向下相容：舊的 preloadAll 改為載入全部三個群組 ───────────────────
