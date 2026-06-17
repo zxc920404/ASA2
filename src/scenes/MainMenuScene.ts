@@ -733,6 +733,15 @@ export class MainMenuScene extends Phaser.Scene {
     // 立即停止 BGM
     BGMManager.stopImmediate();
     
+    // 銷毀 Phaser 遊戲實例（完全停止運行）
+    this.game.destroy(true, false);
+    
+    // 清空畫布
+    const canvas = document.querySelector('canvas');
+    if (canvas && canvas.parentElement) {
+      canvas.parentElement.removeChild(canvas);
+    }
+    
     // 檢查是否在 Capacitor App 環境
     // @ts-ignore - Capacitor 全域變數
     if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
@@ -749,67 +758,56 @@ export class MainMenuScene extends Phaser.Scene {
           // @ts-ignore
           Capacitor.Plugins.App.exitApp();
         } else {
-          this.exitGameFallback();
+          // 如果原生 API 都失敗，至少顯示告別訊息
+          this.showExitMessage();
         }
       }
     } else {
-      // Web 版：顯示告別畫面並嘗試關閉視窗
-      this.exitGameWeb();
+      // Web 版：嘗試關閉視窗，失敗時顯示告別訊息
+      window.close();
+      
+      // 如果 window.close() 失敗（大多數情況），顯示告別訊息
+      setTimeout(() => {
+        this.showExitMessage();
+      }, 100);
     }
   }
 
-  private exitGameFallback(): void {
-    // 最終 fallback：停止所有場景並顯示告別畫面
-    this.scene.stop();
-    
-    // 建立告別畫面
-    const W = this.scale.width;
-    const H = this.scale.height;
-    
-    const bg = this.add.graphics().setDepth(100);
-    bg.fillStyle(0x020810, 1);
-    bg.fillRect(0, 0, W, H);
-    
-    this.add.text(W * 0.5, H * 0.42, '感謝遊玩武俠幸存者！',
-      uiTitle(32, '#ffd700')
-    ).setOrigin(0.5, 0.5).setDepth(101);
-    
-    this.add.text(W * 0.5, H * 0.56, '願你武道長進，再見！\n\n（請關閉瀏覽器分頁或返回主畫面）',
-      uiText(14, '#d4af37', { align: 'center', lineSpacing: 6 })
-    ).setOrigin(0.5, 0.5).setDepth(101);
-  }
-
-  private exitGameWeb(): void {
-    // Web 版：停止場景並嘗試關閉視窗
-    this.scene.stop();
-    
-    // 建立告別畫面
-    const W = this.scale.width;
-    const H = this.scale.height;
-    
-    const bg = this.add.graphics().setDepth(100);
-    bg.fillStyle(0x020810, 1);
-    bg.fillRect(0, 0, W, H);
-    
-    this.add.text(W * 0.5, H * 0.38, '感謝遊玩武俠幸存者！',
-      uiTitle(32, '#ffd700')
-    ).setOrigin(0.5, 0.5).setDepth(101);
-    
-    this.add.text(W * 0.5, H * 0.54, '願你武道長進，再見！',
-      uiText(16, '#d4af37', { align: 'center' })
-    ).setOrigin(0.5, 0.5).setDepth(101);
-    
-    // 嘗試關閉瀏覽器視窗（僅在某些情況下有效）
-    this.time.delayedCall(500, () => {
-      // 方法 1：標準 window.close()
-      window.close();
-      
-      // 方法 2：如果無法關閉，顯示指示
-      this.time.delayedCall(500, () => {
-        this.add.text(W * 0.5, H * 0.68, '（請關閉瀏覽器分頁）',
-          uiText(12, '#888888', { align: 'center' })
-        ).setOrigin(0.5, 0.5).setDepth(101);
-      });
-    });
+  private showExitMessage(): void {
+    // 在 body 上顯示告別訊息（Phaser 已銷毀）
+    document.body.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to bottom, #060818, #080622);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Microsoft YaHei', 'PingFang TC', sans-serif;
+        color: #ffd700;
+        text-align: center;
+        z-index: 9999;
+      ">
+        <h1 style="
+          font-size: 42px;
+          margin: 0 0 24px 0;
+          text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        ">感謝遊玩武俠幸存者！</h1>
+        <p style="
+          font-size: 20px;
+          color: #d4af37;
+          margin: 0 0 16px 0;
+        ">願你武道長進，再見！</p>
+        <p style="
+          font-size: 14px;
+          color: #888888;
+          margin-top: 40px;
+        ">（請關閉此分頁）</p>
+      </div>
+    `;
   }
 }
