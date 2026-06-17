@@ -1771,10 +1771,10 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 黑洞生成回呼已移除
 
-      // 外圍直線射擊回呼（主要壓迫技能）
-      elite.onLineAttack = (targetX: number, targetY: number, count: number) => {
+      // 直線射擊回呼（單發高傷害狙擊型，主要壓迫技能）
+      elite.onLineShot = (originX: number, originY: number, angle: number) => {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.spawnLineAttacks(targetX, targetY, count);
+        this.spawnLineShot(originX, originY, angle);
       };
     }
 
@@ -1987,50 +1987,38 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成外圍直線射擊（shooter 二當家技能）
-   * 攻擊從玩家周圍外側射向玩家施法瞬間位置
-   * @param targetX 施法瞬間玩家 X（鎖定，不追蹤）
-   * @param targetY 施法瞬間玩家 Y
-   * @param count   本次攻擊道數（1～8）
+   * 生成單發直線射擊（shooter 二當家技能）
+   * 從 Boss 自身位置沿鎖定方向發射一次高傷害狙擊型直線攻擊。
+   * 警示線與實際彈道使用相同起點與方向，確保警示與傷害區一致。
+   * @param originX 射擊起點 X（Boss 自身位置）
+   * @param originY 射擊起點 Y
+   * @param angle   射擊方向角度（Boss → 玩家施法瞬間位置，鎖定不追蹤）
    */
-  private spawnLineAttacks(targetX: number, targetY: number, count: number): void {
+  private spawnLineShot(originX: number, originY: number, angle: number): void {
     if (this.isPaused || this.isGameOver || this.isVictory) return;
     if (!this.scene.isActive()) return;
 
     // 攻擊參數
-    const START_DIST = 600;   // 攻擊起點距目標點距離（px）
-    const LINE_LENGTH = 1100; // 攻擊線長度（px）
-    const LINE_WIDTH = 28;    // 攻擊線寬度（px）（原 32，-15%）
-    const LINE_DAMAGE = 15;   // 傷害值
-    const WARNING_TIME = 800; // 預警時間（ms）（原 700，+15%）
+    const LINE_LENGTH = 1600;  // 攻擊線長度（px）：延伸到畫面外 / 最大射程
+    const LINE_WIDTH = 50;     // 攻擊線寬度（px）：手機畫面易讀（40~60）
+    const WARNING_TIME = 1300; // 警示時間（ms）：拉長給玩家閃避空間（1.2~1.5s）
 
-    // 第一道的基礎角度（隨機，讓每次方向不同）
-    const baseAngle = Math.random() * Math.PI * 2;
+    // 高傷害：玩家最大生命的 60%（屬於 Boss 危險技能，至少 60）
+    const maxHP = this.player?.stats?.maxHP ?? 100;
+    const damage = Math.max(60, Math.round(maxHP * 0.6));
 
-    for (let i = 0; i < count; i++) {
-      // 均勻分布攻擊方向
-      const incomingAngle = baseAngle + (i / count) * Math.PI * 2;
+    const la = new EliteLineAttack(
+      this,
+      originX, originY,
+      angle,
+      LINE_LENGTH,
+      LINE_WIDTH,
+      damage,
+      WARNING_TIME
+    );
 
-      // 起點：從目標點外圍 START_DIST 處
-      const startX = targetX + Math.cos(incomingAngle) * START_DIST;
-      const startY = targetY + Math.sin(incomingAngle) * START_DIST;
-
-      // 攻擊方向：從外圍射向目標點（反向）
-      const attackAngle = incomingAngle + Math.PI;
-
-      const la = new EliteLineAttack(
-        this,
-        startX, startY,
-        attackAngle,
-        LINE_LENGTH,
-        LINE_WIDTH,
-        LINE_DAMAGE,
-        WARNING_TIME
-      );
-
-      this.lineAttacks.push(la);
-      la.showWarning();
-    }
+    this.lineAttacks.push(la);
+    la.showWarning();
   }
 
   /**
@@ -3800,6 +3788,20 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         .map(key => ({ key }));
       if (frames.length > 0) {
         anims.create({ key: 'boss2_skill1', frames, frameRate: 12, repeat: 0 });
+      }
+    }
+
+    // skill2（attack2）：11 幀直線射擊準備動畫 @ 9 fps ≈ 1.22s（涵蓋警示期間，僅供直線射擊使用）
+    if (!anims.exists('boss2_skill2')) {
+      const frames = [
+        'boss2_skill2_01','boss2_skill2_02','boss2_skill2_03','boss2_skill2_04',
+        'boss2_skill2_05','boss2_skill2_06','boss2_skill2_07','boss2_skill2_08',
+        'boss2_skill2_09','boss2_skill2_10','boss2_skill2_11',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss2_skill2', frames, frameRate: 9, repeat: 0 });
       }
     }
 

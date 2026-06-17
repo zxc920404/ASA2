@@ -208,6 +208,19 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'boss2_skill1_06', 'assets/sprites/enemies/Level_1/boss2/attack1/06.png');
     AssetLoader.loadImage(scene, 'boss2_skill1_07', 'assets/sprites/enemies/Level_1/boss2/attack1/07.png');
 
+    // attack2：11 幀直線射擊（狙擊）準備動畫（對應 boss2_skill2，不套用 skill1）
+    AssetLoader.loadImage(scene, 'boss2_skill2_01', 'assets/sprites/enemies/Level_1/boss2/attack2/01.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_02', 'assets/sprites/enemies/Level_1/boss2/attack2/02.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_03', 'assets/sprites/enemies/Level_1/boss2/attack2/03.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_04', 'assets/sprites/enemies/Level_1/boss2/attack2/04.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_05', 'assets/sprites/enemies/Level_1/boss2/attack2/05.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_06', 'assets/sprites/enemies/Level_1/boss2/attack2/06.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_07', 'assets/sprites/enemies/Level_1/boss2/attack2/07.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_08', 'assets/sprites/enemies/Level_1/boss2/attack2/08.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_09', 'assets/sprites/enemies/Level_1/boss2/attack2/09.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_10', 'assets/sprites/enemies/Level_1/boss2/attack2/10.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_11', 'assets/sprites/enemies/Level_1/boss2/attack2/11.png');
+
     // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
     // henchman（山賊嘍囉）：8 幀移動動畫，8 fps
     AssetLoader.loadImage(scene, 'henchman_01', 'assets/sprites/enemies/Level_1/henchman/01.png');

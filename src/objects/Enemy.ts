@@ -171,14 +171,27 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public onMeleeSlash?: (x: number, y: number, dmg: number) => void;
 
   // ── shooter 黑洞技能已移除 ──────────────────────────────────────
-  // 外圍直線射擊技能（二當家）
-  private lineAttackCooldown: number = 4000; // 首次直線攻擊等待（ms）
+  // 直線射擊技能（二當家）：單發高傷害狙擊型
+  private lineAttackCooldown: number = 4000; // 首次直線射擊等待（ms）
   private readonly LINE_ATTACK_COOLDOWN_MIN = 6000;
   private readonly LINE_ATTACK_COOLDOWN_MAX = 8000;
-  /** 目前直線攻擊道數（1→2→...→8→1 循環） */
-  public lineAttackCount: number = 1;
-  /** 回呼：由 GameScene 注入，用於觸發直線攻擊 */
-  public onLineAttack?: (targetX: number, targetY: number, count: number) => void;
+  /**
+   * 直線射擊施法中：true 時停止移動、播放 boss2_skill2 準備動畫、鎖定方向，
+   * 且不可被 walk / idle 動畫覆蓋。由 startLineShotCast 設為 true，
+   * lineShotCastTimer 倒數歸零後（endLineShotCast）設回 false 並恢復 walk。
+   */
+  private lineShotCasting: boolean = false;
+  /** 直線射擊施法倒數（ms），由 updateShooter 累減，歸零後結束施法 */
+  private lineShotCastTimer: number = 0;
+  /** 直線射擊施法總時長（ms）：警示 + 射擊 + 緩衝，期間 Boss 凍結 */
+  private readonly LINE_SHOT_CAST_DURATION = 1600;
+  /**
+   * 回呼：由 GameScene 注入，觸發單發直線射擊。
+   * @param originX 射擊起點 X（Boss 自身位置，鎖定）
+   * @param originY 射擊起點 Y
+   * @param angle   射擊方向角度（Boss → 玩家施法瞬間位置，鎖定不追蹤）
+   */
+  public onLineShot?: (originX: number, originY: number, angle: number) => void;
 
   // ── 個體差異（spawn 時隨機產生，讓怪物不完全同速同方向）──────────
   /** 包圍角度偏移（弧度）：讓每隻怪物趨向玩家周圍不同位置 */
@@ -328,6 +341,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // 清除技能施法狀態，避免死亡後殘留鎖定（動畫監聽隨 destroy 自動失效）
     this.isCastingSkill = false;
     this.isUsingSkill = false;
+    this.lineShotCasting = false;
     this.destroy();
   }
 
@@ -776,6 +790,15 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ── tryChargerMeleeSlash 已移除（霸刀橫斬普通攻擊）──────────────────
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
+    // 直線射擊施法中：倒數計時，期間停止所有 shooter 邏輯與移動（移動由 isCastingSkill 鎖定）
+    if (this.lineShotCasting) {
+      this.lineShotCastTimer -= delta;
+      if (this.lineShotCastTimer <= 0) {
+        this.endLineShotCast();
+      }
+      return;
+    }
+
     // 彈幕技能施法動畫播放中：暫停所有 shooter 邏輯，避免邊走邊放或重複觸發
     if (this.isCastingSkill) return;
 
@@ -809,22 +832,62 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     // ── 黑洞技能已移除 ────────────────────────────────────────────────
 
-    // ── 外圍直線射擊技能 ─────────────────────────────────────────────────
+    // ── 直線射擊技能（單發高傷害狙擊型）────────────────────────────────
     this.lineAttackCooldown -= delta;
     if (this.lineAttackCooldown <= 0) {
       // 下次冷卻時間：6～8 秒隨機
       this.lineAttackCooldown = this.LINE_ATTACK_COOLDOWN_MIN +
         Math.random() * (this.LINE_ATTACK_COOLDOWN_MAX - this.LINE_ATTACK_COOLDOWN_MIN);
 
-      if (this.onLineAttack) {
-        this.onLineAttack(playerX, playerY, this.lineAttackCount);
+      // 記錄玩家當下位置，計算 Boss → 玩家方向（鎖定，不追蹤）
+      const dx = playerX - this.x;
+      const dy = playerY - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist >= 1 && this.onLineShot) {
+        const angle = Math.atan2(dy, dx);
+        // 進入施法狀態：停止移動、面向方向、播放準備動畫
+        this.startLineShotCast(dx);
+        // 觸發 GameScene 生成警示線 + 單發直線攻擊（方向已鎖定）
+        this.onLineShot(this.x, this.y, angle);
       }
+    }
+  }
 
-      // 道數遞增，超過 8 重置回 1
-      this.lineAttackCount++;
-      if (this.lineAttackCount > 8) {
-        this.lineAttackCount = 1;
-      }
+  /**
+   * 開始直線射擊施法：鎖定方向、停止移動、播放 boss2_skill2 準備動畫。
+   * 設定 isCastingSkill = true（moveTowardPlayer 會因此停止移動），
+   * 並啟動 lineShotCastTimer，倒數結束後由 endLineShotCast 恢復。
+   * 不使用 timer/delayedCall：施法倒數由 updateShooter 累減，暫停 / 死亡時自然停止。
+   * @param dx 玩家相對 Boss 的水平向量（用於決定面向）
+   */
+  private startLineShotCast(dx: number): void {
+    this.lineShotCasting = true;
+    this.isCastingSkill = true;
+    this.lineShotCastTimer = this.LINE_SHOT_CAST_DURATION;
+
+    // 面向射擊方向（朝左時翻轉）
+    if (this.visual instanceof Phaser.GameObjects.Sprite ||
+        this.visual instanceof Phaser.GameObjects.Image) {
+      this.visual.setFlipX(dx < 0);
+    }
+
+    // 播放直線射擊專用準備動畫（boss2_skill2，不套用 skill1）
+    if (this.visual instanceof Phaser.GameObjects.Sprite &&
+        this.scene.anims.exists('boss2_skill2')) {
+      this.visual.play('boss2_skill2');
+    }
+  }
+
+  /**
+   * 結束直線射擊施法：解除施法鎖定並恢復走路動畫。
+   */
+  private endLineShotCast(): void {
+    this.lineShotCasting = false;
+    this.isCastingSkill = false;
+    if (!this.isDying &&
+        this.visual instanceof Phaser.GameObjects.Sprite && this.visual.active &&
+        this.scene.anims.exists('boss2_walk')) {
+      this.visual.play('boss2_walk');
     }
   }
 

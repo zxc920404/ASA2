@@ -2,12 +2,12 @@ import Phaser from 'phaser';
 import { Player } from './Player';
 
 /**
- * EliteLineAttack — shield Boss 的外圍直線射擊技能
+ * EliteLineAttack — 二當家（shooter Boss）的單發直線射擊（狙擊型）技能
  *
- * 攻擊從玩家周圍外側射向玩家施法瞬間的位置。
+ * 從 Boss 自身位置沿鎖定方向發射一次高傷害直線攻擊。
  * 流程：
- *   1. showWarning()  → 顯示預警線（0.7 秒）
- *   2. activate()     → 啟動傷害判定（0.2 秒）
+ *   1. showWarning()  → 顯示紅 / 橘紅警示線（約 1.3 秒）
+ *   2. activate()     → 發射亮色光束，啟動傷害判定（0.2 秒，僅命中一次）
  *   3. 自動 destroy
  */
 export class EliteLineAttack {
@@ -37,6 +37,9 @@ export class EliteLineAttack {
 
   /** 是否已銷毀 */
   public isDead: boolean = false;
+
+  /** 是否已造成傷害：確保整段攻擊只在射擊瞬間命中一次，不每幀持續傷害 */
+  private hasDealtDamage: boolean = false;
 
   /** 預警倒數計時（ms），> 0 表示預警中 */
   private warningTimer: number = 0;
@@ -84,20 +87,20 @@ export class EliteLineAttack {
     const endX = this.startX + cos * this.length;
     const endY = this.startY + sin * this.length;
 
-    // 預警線：紫色虛線效果（兩條線疊加）
+    // 預警線：紅 / 橘紅半透明（清楚但不過亮）
     const g = this.scene.add.graphics();
     g.setDepth(18);
 
-    // 外層光暈
-    g.lineStyle(this.width + 6, 0xaa00ff, 0.18);
+    // 外層光暈（橘紅，低透明度）
+    g.lineStyle(this.width + 6, 0xff6600, 0.16);
     g.lineBetween(this.startX, this.startY, endX, endY);
 
-    // 主預警線（紫色）
-    g.lineStyle(3, 0xcc44ff, 0.75);
+    // 主預警線（紅色）
+    g.lineStyle(3, 0xff3322, 0.55);
     g.lineBetween(this.startX, this.startY, endX, endY);
 
-    // 起點箭頭提示（小三角）
-    g.fillStyle(0xff88ff, 0.85);
+    // 起點箭頭提示（小三角，指向射擊方向）
+    g.fillStyle(0xff8844, 0.7);
     g.fillTriangle(
       this.startX + cos * 12 - sin * 8,
       this.startY + sin * 12 + cos * 8,
@@ -109,11 +112,11 @@ export class EliteLineAttack {
 
     this.warningGraphic = g;
 
-    // 預警線閃爍動畫
+    // 預警線淡入淡出閃爍動畫
     this.scene.tweens.add({
       targets: g,
-      alpha: 0.4,
-      duration: 180,
+      alpha: 0.35,
+      duration: 200,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -141,20 +144,20 @@ export class EliteLineAttack {
     const endX = this.startX + cos * this.length;
     const endY = this.startY + sin * this.length;
 
-    // 攻擊線：亮白 + 紫色光暈
+    // 攻擊線：亮黃白核心 + 橘紅光暈（比警示線更亮，快速光束）
     const g = this.scene.add.graphics();
     g.setDepth(19);
 
-    // 外層光暈
-    g.lineStyle(this.width + 10, 0xdd88ff, 0.25);
+    // 外層光暈（橘紅）
+    g.lineStyle(this.width + 10, 0xff7722, 0.30);
     g.lineBetween(this.startX, this.startY, endX, endY);
 
-    // 主攻擊線（亮白）
-    g.lineStyle(this.width, 0xffffff, 0.95);
+    // 主攻擊線（亮橘黃）
+    g.lineStyle(this.width, 0xffcc44, 0.9);
     g.lineBetween(this.startX, this.startY, endX, endY);
 
-    // 內層紫色核心
-    g.lineStyle(Math.max(2, this.width - 8), 0xee88ff, 0.8);
+    // 內層白色核心
+    g.lineStyle(Math.max(2, this.width - 12), 0xffffff, 0.95);
     g.lineBetween(this.startX, this.startY, endX, endY);
 
     this.attackGraphic = g;
@@ -187,12 +190,13 @@ export class EliteLineAttack {
       return { shouldDestroy: false, hit: false };
     }
 
-    // 傷害判定階段
+    // 傷害判定階段（僅命中一次）
     this.activeTimer -= delta;
 
     let hit = false;
-    if (!alreadyHit) {
-      hit = this.checkHitPlayer(player);
+    if (!alreadyHit && !this.hasDealtDamage && this.checkHitPlayer(player)) {
+      hit = true;
+      this.hasDealtDamage = true;
     }
 
     if (this.activeTimer <= 0) {
