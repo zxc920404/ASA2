@@ -730,27 +730,36 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private exitGame(): void {
+    // 立即停止 BGM
+    BGMManager.stopImmediate();
+    
     // 檢查是否在 Capacitor App 環境
     // @ts-ignore - Capacitor 全域變數
-    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
       // Android App：呼叫原生 API 關閉應用
-      // @ts-ignore - Capacitor 插件可能在全域可用
+      // @ts-ignore - Capacitor 插件
       if (typeof App !== 'undefined' && App.exitApp) {
         // @ts-ignore
         App.exitApp();
       } else {
-        console.warn('[MainMenuScene] Capacitor App.exitApp() 不可用');
-        this.exitGameFallback();
+        console.warn('[MainMenuScene] Capacitor App.exitApp() 不可用，嘗試備用方法');
+        // 備用方法：使用 Capacitor.Plugins.App
+        // @ts-ignore
+        if (Capacitor.Plugins && Capacitor.Plugins.App && Capacitor.Plugins.App.exitApp) {
+          // @ts-ignore
+          Capacitor.Plugins.App.exitApp();
+        } else {
+          this.exitGameFallback();
+        }
       }
     } else {
-      // Web 版：無法真正關閉瀏覽器視窗，改為停止遊戲並顯示告別訊息
-      this.exitGameFallback();
+      // Web 版：顯示告別畫面並嘗試關閉視窗
+      this.exitGameWeb();
     }
   }
 
   private exitGameFallback(): void {
-    // Web 版 fallback：停止所有場景並顯示告別畫面
-    BGMManager.stop(this);
+    // 最終 fallback：停止所有場景並顯示告別畫面
     this.scene.stop();
     
     // 建立告別畫面
@@ -765,8 +774,42 @@ export class MainMenuScene extends Phaser.Scene {
       uiTitle(32, '#ffd700')
     ).setOrigin(0.5, 0.5).setDepth(101);
     
-    this.add.text(W * 0.5, H * 0.56, '願你武道長進，再見！\n\n（請關閉瀏覽器分頁）',
+    this.add.text(W * 0.5, H * 0.56, '願你武道長進，再見！\n\n（請關閉瀏覽器分頁或返回主畫面）',
       uiText(14, '#d4af37', { align: 'center', lineSpacing: 6 })
     ).setOrigin(0.5, 0.5).setDepth(101);
+  }
+
+  private exitGameWeb(): void {
+    // Web 版：停止場景並嘗試關閉視窗
+    this.scene.stop();
+    
+    // 建立告別畫面
+    const W = this.scale.width;
+    const H = this.scale.height;
+    
+    const bg = this.add.graphics().setDepth(100);
+    bg.fillStyle(0x020810, 1);
+    bg.fillRect(0, 0, W, H);
+    
+    this.add.text(W * 0.5, H * 0.38, '感謝遊玩武俠幸存者！',
+      uiTitle(32, '#ffd700')
+    ).setOrigin(0.5, 0.5).setDepth(101);
+    
+    this.add.text(W * 0.5, H * 0.54, '願你武道長進，再見！',
+      uiText(16, '#d4af37', { align: 'center' })
+    ).setOrigin(0.5, 0.5).setDepth(101);
+    
+    // 嘗試關閉瀏覽器視窗（僅在某些情況下有效）
+    this.time.delayedCall(500, () => {
+      // 方法 1：標準 window.close()
+      window.close();
+      
+      // 方法 2：如果無法關閉，顯示指示
+      this.time.delayedCall(500, () => {
+        this.add.text(W * 0.5, H * 0.68, '（請關閉瀏覽器分頁）',
+          uiText(12, '#888888', { align: 'center' })
+        ).setOrigin(0.5, 0.5).setDepth(101);
+      });
+    });
   }
 }
