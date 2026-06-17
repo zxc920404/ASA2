@@ -2116,20 +2116,21 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   /**
    * 霸山墜：跳躍砸地
    * 三當家跳起後朝玩家位置砸落，落地前有預警圈，落地造成範圍傷害與擊退
+   * 使用 boss1_skill1 動畫（13 幀）同步技能效果
    */
   private spawnLeapSlam(fromX: number, fromY: number, targetX: number, targetY: number, dmg: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
 
-    const SLAM_RADIUS  = 130 + Math.random() * 30; // 130～160px
-    const WINDUP_DUR   = 400;  // 起跳前搖（ms）
-    const LEAP_DUR     = 700;  // 飛行時間（ms）
-    const WARN_DUR     = WINDUP_DUR + LEAP_DUR; // 預警圈顯示時間
+    const SLAM_RADIUS  = 150; // 傷害半徑（px）
+    const IMPACT_FRAME = 9;   // 落地幀：第 9 幀觸發傷害
+    const HIDE_START_FRAME = 3;   // 隱藏開始：第 3 幀
+    const HIDE_END_FRAME = 8;     // 隱藏結束：第 8 幀
 
     // 落點：玩家當前位置（鎖定）
     const landX = Phaser.Math.Clamp(targetX, 32, WORLD_WIDTH  - 32);
     const landY = Phaser.Math.Clamp(targetY, 32, WORLD_HEIGHT - 32);
 
-    // ── 落點預警圈（橘紅色，持續到落地）──────────────────────────────
+    // ── 落點預警圈（橘紅色，持續到落地幀）──────────────────────────────
     const warnG = this.add.graphics();
     warnG.setDepth(17);
     warnG.lineStyle(3, 0xff4400, 0.8);
@@ -2137,7 +2138,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     warnG.fillStyle(0xff2200, 0.10);
     warnG.fillCircle(landX, landY, SLAM_RADIUS);
 
-    this.tweens.add({
+    const warnTween = this.tweens.add({
       targets: warnG,
       alpha: 0.4,
       duration: 200,
@@ -2146,102 +2147,188 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       ease: 'Sine.easeInOut',
     });
 
-    // ── 起跳：三當家視覺縮小（模擬跳起）──────────────────────────────
-    const eliteVisual = (elite as any).visual as Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
+    // ── 取得 Boss 視覺物件與基準 scale ───────────────────────────────
+    const eliteVisual = (elite as any).visual as Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
     const bsx = (elite as any).visualBaseScaleX ?? 1;
     const bsy = (elite as any).visualBaseScaleY ?? 1;
-    if (eliteVisual && eliteVisual.active) {
-      this.tweens.add({
-        targets: eliteVisual,
-        scaleX: bsx * 0.7, scaleY: bsy * 0.7,
-        duration: WINDUP_DUR,
-        ease: 'Power1',
-      });
-    }
 
-    // ── 落地 ──────────────────────────────────────────────────────────
-    this.time.delayedCall(WARN_DUR, () => {
-      this.tweens.killTweensOf(warnG);
-      if (warnG && warnG.active) warnG.destroy();
-
-      if (this.isPaused || this.isGameOver || this.isVictory) {
-        if (eliteVisual && eliteVisual.active) {
-          const bsx = (elite as any).visualBaseScaleX ?? 1;
-          const bsy = (elite as any).visualBaseScaleY ?? 1;
-          eliteVisual.setScale(bsx, bsy);
-        }
-        elite.shieldEndCast();
-        return;
+    // ── 清理函式：處理暫停/死亡/中斷 ─────────────────────────────────
+    const cleanup = () => {
+      if (warnTween && warnTween.isPlaying()) {
+        warnTween.stop();
       }
-
-      // BUG-A5 修正：三當家在跳躍期間死亡則不瞬移、不造成傷害
-      if (!elite.active || elite.isDying) {
-        if (eliteVisual && eliteVisual.active) {
-          const bsx = (elite as any).visualBaseScaleX ?? 1;
-          const bsy = (elite as any).visualBaseScaleY ?? 1;
-          eliteVisual.setScale(bsx, bsy);
-        }
-        elite.shieldEndCast();
-        return;
+      if (warnG && warnG.active) {
+        warnG.destroy();
       }
+      if (eliteVisual && eliteVisual.active) {
+        eliteVisual.setVisible(true);
+        eliteVisual.setScale(bsx, bsy);
+        // 恢復移動動畫
+        if (eliteVisual instanceof Phaser.GameObjects.Sprite && this.anims.exists('boss1_walk')) {
+          eliteVisual.play('boss1_walk');
+        }
+      }
+      elite.shieldEndCast();
+    };
 
-      // 三當家瞬移到落點
-      if (elite.active && !elite.isDying) {
+    // ── 檢查是否有動畫素材 ───────────────────────────────────────────
+    if (!(eliteVisual instanceof Phaser.GameObjects.Sprite) || !this.anims.exists('boss1_skill1')) {
+      // Fallback：無動畫素材，使用舊版 timer-based 邏輯
+      this.time.delayedCall(900, () => {
+        if (warnTween) warnTween.stop();
+        if (warnG && warnG.active) warnG.destroy();
+
+        if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+          cleanup();
+          return;
+        }
+
+        // 瞬移到落點
         elite.setPosition(landX, landY);
         (elite as any).syncVisual?.();
-      }
 
-      // 恢復視覺縮放
-      if (eliteVisual && eliteVisual.active) {
-        const bsx = (elite as any).visualBaseScaleX ?? 1;
-        const bsy = (elite as any).visualBaseScaleY ?? 1;
+        // 落地衝擊波
+        const impactG = this.add.graphics();
+        impactG.setPosition(landX, landY);
+        impactG.setDepth(19);
+        impactG.lineStyle(10, 0x885500, 0.95);
+        impactG.strokeCircle(0, 0, SLAM_RADIUS * 0.3);
+        impactG.lineStyle(5, 0xcc7700, 0.8);
+        impactG.strokeCircle(0, 0, SLAM_RADIUS);
+        impactG.fillStyle(0x774400, 0.20);
+        impactG.fillCircle(0, 0, SLAM_RADIUS);
         this.tweens.add({
-          targets: eliteVisual,
-          scaleX: bsx * 1.3, scaleY: bsy * 1.3,
-          duration: 80,
-          ease: 'Back.Out',
-          yoyo: true,
-          onComplete: () => { if (eliteVisual && eliteVisual.active) eliteVisual.setScale(bsx, bsy); },
+          targets: impactG,
+          alpha: 0,
+          duration: 400,
+          ease: 'Power2',
+          onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
         });
-      }
 
-      // ── 落地衝擊波（setPosition + 相對座標，alpha 淡出，不做 scale）──
-      const impactG = this.add.graphics();
-      impactG.setPosition(landX, landY);
-      impactG.setDepth(19);
-      impactG.lineStyle(10, 0x885500, 0.95);
-      impactG.strokeCircle(0, 0, SLAM_RADIUS * 0.3);
-      impactG.lineStyle(5, 0xcc7700, 0.8);
-      impactG.strokeCircle(0, 0, SLAM_RADIUS);
-      impactG.fillStyle(0x774400, 0.20);
-      impactG.fillCircle(0, 0, SLAM_RADIUS);
+        // 傷害與擊退
+        const dx = this.player.x - landX;
+        const dy = this.player.y - landY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= SLAM_RADIUS + 14) {
+          this.player.takeDamage(dmg, this);
+          if (dist > 1) {
+            const knockDist = 110;
+            this.player.applyExternalMove((dx / dist) * knockDist, (dy / dist) * knockDist);
+          }
+        }
 
-      this.tweens.add({
-        targets: impactG,
-        alpha: 0,
-        duration: 400,
-        ease: 'Power2',
-        onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
+        this.time.delayedCall(300, () => { elite.shieldEndCast(); });
       });
+      return;
+    }
 
-      // ── 傷害與擊退判定 ────────────────────────────────────────────────
-      const dx = this.player.x - landX;
-      const dy = this.player.y - landY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= SLAM_RADIUS + 14) {
-        this.player.takeDamage(dmg, this);
-        if (dist > 1) {
-          const knockDist = 110;
-          this.player.applyExternalMove(
-            (dx / dist) * knockDist,
-            (dy / dist) * knockDist
-          );
+    // ── 動畫同步邏輯：使用 boss1_skill1 動畫 ─────────────────────────
+    const spr = eliteVisual as Phaser.GameObjects.Sprite;
+    let hasImpacted = false; // 傷害只觸發一次
+
+    // 動畫幀更新監聽
+    const onAnimUpdate = (anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
+      if (anim.key !== 'boss1_skill1') return;
+      
+      const frameIndex = frame.index; // 當前幀索引（從 0 開始）
+
+      // 第 3-8 幀：隱藏 Boss（在空中）
+      if (frameIndex >= HIDE_START_FRAME - 1 && frameIndex <= HIDE_END_FRAME - 1) {
+        if (spr.visible) {
+          spr.setVisible(false);
         }
       }
 
+      // 第 9 幀：落地幀（重新出現 + 觸發傷害）
+      if (frameIndex === IMPACT_FRAME - 1 && !hasImpacted) {
+        hasImpacted = true;
+
+        // 暫停/死亡/中斷檢查
+        if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+          cleanup();
+          return;
+        }
+
+        // Boss 瞬移到落點並重新出現
+        elite.setPosition(landX, landY);
+        (elite as any).syncVisual?.();
+        spr.setVisible(true);
+
+        // 清除預警圈
+        if (warnTween) warnTween.stop();
+        if (warnG && warnG.active) warnG.destroy();
+
+        // ── 落地衝擊波 ───────────────────────────────────────────────
+        const impactG = this.add.graphics();
+        impactG.setPosition(landX, landY);
+        impactG.setDepth(19);
+        impactG.lineStyle(10, 0x885500, 0.95);
+        impactG.strokeCircle(0, 0, SLAM_RADIUS * 0.3);
+        impactG.lineStyle(5, 0xcc7700, 0.8);
+        impactG.strokeCircle(0, 0, SLAM_RADIUS);
+        impactG.fillStyle(0x774400, 0.20);
+        impactG.fillCircle(0, 0, SLAM_RADIUS);
+
+        this.tweens.add({
+          targets: impactG,
+          alpha: 0,
+          duration: 400,
+          ease: 'Power2',
+          onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
+        });
+
+        // ── 螢幕震動 ─────────────────────────────────────────────────
+        this.cameras.main.shake(120, 0.006);
+
+        // ── 傷害與擊退判定 ───────────────────────────────────────────
+        const dx = this.player.x - landX;
+        const dy = this.player.y - landY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= SLAM_RADIUS + 14) {
+          this.player.takeDamage(dmg, this);
+          if (dist > 1) {
+            const knockDist = 180;
+            this.player.applyExternalMove(
+              (dx / dist) * knockDist,
+              (dy / dist) * knockDist
+            );
+          }
+        }
+      }
+    };
+
+    // 動畫結束監聽
+    const onAnimComplete = (anim: Phaser.Animations.Animation) => {
+      if (anim.key !== 'boss1_skill1') return;
+
+      // 清理監聽器
+      spr.off(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
+      spr.off(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
+
+      // 確保 Boss 可見並恢復基準 scale
+      if (spr.active) {
+        spr.setVisible(true);
+        spr.setScale(bsx, bsy);
+        // 恢復移動動畫
+        if (this.anims.exists('boss1_walk')) {
+          spr.play('boss1_walk');
+        }
+      }
+
+      // 清除殘留預警圈
+      if (warnTween) warnTween.stop();
+      if (warnG && warnG.active) warnG.destroy();
+
       // 技能結束
-      this.time.delayedCall(300, () => { elite.shieldEndCast(); });
-    });
+      elite.shieldEndCast();
+    };
+
+    // 註冊動畫監聽
+    spr.on(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
+    spr.on(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
+
+    // 播放技能動畫
+    spr.play('boss1_skill1');
   }
 
   /**

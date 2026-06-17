@@ -750,26 +750,23 @@ export class MainMenuScene extends Phaser.Scene {
       if (typeof App !== 'undefined' && App.exitApp) {
         // @ts-ignore
         App.exitApp();
-      } else {
-        console.warn('[MainMenuScene] Capacitor App.exitApp() 不可用，嘗試備用方法');
-        // 備用方法：使用 Capacitor.Plugins.App
-        // @ts-ignore
-        if (Capacitor.Plugins && Capacitor.Plugins.App && Capacitor.Plugins.App.exitApp) {
-          // @ts-ignore
-          Capacitor.Plugins.App.exitApp();
-        } else {
-          // 如果原生 API 都失敗，至少顯示告別訊息
-          this.showExitMessage();
-        }
+        return; // 成功呼叫，直接返回
       }
-    } else {
-      // Web 版：嘗試關閉視窗，失敗時顯示告別訊息
+      // 備用方法：使用 Capacitor.Plugins.App
+      // @ts-ignore
+      if (Capacitor.Plugins && Capacitor.Plugins.App && Capacitor.Plugins.App.exitApp) {
+        // @ts-ignore
+        Capacitor.Plugins.App.exitApp();
+        return; // 成功呼叫，直接返回
+      }
+    }
+    
+    // Web 版：嘗試關閉視窗
+    try {
       window.close();
-      
-      // 如果 window.close() 失敗（大多數情況），顯示告別訊息
-      setTimeout(() => {
-        this.showExitMessage();
-      }, 100);
+    } catch (e) {
+      // window.close() 失敗，顯示告別訊息
+      this.showExitMessage();
     }
   }
 
