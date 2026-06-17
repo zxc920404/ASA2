@@ -47,18 +47,18 @@ export const WEAPONS: WeaponData[] = [
       { damage: 12, count: 1, interval: 0.8 },
       // Lv2：傷害提升
       { damage: 15, count: 1, interval: 0.8 },
-      // Lv3：投射物 +1，傷害略降以壓低爆發跳躍
-      { damage: 13, count: 2, interval: 0.8 },
+      // Lv3：投射物 +1（每兩級 +1）
+      { damage: 15, count: 2, interval: 0.8 },
       // Lv4：傷害提升
-      { damage: 17, count: 2, interval: 0.8 },
-      // Lv5：攻擊範圍小幅提升
-      { damage: 17, count: 2, interval: 0.8, range: 230 },
+      { damage: 18, count: 2, interval: 0.8 },
+      // Lv5：投射物 +1
+      { damage: 18, count: 3, interval: 0.8, range: 230 },
       // Lv6：傷害提升
-      { damage: 21, count: 2, interval: 0.8, range: 230 },
-      // Lv7：攻擊間隔縮短
-      { damage: 21, count: 2, interval: 0.7, range: 230 },
+      { damage: 22, count: 3, interval: 0.8, range: 230 },
+      // Lv7：投射物 +1，攻擊間隔縮短
+      { damage: 22, count: 4, interval: 0.7, range: 230 },
       // Lv8：傷害大幅提升（滿級獎勵）
-      { damage: 26, count: 2, interval: 0.7, range: 230 },
+      { damage: 28, count: 4, interval: 0.7, range: 230 },
     ],
   },
   {
@@ -185,12 +185,12 @@ export const WEAPONS: WeaponData[] = [
     id: 'light_shuttle',
     name: '流光梭',
     form: 'projectile',
-    effects: ['pierce'],
+    effects: ['returning'],
     usesAmountBonus: true,
     baseDamagePerLevel: [8, 10, 10, 12, 12, 15, 15, 19], // 向下相容保留
     baseAttackInterval: 0.75,
     baseAttackRange: 220,
-    projectileSpeed: 520,
+    projectileSpeed: 560,
     iconKey: 'weapon_liuguang_shuttle',
     levelStats: [
       // Lv1：基礎，pierce 1
@@ -220,25 +220,25 @@ export const WEAPONS: WeaponData[] = [
     baseDamagePerLevel: [6, 8, 7, 9, 9, 11, 10, 14], // 向下相容保留
     baseAttackInterval: 0.55,
     baseAttackRange: 190,
-    projectileSpeed: 460,
+    projectileSpeed: 480,
     iconKey: 'weapon_zhuihun_needle',
     levelStats: [
-      // Lv1：基礎，單發
-      { damage: 6,  count: 1, interval: 0.55 },
-      // Lv2：傷害提升
-      { damage: 8,  count: 1, interval: 0.55 },
-      // Lv3：投射物 +1，傷害略降
-      { damage: 7,  count: 2, interval: 0.55 },
-      // Lv4：傷害提升
-      { damage: 9,  count: 2, interval: 0.55 },
-      // Lv5：攻擊間隔縮短，範圍擴大
-      { damage: 9,  count: 2, interval: 0.5,  range: 215 },
-      // Lv6：傷害提升
-      { damage: 11, count: 2, interval: 0.5,  range: 215 },
-      // Lv7：投射物 +1，傷害略降
-      { damage: 10, count: 3, interval: 0.5,  range: 215 },
-      // Lv8：傷害大幅提升，攻擊間隔縮短（滿級獎勵）
-      { damage: 14, count: 3, interval: 0.45, range: 215 },
+      // Lv1：基礎 3 根細針（單發傷害偏低，靠數量）
+      { damage: 4, count: 3, interval: 0.55 },
+      // Lv2：針數 +1
+      { damage: 5, count: 4, interval: 0.55 },
+      // Lv3：針數 +1
+      { damage: 5, count: 5, interval: 0.55 },
+      // Lv4：針數 +1，傷害提升
+      { damage: 6, count: 6, interval: 0.55 },
+      // Lv5：針數 +1，攻擊間隔縮短，範圍擴大
+      { damage: 6, count: 7, interval: 0.5, range: 215 },
+      // Lv6：針數 +1
+      { damage: 7, count: 8, interval: 0.5, range: 215 },
+      // Lv7：針數 +1
+      { damage: 7, count: 9, interval: 0.5, range: 215 },
+      // Lv8：針數 +1，傷害提升，攻擊間隔縮短（滿級獎勵）
+      { damage: 9, count: 10, interval: 0.45, range: 215 },
     ],
   },
   {

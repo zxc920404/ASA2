@@ -65,6 +65,12 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   public hasReturned: boolean;
   /** 返還傷害倍率（回程傷害 = 去程傷害 × returnDamageMultiplier） */
   public returnDamageMultiplier: number;
+  /**
+   * 折返時機：
+   * - false（預設，流光返刃）：命中第一個敵人後立即折返
+   * - true（流光梭）：去程穿透敵人不折返，直到飛抵最大射程才折返
+   */
+  public returnsAtRange: boolean;
   /** 去程命中的敵人集合（防止回程對同一敵人重複傷害） */
   public outboundHitEnemies: Set<Enemy>;
   /** 回程命中的敵人集合（防止回程對同一敵人重複傷害） */
@@ -79,6 +85,14 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   public crackRadius: number;
   /** 霜裂冰痕爆裂延遲（秒） */
   public crackDelay: number;
+
+  // ── 視覺：拖尾效果（純視覺，不影響碰撞判定）──────────────────────────
+  /** 拖尾繪圖物件（每幀清除重繪，不新建物件） */
+  private trailGfx?: Phaser.GameObjects.Graphics;
+  /** 拖尾近期座標點（最多保留數點） */
+  private trailPoints: { x: number; y: number }[] = [];
+  /** 拖尾顏色 */
+  private trailColor: number = 0xffffff;
 
   constructor(
     scene: Phaser.Scene,
@@ -121,6 +135,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.returnDamageMultiplier = 0.7;
     this.outboundHitEnemies = new Set<Enemy>();
     this.returnHitEnemies = new Set<Enemy>();
+    this.returnsAtRange = false;
 
     // 驚鴻派大道：分裂狀態初始化
     this.isSplitProjectile = false;
@@ -136,6 +151,25 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
 
     scene.add.existing(this);
     this.setDepth(6);
+
+    // ── 視覺造型：非爆炸、非毒霧投射物拉長並朝飛行方向旋轉（刃/錐/針感）──
+    // 純視覺調整，碰撞判定使用中心點與敵人半徑，不受顯示尺寸影響。
+    if (!isExplosive && weaponId !== 'poison_mist') {
+      this.setSize(16, 5);
+      this.setRotation(Math.atan2(velocityY, velocityX));
+    }
+  }
+
+  /**
+   * 啟用拖尾效果（純視覺）。由 WeaponSystem 在 addProjectile 時呼叫。
+   * 使用單一 Graphics 每幀清除重繪，不會每幀新建物件。
+   */
+  public enableTrailEffect(color: number): void {
+    this.trailColor = color;
+    if (!this.trailGfx) {
+      this.trailGfx = this.scene.add.graphics();
+      this.trailGfx.setDepth(5); // 在投射物（depth 6）下方
+    }
   }
 
   /**
@@ -152,6 +186,28 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
       this.y + this.velocityY * dt
     );
 
+    // 視覺：朝目前飛行方向旋轉（返還/追尾改變方向時造型同步）
+    if (this.width !== this.height) {
+      this.setRotation(Math.atan2(this.velocityY, this.velocityX));
+    }
+
+    // 視覺：更新拖尾（清除重繪，不新建物件）
+    if (this.trailGfx && this.trailGfx.active) {
+      this.trailPoints.push({ x: this.x, y: this.y });
+      if (this.trailPoints.length > 6) this.trailPoints.shift();
+      const g = this.trailGfx;
+      g.clear();
+      const n = this.trailPoints.length;
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        g.lineStyle(3 * t, this.trailColor, 0.45 * t);
+        g.lineBetween(
+          this.trailPoints[i - 1].x, this.trailPoints[i - 1].y,
+          this.trailPoints[i].x, this.trailPoints[i].y
+        );
+      }
+    }
+
     // 更新存活時間
     if (this.lifeTime > 0) {
       this.lifeTime -= delta;
@@ -161,6 +217,17 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     }
 
     return true; // 仍然存活
+  }
+
+  /**
+   * 銷毀投射物時一併清除拖尾 Graphics，避免殘留物件。
+   */
+  public destroy(fromScene?: boolean): void {
+    if (this.trailGfx) {
+      this.trailGfx.destroy();
+      this.trailGfx = undefined;
+    }
+    super.destroy(fromScene);
   }
 
   /**
@@ -184,6 +251,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     // ── returning（流光返刃）────────────────────────────────────────────
     this.canReturn = source.canReturn;
     this.returnDamageMultiplier = source.returnDamageMultiplier;
+    this.returnsAtRange = source.returnsAtRange;
     // isReturning / hasReturned 保持預設 false（分裂子彈從去程開始）
 
     // ── pierce（寒冰錐 / 流光梭）────────────────────────────────────────

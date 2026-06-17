@@ -49,8 +49,8 @@ const SPLIT_ANGLE_OFFSET = 25 * (Math.PI / 180);
  * 繞玩家�?轉�?碰到?�人?��??�害
  */
 interface RingOrb {
-  /** Phaser Rectangle 顯示?�件 */
-  rect: Phaser.GameObjects.Rectangle;
+  /** Phaser Arc 顯示物件（小型法器圓盤） */
+  rect: Phaser.GameObjects.Arc;
   /** ?��?角度（弧度�? */
   angle: number;
   /** 對�??�人?��?後傷害�??��?key: enemy ?�件引用，value: ?��??��? */
@@ -88,6 +88,8 @@ interface WeaponInstance {
   attackCooldown: number;
   /** 守�??��??��?體�?表�???guardian_ring 使用�?*/
   ringOrbs: RingOrb[];
+  /** 守心環軌道圈（淡半透明圓，跟隨玩家，每幀重繪；僅 guardian_ring 使用） */
+  orbitGfx?: Phaser.GameObjects.Graphics;
 }
 
 /**
@@ -217,6 +219,8 @@ export class WeaponSystem {
         for (const orb of inst.ringOrbs) {
           orb.rect.destroy();
         }
+        inst.orbitGfx?.destroy();
+        inst.orbitGfx = undefined;
       }
     }
 
@@ -323,7 +327,8 @@ export class WeaponSystem {
               const explosionRadius = (stats.radius ?? 80) * player.stats.areaMultiplier;
               this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius, finalCount);
             } else if (inst.weaponId === 'thunder_claw') {
-              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'thunder_claw', 0xffff00, finalCount);
+              // 雷霆爪：近戰多段爪擊，對玩家附近敵人造成傷害並顯示紫藍爪痕
+              this.fireThunderClaw(player, finalDamage, finalRange, finalCount, enemies, deadEnemies);
             } else if (inst.weaponId === 'ice_spike') {
               // 寒冰?��??�用穿透�?pierce ?��? levelStats 讀?��?finalCount ?�制?��??��???
               const pierceCount = stats.pierce ?? 1;
@@ -331,14 +336,11 @@ export class WeaponSystem {
                 this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount);
               }
             } else if (inst.weaponId === 'light_shuttle') {
-              // 流�?梭�?穿透�?射物，沿?��??��??�輯
-              const pierceCount = stats.pierce ?? 1;
-              for (let i = 0; i < finalCount; i++) {
-                this.firePiercingProjectile(player, target, finalDamage, projSpeed, finalRange, pierceCount, 'light_shuttle');
-              }
+              // 流�?梭�?高速折返光梭，去程穿透 + 抵達最大射程後折返，去回程皆可命中
+              this.fireLightShuttle(player, target, finalDamage, projSpeed, finalRange, finalCount);
             } else if (inst.weaponId === 'soul_chasing_needle') {
-              // 追�??��??��?追尾?��??��?沿用?�風?��?�?
-              this.fireMultiProjectile(player, target, finalDamage, projSpeed, finalRange, 'soul_chasing_needle', 0xff88ff, finalCount);
+              // 追�??��?多發細小飛針，分別鎖定不同敵人（沿用?�風?��?�?
+              this.fireSeekingNeedles(player, finalDamage, projSpeed, finalRange, finalCount);
             } else if (inst.weaponId === 'swift_blade_evolved') {
               // 流�?返�?：發射�??�中?�到?��?大�??��?返�?，�?程�?次傷??
               const returnMult = stats.returnDamageMultiplier ?? 0.7;
@@ -498,7 +500,7 @@ export class WeaponSystem {
               this.spawnFrostCrack(proj.x, proj.y, proj.crackDamage, proj.crackRadius, proj.crackDelay);
             }
 
-            if (proj.canReturn && !proj.isReturning) {
+            if (proj.canReturn && !proj.isReturning && !proj.returnsAtRange) {
               // 流�?返�?：命中�??�入返�??�?��?不銷毀
               proj.outboundHitEnemies.add(enemy);
               proj.isReturning = true;
@@ -625,6 +627,8 @@ export class WeaponSystem {
       for (const orb of inst.ringOrbs) {
         orb.rect.destroy();
       }
+      inst.orbitGfx?.destroy();
+      inst.orbitGfx = undefined;
     }
     this.weaponInstances = [];
 
@@ -675,15 +679,35 @@ export class WeaponSystem {
    * ?��??��?心環?��?�?
    */
   private initRingOrbs(inst: WeaponInstance, count: number, player: Player): void {
+    // 軌道圈（淡半透明，跟隨玩家，每幀重繪）；僅建立一次
+    if (!inst.orbitGfx) {
+      inst.orbitGfx = this.scene.add.graphics();
+      inst.orbitGfx.setDepth(4); // 在環繞體與投射物下方
+    }
+
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const rect = this.scene.add.rectangle(player.x, player.y, 12, 12, 0xffdd00);
+      // 小型法器圓盤：淡金色內盤 + 描邊，不過大以免遮住玩家
+      const orb = this.scene.add.circle(player.x, player.y, 6, 0xffe08a, 0.92);
+      orb.setStrokeStyle(2, 0xfff4cf, 0.95);
+      orb.setDepth(6);
       inst.ringOrbs.push({
-        rect,
+        rect: orb,
         angle,
         lastHitMap: new Map(),
       });
     }
+  }
+
+  /**
+   * 重繪守心環軌道圈（淡半透明圓，跟隨玩家）
+   */
+  private redrawOrbitRing(inst: WeaponInstance, player: Player, radius: number): void {
+    const g = inst.orbitGfx;
+    if (!g || !g.active) return;
+    g.clear();
+    g.lineStyle(1.5, 0xffe08a, 0.18);
+    g.strokeCircle(player.x, player.y, radius);
   }
 
   /**
@@ -698,6 +722,8 @@ export class WeaponSystem {
       orb.rect.x = player.x + Math.cos(orb.angle) * radius;
       orb.rect.y = player.y + Math.sin(orb.angle) * radius;
     }
+    // 軌道圈跟隨玩家
+    this.redrawOrbitRing(inst, player, radius);
   }
 
   /**
@@ -719,6 +745,9 @@ export class WeaponSystem {
 
     const radius = finalRange * RING_RADIUS_RATIO;
     const dt = delta / 1000;
+
+    // 軌道圈跟隨玩家（淡半透明）
+    this.redrawOrbitRing(inst, player, radius);
 
     for (const orb of inst.ringOrbs) {
       // ?��?角度
@@ -743,6 +772,8 @@ export class WeaponSystem {
           if (time - lastHit >= RING_DAMAGE_COOLDOWN) {
             const died = enemy.takeDamage(finalDamage, orb.rect.x, orb.rect.y);
             orb.lastHitMap.set(enemy, time);
+            // 命中回饋：小型白/淡金閃光
+            this.spawnHitEffect(orb.rect.x, orb.rect.y);
 
             if (died && !deadEnemies.includes(enemy)) {
               deadEnemies.push(enemy);
@@ -802,6 +833,10 @@ export class WeaponSystem {
         weaponId,
         color
       );
+      // 疾風刃：大而明顯的風刃造型（雷霆爪等沿用預設尺寸）
+      if (weaponId === 'swift_blade') {
+        proj.setSize(24, 8);
+      }
       this.addProjectile(proj);
     }
   }
@@ -825,6 +860,10 @@ export class WeaponSystem {
 
     const baseAngle = Math.atan2(dy, dx);
     const angleSpread = count > 1 ? 0.18 : 0;
+
+    // 落點預兆圈：淡紅色圓，隨投射物飛行時間淡出，落地後接爆炸特效
+    const travelMs = (dist / speed) * 1000;
+    this.spawnFlameTelegraph(target.x, target.y, explosionRadius, travelMs);
 
     for (let i = 0; i < count; i++) {
       const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
@@ -934,7 +973,201 @@ export class WeaponSystem {
       pierceCount - 1  // pierceRemaining：已??��第�?次命�?
     );
 
+    // 寒冰錐：較粗明顯的冰錐造型，強調穿透感
+    if (weaponId === 'ice_spike') {
+      proj.setSize(18, 11);
+    }
+
     this.addProjectile(proj);
+  }
+
+  /**
+   * 追魂針：一次射出多根細小飛針，分別鎖定範圍內不同敵人。
+   * 敵人不足時循環鎖定（同一敵人或附近敵人），並加入小幅角度抖動避免完全重疊。
+   * 沿用既有 Projectile 直線飛行 + 命中流程，僅造型較小。
+   */
+  private fireSeekingNeedles(
+    player: Player,
+    damage: number,
+    speed: number,
+    range: number,
+    count: number
+  ): void {
+    // 收集範圍內敵人（cachedEnemies 已依距離排序）
+    const inRange: Enemy[] = [];
+    for (const enemy of this.cachedEnemies) {
+      if (enemy.isDying) continue;
+      const dx = enemy.x - player.x;
+      const dy = enemy.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= range) {
+        inRange.push(enemy);
+      }
+    }
+    if (inRange.length === 0) return;
+
+    const lifeTime = (range / speed) * 1000;
+
+    for (let i = 0; i < count; i++) {
+      const target = inRange[i % inRange.length]; // 敵人不足時循環鎖定
+      let dx = target.x - player.x;
+      let dy = target.y - player.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) { dx = 1; dy = 0; dist = 1; }
+
+      // 小幅角度抖動，避免多針完全重疊
+      const jitter = (Math.random() - 0.5) * 0.2;
+      const angle = Math.atan2(dy, dx) + jitter;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        'soul_chasing_needle',
+        0xddeeff // 銀白色細針
+      );
+      proj.setSize(11, 3); // 細小飛針
+      this.addProjectile(proj);
+    }
+  }
+
+  /**
+   * 流光梭：高速折返光梭。
+   * 去程穿透敵人（不折返），抵達最大射程後折返回玩家方向，去程與回程皆可命中。
+   * 沿用既有 returning 投射物機制（canReturn + 最大射程到期折返 + 回程命中判定），
+   * 透過 returnsAtRange 旗標讓去程穿透而非命中即折返；以大量 pierceRemaining 達成去程不消失。
+   */
+  private fireLightShuttle(
+    player: Player,
+    target: Enemy,
+    damage: number,
+    speed: number,
+    range: number,
+    count: number
+  ): void {
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+
+    const baseAngle = Math.atan2(dy, dx);
+    const lifeTime = (range / speed) * 1000;
+    const angleSpread = count > 1 ? 0.12 : 0;
+
+    for (let i = 0; i < count; i++) {
+      const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
+      const angle = baseAngle + offset;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      const proj = new Projectile(
+        this.scene,
+        player.x,
+        player.y,
+        damage,
+        nx * speed,
+        ny * speed,
+        lifeTime,
+        'light_shuttle',
+        0xaaf0ff,  // 亮白藍
+        false,
+        0,
+        0,
+        0,
+        999        // pierceRemaining：去程穿透所有敵人，直到最大射程才折返
+      );
+      proj.canReturn = true;
+      proj.returnsAtRange = true;       // 抵達最大射程才折返（去程不命中即折返）
+      proj.returnDamageMultiplier = 0.9; // 回程傷害略低
+      proj.setSize(22, 4);              // 細長造型
+      this.addProjectile(proj);
+    }
+  }
+
+  /**
+   * 雷霆爪：近戰多段爪擊。
+   * 對玩家附近（range 內）最近的 count 個敵人造成一次傷害（同步處理，立即結算死亡），
+   * 並在玩家前方顯示短促紫藍爪痕（連續閃 2~3 次後自動 destroy）。
+   * 不使用 delayedCall 處理傷害，避免場景關閉 / 武器銷毀時的清理風險。
+   */
+  private fireThunderClaw(
+    player: Player,
+    damage: number,
+    range: number,
+    count: number,
+    _enemies: Enemy[],
+    deadEnemies: Enemy[]
+  ): void {
+    // 找範圍內最近的 count 個敵人（cachedEnemies 已依距離排序）
+    const targets: Enemy[] = [];
+    for (const enemy of this.cachedEnemies) {
+      if (enemy.isDying) continue;
+      if (deadEnemies.includes(enemy)) continue;
+      const dx = enemy.x - player.x;
+      const dy = enemy.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= range) {
+        targets.push(enemy);
+        if (targets.length >= count) break;
+      }
+    }
+    if (targets.length === 0) return; // 附近無敵人：不觸發爪擊
+
+    // 朝最近敵人方向
+    const primary = targets[0];
+    const angle = Math.atan2(primary.y - player.y, primary.x - player.x);
+
+    // 同步傷害結算 + 紫色雷光命中回饋
+    for (const enemy of targets) {
+      const died = enemy.takeDamage(damage, player.x, player.y);
+      if (died && !deadEnemies.includes(enemy)) {
+        deadEnemies.push(enemy);
+      }
+      this.spawnHitEffect(enemy.x, enemy.y, 0xaa66ff);
+    }
+
+    // 爪痕視覺（玩家前方，連續閃爍）
+    this.spawnClawSlash(player, angle, range, count);
+  }
+
+  /**
+   * 紫藍色爪痕特效：玩家前方 3 條斜向爪痕，連續閃 2~3 次後自動 destroy。
+   * 純視覺，短促有打擊感，不造成傷害。
+   */
+  private spawnClawSlash(player: Player, angle: number, range: number, count: number): void {
+    const dist = Math.min(40, range * 0.28); // 出現在玩家前方一小段距離
+    const cx = player.x + Math.cos(angle) * dist;
+    const cy = player.y + Math.sin(angle) * dist;
+
+    const g = this.scene.add.graphics();
+    g.setPosition(cx, cy);
+    g.setRotation(angle);
+    g.setDepth(8);
+
+    // 3 條斜向爪痕（紫 → 藍）
+    const len = 22;
+    g.lineStyle(3, 0x9966ff, 0.9);
+    g.lineBetween(-len * 0.4, -10, len * 0.5, -3);
+    g.lineStyle(3, 0xaa88ff, 0.9);
+    g.lineBetween(-len * 0.4, 0, len * 0.5, 5);
+    g.lineStyle(3, 0x6699ff, 0.9);
+    g.lineBetween(-len * 0.4, 10, len * 0.5, 13);
+
+    // 連續閃 2~3 次（count 越高閃越多次），結束後 destroy
+    const flashes = count > 1 ? 2 : 1; // repeat 次數：閃 2~3 次
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 0.15,
+      duration: 75,
+      yoyo: true,
+      repeat: flashes,
+      ease: 'Sine.easeInOut',
+      onComplete: () => g.destroy(),
+    });
   }
 
   /**
@@ -1109,6 +1342,10 @@ export class WeaponSystem {
       const oldest = this.projectiles.shift();
       if (oldest) oldest.destroy();
     }
+    // 為非爆炸、非毒霧投射物啟用拖尾（疾風刃/寒冰錐/雷霆爪/流光梭/追魂針/進化武器）
+    if (!proj.isExplosive && proj.weaponId !== 'poison_mist') {
+      proj.enableTrailEffect(proj.fillColor);
+    }
     this.projectiles.push(proj);
   }
 
@@ -1126,12 +1363,12 @@ export class WeaponSystem {
   /**
    * ?�中小�??�特?��??��??�命中�?�?
    */
-  private spawnHitEffect(x: number, y: number): void {
+  private spawnHitEffect(x: number, y: number, color: number = 0xffffff): void {
     if (this.activeHitEffects >= MAX_HIT_EFFECTS) return;
     this.activeHitEffects++;
 
     const g = this.scene.add.graphics();
-    g.lineStyle(2, 0xffffff, 0.9);
+    g.lineStyle(2, color, 0.9);
     g.strokeCircle(0, 0, 8);
     g.setPosition(x, y);
     g.setDepth(8);
@@ -1177,6 +1414,33 @@ export class WeaponSystem {
         g.destroy();
         this.activeHitEffects--;
       },
+    });
+  }
+
+  /**
+   * 赤焰印落點預兆圈（淡紅色圓，短暫顯示後淡出，提示爆炸位置）
+   * @param x 落點 X
+   * @param y 落點 Y
+   * @param radius 爆炸半徑（預兆圈大小與其一致）
+   * @param durationMs 顯示時間（約等於投射物飛行時間），限制在合理範圍
+   */
+  private spawnFlameTelegraph(x: number, y: number, radius: number, durationMs: number): void {
+    const dur = Math.max(120, Math.min(600, durationMs));
+
+    const g = this.scene.add.graphics();
+    g.lineStyle(2, 0xff5533, 0.55);
+    g.strokeCircle(0, 0, radius);
+    g.fillStyle(0xff3322, 0.12);
+    g.fillCircle(0, 0, radius);
+    g.setPosition(x, y);
+    g.setDepth(7);
+
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 0,
+      duration: dur,
+      ease: 'Sine.easeIn',
+      onComplete: () => g.destroy(),
     });
   }
 
