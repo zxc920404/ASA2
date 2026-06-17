@@ -95,11 +95,20 @@ export class LevelUpSystem {
    * @param option 選擇的升級選項
    */
   private onOptionSelected(player: Player, option: UpgradeOption): void {
+    // 記錄套用前的最大生命值，用於計算升級後的提升量
+    const prevMaxHP = player.stats.maxHP;
+
     // 套用效果（Requirement 10.4）
     this.applyOption(player, option);
 
     // 重新計算屬性（Requirement 13.3）
     player.recalculateStats();
+
+    // 若最大生命值因升級提升（例如生命玉被動），回復等量血量
+    const maxHpGain = player.stats.maxHP - prevMaxHP;
+    if (maxHpGain > 0) {
+      player.currentHP = Math.min(player.stats.maxHP, player.currentHP + maxHpGain);
+    }
 
     // 清除面板引用
     this.currentPanel = null;
