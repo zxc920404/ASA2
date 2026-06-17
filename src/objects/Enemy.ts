@@ -7,7 +7,7 @@ import { AssetLoader } from '../utils/AssetLoader';
  * Sprite 動畫敵人使用目標顯示尺寸（px），Graphics fallback 使用 w/h 作為繪製半徑基準。
  */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
-  boss1:    { w: 200, h: 200 },   // 三當家 Boss，比小怪大
+  boss1:    { w: 150, h: 150 },   // 三當家 Boss，比小怪大
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
   giant:    { w: 175, h: 175 },   // 巨漢略大於玩家
