@@ -1,0 +1,7 @@
+{
+  "specVersion": "1.0",
+  "name": "boss-skill-removal",
+  "displayName": "Boss Skill Removal",
+  "createdAt": "2025-01-XX",
+  "workflow": "feature-requirements-first"
+}

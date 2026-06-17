@@ -770,16 +770,16 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // ── 精英怪事件觸發（測試用：60 / 180 / 300 秒，即 1:00 / 3:00 / 5:00；正式版：150 / 300 / 450 秒，即 2:30 / 5:00 / 7:30）──
-    if (!this.eliteSpawned150 && this.elapsedSeconds >= 60) {
+    // ── 精英怪事件觸發（測試模式：10 / 20 / 30 秒；正式版：150 / 300 / 450 秒，即 2:30 / 5:00 / 7:30）──
+    if (!this.eliteSpawned150 && this.elapsedSeconds >= 10) {
       this.eliteSpawned150 = true;
       this.spawnEliteEnemy(1);
     }
-    if (!this.eliteSpawned300 && this.elapsedSeconds >= 180) {
+    if (!this.eliteSpawned300 && this.elapsedSeconds >= 20) {
       this.eliteSpawned300 = true;
       this.spawnEliteEnemy(2);
     }
-    if (!this.eliteSpawned450 && this.elapsedSeconds >= 300) {
+    if (!this.eliteSpawned450 && this.elapsedSeconds >= 30) {
       this.eliteSpawned450 = true;
       this.spawnEliteEnemy(3);
     }
@@ -863,13 +863,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (!proj.isDead) proj.destroy();
     }
 
-    // ── shield 護盾消除玩家投射物 ──────────────────────────────────────
-    const shieldEnemies = (this.enemyGroup.getChildren() as Enemy[]).filter(
-      e => e.isElite && e.eliteType === 'shield' && e.shieldActive && !e.isDying
-    );
-    if (shieldEnemies.length > 0) {
-      this.weaponSystem.destroyProjectilesInShieldRange(shieldEnemies);
-    }
+    // ── shield 護盾消除玩家投射物已移除（震罡功已移除）──────────────────
 
     // ── 黑洞陷阱更新 ──────────────────────────────────────────────────
     const deadHoles: BlackHoleTrap[] = [];
@@ -1722,7 +1716,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 生成精英怪（正式版：150/300/450 秒，即 2:30 / 5:00 / 7:30，各一隻）
+   * 生成精英怪（測試模式：10/20/30 秒；正式版：150/300/450 秒，即 2:30 / 5:00 / 7:30）
    * wave 1 → elite_shield（三當家，護盾型）
    * wave 2 → elite_shooter（二當家，遠程型）
    * wave 3 → elite_charger（大當家，衝撞型）
@@ -1775,28 +1769,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         this.eliteProjectiles.push(proj);
       };
 
-      // 黑洞生成回呼（干擾玩家走位）
-      elite.onSpawnBlackHole = (_bossX, _bossY) => {
-        // 每輪生成 2～3 個移動小黑洞，以玩家位置為中心（干擾走位）
-        const count = 2 + Math.floor(Math.random() * 2); // 2 或 3
-        for (let i = 0; i < count; i++) {
-          // 超過上限時移除最舊的
-          if (this.blackHoleTraps.length >= this.MAX_BLACK_HOLES) {
-            const oldest = this.blackHoleTraps.shift();
-            if (oldest) oldest.destroy();
-          }
-          // 在玩家附近 90～180px 隨機位置生成（不直接生在腳下）
-          const spawnAngle = Math.random() * Math.PI * 2;
-          const spawnDist = 90 + Math.random() * 90; // 90～180px
-          const hx = Phaser.Math.Clamp(this.player.x + Math.cos(spawnAngle) * spawnDist, 32, 3200 - 32);
-          const hy = Phaser.Math.Clamp(this.player.y + Math.sin(spawnAngle) * spawnDist, 32, 3200 - 32);
-          // 移動方向：隨機，速度 35～60px/s
-          const moveAngle = Math.random() * Math.PI * 2;
-          const moveSpeed = 35 + Math.random() * 25;
-          const hole = new BlackHoleTrap(this, hx, hy, 100, 4000, moveAngle, moveSpeed);
-          this.blackHoleTraps.push(hole);
-        }
-      };
+      // 黑洞生成回呼已移除
 
       // 外圍直線射擊回呼（主要壓迫技能）
       elite.onLineAttack = (targetX: number, targetY: number, count: number) => {
@@ -1805,7 +1778,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       };
     }
 
-    // shield（三當家）注入：震罡功 + 霸山墜 + 震撼咆哮 + 連續重擊
+    // shield（三當家）注入：霸山墜 + 震撼咆哮 + 連續重擊（震罡功已移除）
     if (eliteType === 'shield') {
       // 舊版衝擊波回呼（保留相容性）
       elite.onShockwave = (cx: number, cy: number) => {
@@ -1814,11 +1787,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         elite.shieldEndCast();
       };
 
-      // 震罡功：架盾蓄力震波（新版，傳入 elite 供護盾控制）
-      elite.onShieldBurst = (cx: number, cy: number, dmg: number, shieldElite: Enemy) => {
-        if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.spawnShieldBurst(cx, cy, dmg, shieldElite);
-      };
+      // 震罡功回呼已移除
 
       // 霸山墜：跳躍砸地（不改）
       elite.onLeapSlam = (fromX: number, fromY: number, targetX: number, targetY: number, dmg: number) => {
@@ -1839,19 +1808,9 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       };
     }
 
-    // charger（大當家）注入：霸刀橫斬 + 蠻王衝鋒 + 裂寨三斬 + 連環破甲刺
+    // charger（大當家）注入：蠻王衝鋒 + 裂寨三斬 + 連環破甲刺（霸刀橫斬已移除）
     if (eliteType === 'charger') {
-      // 霸刀橫斬前搖開始：顯示預警扇形（前搖期間讓玩家看到攻擊範圍）
-      elite.onChargerMeleeWindupStart = (cx, cy, dirX, dirY, windupMs) => {
-        if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.showChargerMeleeWarning(cx, cy, dirX, dirY, windupMs);
-      };
-
-      // 霸刀橫斬：普通近戰攻擊
-      elite.onChargerMeleeSlash = (cx, cy, dmg, dirX, dirY) => {
-        if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.doChargerMeleeSlash(cx, cy, dmg, dirX, dirY);
-      };
+      // 霸刀橫斬回呼已移除
 
       // 蠻王衝鋒：連續衝刺技能
       elite.onChargerDash = (fromX, fromY, targetX, targetY, charger) => {
@@ -2152,106 +2111,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     });
   }
 
-  /**
-   * 震罡功：架盾蓄力震波
-   * 三當家進入架盾狀態（減傷），蓄力後釋放近距離圓形震波
-   */
-  private spawnShieldBurst(cx: number, cy: number, dmg: number, elite: Enemy): void {
-    if (!this.scene.isActive()) return;
-
-    const BURST_RADIUS = 220;   // 震波半徑（px）
-    const SHIELD_DUR   = 1000;  // 架盾時間（ms）
-    const BURST_DUR    = 300;   // 爆發持續（ms）
-
-    // ── 啟動護盾（減傷 70%）──────────────────────────────────────────
-    elite.shieldActivate();
-
-    // 記錄施放瞬間的位置
-    const castX = cx;
-    const castY = cy;
-
-    // ── 蓄力預警圈（setPosition + 相對座標，不做 scale tween）──────
-    const windupG = this.add.graphics();
-    windupG.setPosition(castX, castY);
-    windupG.setDepth(18);
-    windupG.lineStyle(4, 0xddaa00, 0.85);
-    windupG.strokeCircle(0, 0, BURST_RADIUS);
-    windupG.fillStyle(0xaa8800, 0.12);
-    windupG.fillCircle(0, 0, BURST_RADIUS);
-    // 內圈提示
-    windupG.lineStyle(2, 0xffcc44, 0.5);
-    windupG.strokeCircle(0, 0, BURST_RADIUS * 0.5);
-
-    // alpha 閃爍表示蓄力，不做 scale（避免漂移）
-    this.tweens.add({
-      targets: windupG,
-      alpha: 0.3,
-      duration: 200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    this.time.delayedCall(SHIELD_DUR, () => {
-      this.tweens.killTweensOf(windupG);
-      if (windupG && windupG.active) windupG.destroy();
-
-      // 關閉護盾
-      elite.shieldDeactivate();
-
-      if (this.isPaused || this.isGameOver || this.isVictory) {
-        elite.shieldEndCast();
-        return;
-      }
-
-      // BUG-A4 修正：三當家在蓄力期間死亡則不造成傷害
-      if (!elite.active || elite.isDying) {
-        elite.shieldEndCast();
-        return;
-      }
-
-      // RISK-B2 修正（方案 A）：傷害判定固定使用 castX/castY，與預警圈位置一致
-      // 預警圈已固定在 castX/castY，傷害判定也用相同位置，避免玩家看到 A 點預警卻在 B 點受傷
-      const bx = castX;
-      const by = castY;
-
-      // ── 爆發圓圈（setPosition + 相對座標，alpha 淡出，不做 scale）──
-      const burstG = this.add.graphics();
-      burstG.setPosition(bx, by);
-      burstG.setDepth(19);
-      burstG.lineStyle(10, 0xffcc00, 0.95);
-      burstG.strokeCircle(0, 0, BURST_RADIUS * 0.35);
-      burstG.lineStyle(5, 0xffaa00, 0.8);
-      burstG.strokeCircle(0, 0, BURST_RADIUS);
-      burstG.fillStyle(0xcc9900, 0.20);
-      burstG.fillCircle(0, 0, BURST_RADIUS);
-
-      this.tweens.add({
-        targets: burstG,
-        alpha: 0,
-        duration: BURST_DUR + 200,
-        ease: 'Power2',
-        onComplete: () => { if (burstG && burstG.active) burstG.destroy(); },
-      });
-
-      // ── 傷害與擊退判定（以 bx/by 為中心）────────────────────────────
-      const dx = this.player.x - bx;
-      const dy = this.player.y - by;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= BURST_RADIUS + 14) {
-        this.player.takeDamage(dmg, this);
-        if (dist > 1) {
-          this.player.applyExternalMove(
-            (dx / dist) * 90,
-            (dy / dist) * 90
-          );
-        }
-      }
-
-      // 技能結束
-      this.time.delayedCall(BURST_DUR, () => { elite.shieldEndCast(); });
-    });
-  }
+  // ── spawnShieldBurst 已移除（震罡功已移除）────────────────────────────
 
   /**
    * 霸山墜：跳躍砸地
@@ -2288,10 +2148,12 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     // ── 起跳：三當家視覺縮小（模擬跳起）──────────────────────────────
     const eliteVisual = (elite as any).visual as Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
+    const bsx = (elite as any).visualBaseScaleX ?? 1;
+    const bsy = (elite as any).visualBaseScaleY ?? 1;
     if (eliteVisual && eliteVisual.active) {
       this.tweens.add({
         targets: eliteVisual,
-        scaleX: 0.7, scaleY: 0.7,
+        scaleX: bsx * 0.7, scaleY: bsy * 0.7,
         duration: WINDUP_DUR,
         ease: 'Power1',
       });
@@ -2303,14 +2165,22 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       if (warnG && warnG.active) warnG.destroy();
 
       if (this.isPaused || this.isGameOver || this.isVictory) {
-        if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1);
+        if (eliteVisual && eliteVisual.active) {
+          const bsx = (elite as any).visualBaseScaleX ?? 1;
+          const bsy = (elite as any).visualBaseScaleY ?? 1;
+          eliteVisual.setScale(bsx, bsy);
+        }
         elite.shieldEndCast();
         return;
       }
 
       // BUG-A5 修正：三當家在跳躍期間死亡則不瞬移、不造成傷害
       if (!elite.active || elite.isDying) {
-        if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1);
+        if (eliteVisual && eliteVisual.active) {
+          const bsx = (elite as any).visualBaseScaleX ?? 1;
+          const bsy = (elite as any).visualBaseScaleY ?? 1;
+          eliteVisual.setScale(bsx, bsy);
+        }
         elite.shieldEndCast();
         return;
       }
@@ -2323,13 +2193,15 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
       // 恢復視覺縮放
       if (eliteVisual && eliteVisual.active) {
+        const bsx = (elite as any).visualBaseScaleX ?? 1;
+        const bsy = (elite as any).visualBaseScaleY ?? 1;
         this.tweens.add({
           targets: eliteVisual,
-          scaleX: 1.3, scaleY: 1.3,
+          scaleX: bsx * 1.3, scaleY: bsy * 1.3,
           duration: 80,
           ease: 'Back.Out',
           yoyo: true,
-          onComplete: () => { if (eliteVisual && eliteVisual.active) eliteVisual.setScale(1); },
+          onComplete: () => { if (eliteVisual && eliteVisual.active) eliteVisual.setScale(bsx, bsy); },
         });
       }
 
@@ -3757,12 +3629,39 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 建立第一關普通小怪動畫（henchman / giant / scout / archer）
-   * 各 8 fps，循環播放。
+   * 建立敵人動畫（普通小怪 + Boss）
+   * 各動畫幀率和循環設定各不相同。
    * 若幀圖未成功載入，動畫建立會靜默跳過（不影響其他敵人）。
    */
   private createEnemyAnimations(): void {
     const anims = this.anims;
+
+    // ── boss1（三當家 / elite_shield）：8 幀移動 + 13 幀技能動畫，10 fps ──
+    if (!anims.exists('boss1_walk')) {
+      const frames = [
+        'boss1_01','boss1_02','boss1_03','boss1_04',
+        'boss1_05','boss1_06','boss1_07','boss1_08',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss1_walk', frames, frameRate: 10, repeat: -1 });
+      }
+    }
+
+    if (!anims.exists('boss1_skill1')) {
+      const frames = [
+        'boss1_skill1_01','boss1_skill1_02','boss1_skill1_03','boss1_skill1_04',
+        'boss1_skill1_05','boss1_skill1_06','boss1_skill1_07','boss1_skill1_08',
+        'boss1_skill1_09','boss1_skill1_10','boss1_skill1_11','boss1_skill1_12',
+        'boss1_skill1_13',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss1_skill1', frames, frameRate: 10, repeat: 0 });
+      }
+    }
 
     // ── henchman（山賊嘍囉）：8 幀，8 fps ────────────────────────────
     if (!anims.exists('henchman_walk')) {

@@ -659,8 +659,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private buildExitPanel(W: number, H: number): void {
-    const panelW = Math.min(320, W * 0.38);
-    const panelH = 160;
+    const panelW = Math.min(360, W * 0.42);
+    const panelH = 190;
     const cx = Math.round(W * 0.5);
     const cy = Math.round(H * 0.5);
     const px = Math.round(cx - panelW / 2);
@@ -668,7 +668,7 @@ export class MainMenuScene extends Phaser.Scene {
     const r = 10;
 
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.65);
+    overlay.fillStyle(0x000000, 0.70);
     overlay.fillRect(0, 0, W, H);
     this.exitContainer.add(overlay);
 
@@ -679,30 +679,94 @@ export class MainMenuScene extends Phaser.Scene {
     panel.strokeRoundedRect(px, py, panelW, panelH, r);
     this.exitContainer.add(panel);
 
-    const msg = this.add.text(cx, cy - 28, '感謝遊玩武俠幸存者！\n願你武道長進，再見！',
-      uiText(14, '#d4af37', { align: 'center', lineSpacing: 6 })
+    const msg = this.add.text(cx, cy - 36, '確定要離開遊戲嗎？',
+      uiText(16, '#ffffff', { align: 'center', fontStyle: 'bold' })
     ).setOrigin(0.5, 0.5);
     this.exitContainer.add(msg);
 
-    // 確認按鈕（Web 版：關閉提示即可）
-    const okG = this.add.graphics();
-    const okX = cx;
-    const okY = cy + 44;
-    okG.fillStyle(0x5a0a0a, 0.9);
-    okG.fillRoundedRect(okX - 60, okY - 18, 120, 36, 6);
-    okG.lineStyle(1.5, 0xd4af37, 0.8);
-    okG.strokeRoundedRect(okX - 60, okY - 18, 120, 36, 6);
-    this.exitContainer.add(okG);
+    // 按鈕列
+    const btnY = cy + 36;
+    const btnGap = 16;
 
-    const okTxt = this.add.text(okX, okY, '返回主選單', uiText(13, '#ffffff', { fontStyle: 'bold' }));
-    okTxt.setOrigin(0.5, 0.5);
-    this.exitContainer.add(okTxt);
+    // 取消按鈕
+    const cancelG = this.add.graphics();
+    const cancelX = cx - 70;
+    cancelG.fillStyle(0x1a1a28, 0.9);
+    cancelG.fillRoundedRect(cancelX - 60, btnY - 20, 120, 40, 6);
+    cancelG.lineStyle(1.5, 0x556677, 0.8);
+    cancelG.strokeRoundedRect(cancelX - 60, btnY - 20, 120, 40, 6);
+    this.exitContainer.add(cancelG);
 
-    const okHit = this.add.rectangle(okX, okY, 140, 44, 0, 0).setInteractive({ useHandCursor: true });
-    okHit.on('pointerdown', () => {
+    const cancelTxt = this.add.text(cancelX, btnY, '取消', uiText(14, '#cccccc', { fontStyle: 'bold' }));
+    cancelTxt.setOrigin(0.5, 0.5);
+    this.exitContainer.add(cancelTxt);
+
+    const cancelHit = this.add.rectangle(cancelX, btnY, 140, 50, 0, 0).setInteractive({ useHandCursor: true });
+    cancelHit.on('pointerdown', () => {
       SFXManager.playButtonClick(this);
       this.closeExit();
     });
-    this.exitContainer.add(okHit);
+    this.exitContainer.add(cancelHit);
+
+    // 離開按鈕
+    const exitG = this.add.graphics();
+    const exitX = cx + 70;
+    exitG.fillStyle(0x5a0a0a, 0.9);
+    exitG.fillRoundedRect(exitX - 60, btnY - 20, 120, 40, 6);
+    exitG.lineStyle(1.5, 0xd4af37, 0.8);
+    exitG.strokeRoundedRect(exitX - 60, btnY - 20, 120, 40, 6);
+    this.exitContainer.add(exitG);
+
+    const exitTxt = this.add.text(exitX, btnY, '離開', uiText(14, '#ffffff', { fontStyle: 'bold' }));
+    exitTxt.setOrigin(0.5, 0.5);
+    this.exitContainer.add(exitTxt);
+
+    const exitHit = this.add.rectangle(exitX, btnY, 140, 50, 0, 0).setInteractive({ useHandCursor: true });
+    exitHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.exitGame();
+    });
+    this.exitContainer.add(exitHit);
+  }
+
+  private exitGame(): void {
+    // 檢查是否在 Capacitor App 環境
+    // @ts-ignore - Capacitor 全域變數
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+      // Android App：呼叫原生 API 關閉應用
+      // @ts-ignore - Capacitor 插件可能在全域可用
+      if (typeof App !== 'undefined' && App.exitApp) {
+        // @ts-ignore
+        App.exitApp();
+      } else {
+        console.warn('[MainMenuScene] Capacitor App.exitApp() 不可用');
+        this.exitGameFallback();
+      }
+    } else {
+      // Web 版：無法真正關閉瀏覽器視窗，改為停止遊戲並顯示告別訊息
+      this.exitGameFallback();
+    }
+  }
+
+  private exitGameFallback(): void {
+    // Web 版 fallback：停止所有場景並顯示告別畫面
+    BGMManager.stop(this);
+    this.scene.stop();
+    
+    // 建立告別畫面
+    const W = this.scale.width;
+    const H = this.scale.height;
+    
+    const bg = this.add.graphics().setDepth(100);
+    bg.fillStyle(0x020810, 1);
+    bg.fillRect(0, 0, W, H);
+    
+    this.add.text(W * 0.5, H * 0.42, '感謝遊玩武俠幸存者！',
+      uiTitle(32, '#ffd700')
+    ).setOrigin(0.5, 0.5).setDepth(101);
+    
+    this.add.text(W * 0.5, H * 0.56, '願你武道長進，再見！\n\n（請關閉瀏覽器分頁）',
+      uiText(14, '#d4af37', { align: 'center', lineSpacing: 6 })
+    ).setOrigin(0.5, 0.5).setDepth(101);
   }
 }

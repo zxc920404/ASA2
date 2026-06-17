@@ -7,6 +7,7 @@ import { AssetLoader } from '../utils/AssetLoader';
  * Sprite 動畫敵人使用目標顯示尺寸（px），Graphics fallback 使用 w/h 作為繪製半徑基準。
  */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
+  boss1:    { w: 200, h: 200 },   // 三當家 Boss，比小怪大
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
   giant:    { w: 175, h: 175 },   // 巨漢略大於玩家
@@ -79,8 +80,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** visual 的基準縮放（setDisplaySize 後記錄，受擊 tween 以此為基準） */
   private visualBaseScaleX: number = 1;
   private visualBaseScaleY: number = 1;
-  /** 護盾光圈（shield 用） */
-  private shieldVisual?: Phaser.GameObjects.Graphics;
+  // 護盾光圈已移除（震罡功已移除）
   /** 衝撞警示線（charger 用） */
   private chargeWarning?: Phaser.GameObjects.Graphics;
 
@@ -90,25 +90,10 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private knockbackY: number = 0;
 
   // ── charger（大當家）狀態 ────────────────────────────────────────────
-  /** 目前技能狀態 */
+  /** 目前技能狀態（霸刀橫斬已移除，只保留 idle 和 casting） */
   private chargerState: ChargerState = 'idle';
 
-  // ── 霸刀橫斬（普通攻擊）──────────────────────────────────────────────
-  /** 普通攻擊冷卻計時（ms） */
-  private chargerMeleeCooldown: number = 2000;
-  /** 普通攻擊前搖計時（ms，> 0 表示前搖中） */
-  private chargerMeleeWindupTimer: number = 0;
-  /** 普通攻擊距離（px）：160 讓大當家在中距離就能觸發橫斬 */
-  private readonly CHARGER_MELEE_RANGE = 160;
-  /** 普通攻擊前搖時間（ms）：0.45 秒，玩家有時間反應 */
-  private readonly CHARGER_MELEE_WINDUP = 450;
-  /** 普通攻擊冷卻最小值（ms） */
-  private readonly CHARGER_MELEE_CD_MIN = 1500;
-  /** 普通攻擊冷卻最大值（ms） */
-  private readonly CHARGER_MELEE_CD_MAX = 2000;
-  /** 前搖開始時記錄的玩家方向（供 GameScene 繪製預警用） */
-  public chargerMeleeWindupDirX: number = 1;
-  public chargerMeleeWindupDirY: number = 0;
+  // ── 霸刀橫斬已移除（普通攻擊）──────────────────────────────────────
 
   // ── 技能冷卻 ──────────────────────────────────────────────────────────
   /** 蠻王衝鋒冷卻（ms） */
@@ -122,10 +107,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private readonly CHARGER_SKILL_SELECT_INTERVAL = 1200;
 
   // ── 回呼（由 GameScene 注入）──────────────────────────────────────────
-  /** 霸刀橫斬前搖開始：GameScene 在此時繪製預警扇形 */
-  public onChargerMeleeWindupStart?: (cx: number, cy: number, dirX: number, dirY: number, windupMs: number) => void;
-  /** 霸刀橫斬：普通近戰攻擊 */
-  public onChargerMeleeSlash?: (cx: number, cy: number, dmg: number, dirX: number, dirY: number) => void;
+  // 霸刀橫斬已移除（普通攻擊）
   /** 蠻王衝鋒：連續衝刺技能 */
   public onChargerDash?: (fromX: number, fromY: number, targetX: number, targetY: number, charger: Enemy) => void;
   /** 裂寨三斬：連續扇形斬擊 */
@@ -140,13 +122,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 回呼：由 GameScene 注入，用於生成投射物 */
   public onShootProjectile?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
-  // ── shield 狀態 ──────────────────────────────────────────────────────
-  private shieldCooldown: number = 3000;    // 首次護盾等待（ms）
-  public shieldActive: boolean = false;     // public 供 GameScene 消除投射物
-  public readonly SHIELD_RADIUS = 100;      // 護盾範圍（消除投射物用）
-  private shieldTimer: number = 0;
-  private readonly SHIELD_COOLDOWN = 7000;
-  private readonly SHIELD_DURATION = 2500;
+  // ── shield 舊護盾狀態已移除（震罡功已移除）──────────────────────────
   // 衝擊波技能（三當家近戰強化）
   private shockwaveCooldown: number = 4500; // 首次衝擊波等待（ms）
   private readonly SHOCKWAVE_COOLDOWN = 7000;
@@ -156,10 +132,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ── shield 三當家：新技能組 ──────────────────────────────────────────
   /** 技能施放中（true 時不可再放技能） */
   public shieldCasting: boolean = false;
-  /** 震罡功冷卻（ms）：架盾蓄力震波 */
-  private burstCooldown: number = 3000;
-  private readonly BURST_COOLDOWN_MIN = 6000;
-  private readonly BURST_COOLDOWN_MAX = 8000;
+  // 震罡功已移除
   /** 霸山墜冷卻（ms）：跳躍砸地 */
   private leapCooldown: number = 5000;
   private readonly LEAP_COOLDOWN_MIN = 6000;
@@ -175,8 +148,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 技能選擇間隔（ms）：技能結束後等待此時間再選下一個 */
   private skillSelectTimer: number = 0;
   private readonly SKILL_SELECT_INTERVAL = 1500;
-  /** 回呼：震罡功（架盾蓄力震波） */
-  public onShieldBurst?: (x: number, y: number, dmg: number, elite: Enemy) => void;
+  // 震罡功回呼已移除
   /** 回呼：霸山墜（跳躍砸地） */
   public onLeapSlam?: (fromX: number, fromY: number, targetX: number, targetY: number, dmg: number) => void;
   /** 回呼：震撼咆哮（扇形蓄力咆哮） */
@@ -186,11 +158,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /** 回呼：普通平砍（近戰攻擊，保留相容性） */
   public onMeleeSlash?: (x: number, y: number, dmg: number) => void;
 
-  // ── shooter 黑洞技能（二當家）──────────────────────────────────────
-  private blackholeCooldown: number = 5000; // 首次黑洞等待
-  private readonly BLACKHOLE_COOLDOWN = 8000;
-  /** 回呼：由 GameScene 注入，用於生成黑洞（傳入 shooter 座標） */
-  public onSpawnBlackHole?: (bossX: number, bossY: number) => void;
+  // ── shooter 黑洞技能已移除 ──────────────────────────────────────
   // 外圍直線射擊技能（二當家）
   private lineAttackCooldown: number = 4000; // 首次直線攻擊等待（ms）
   private readonly LINE_ATTACK_COOLDOWN_MIN = 6000;
@@ -254,6 +222,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     // 有動畫素材的敵人 id → 初始動畫 key 對照表
     const ANIM_KEY: Record<string, string> = {
+      boss1:    'boss1_walk',    // 三當家 Boss
       henchman: 'henchman_walk',
       giant:    'giant_walk',
       scout:    'scout_walk',
@@ -311,15 +280,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public takeDamage(damage: number, fromX?: number, fromY?: number): boolean {
     if (this.isDying) return false;
 
-    // shield 護盾期間減傷 70%（震罡功蓄力中）
-    let actualDamage = damage;
-    if (this.shieldActive) {
-      actualDamage = Math.ceil(damage * 0.3);
-      if (actualDamage <= 0) {
-        this.showDamageNumber(0);
-        return false;
-      }
-    }
+    // 震罡功護盾減傷已移除
+    const actualDamage = damage;
 
     this.currentHP -= actualDamage;
 
@@ -336,7 +298,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       const dy = this.y - fromY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 0) {
-        const knockDist = this.shieldActive ? 4 : 12;
+        const knockDist = 12; // 震罡功護盾已移除，固定擊退距離
         this.knockbackX = (dx / dist) * knockDist;
         this.knockbackY = (dy / dist) * knockDist;
         this.setPosition(this.x + this.knockbackX, this.y + this.knockbackY);
@@ -375,9 +337,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     sectorRepelX: number = 0, sectorRepelY: number = 0
   ): void {
     if (this.isDying) return;
-    // charger 技能施放中或前搖中：停止移動
-    if (this.eliteType === 'charger' &&
-        (this.chargerState === 'casting' || this.chargerState === 'melee_windup')) return;
+    // charger 技能施放中：停止移動（霸刀橫斬前搖已移除）
+    if (this.eliteType === 'charger' && this.chargerState === 'casting') return;
 
     // shield 技能施放中：停止移動
     if (this.eliteType === 'shield' && this.shieldCasting) return;
@@ -572,9 +533,31 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   /**
    * 套用精英怪外觀（建構後呼叫）
    * 精英怪使用 Graphics 繪製（charger/shooter/shield 有獨特外觀）
+   * 三當家（shield）：如果有 boss1_walk 動畫素材，使用 Sprite；否則 fallback Graphics
    */
   public applyEliteVisual(type: EliteType): void {
     this.eliteType = type;
+    
+    // 三當家特殊處理：優先使用動畫 Sprite（比照小怪架構）
+    if (type === 'shield' && this.scene.anims.exists('boss1_walk')) {
+      // 銷毀原本的視覺物件
+      if (this.visual && this.visual.active) {
+        this.visual.destroy();
+      }
+      
+      // 建立 Sprite 並播放動畫（使用小怪格式：boss1_01 而非 boss1_run_01）
+      const spr = this.scene.add.sprite(this.x, this.y, 'boss1_01');
+      spr.setDepth(5);
+      // 三當家尺寸：200×200（使用 ENEMY_VISUAL_SIZE 中的設定）
+      const vSize = ENEMY_VISUAL_SIZE['boss1'] ?? { w: 200, h: 200 };
+      spr.setDisplaySize(vSize.w, vSize.h);
+      spr.play('boss1_walk');
+      this.visual = spr;
+      this.visualBaseScaleX = spr.scaleX;
+      this.visualBaseScaleY = spr.scaleY;
+      return;
+    }
+    
     // 精英怪：銷毀原本的 Image，改用 Graphics
     if (this.visual && this.visual.active) {
       this.visual.destroy();
@@ -677,7 +660,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.isDead = true;
     this.isDying = true;
     if (this.visual && this.visual.active) this.visual.destroy();
-    if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
+    // shieldVisual 已移除（震罡功已移除）
     if (this.chargeWarning && this.chargeWarning.active) this.chargeWarning.destroy();
     super.destroy(fromScene);
   }
@@ -690,36 +673,13 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     // ── 技能施放中：等待 GameScene 呼叫 chargerEndCast() ──────────────
     if (this.chargerState === 'casting') return;
 
-    // ── 霸刀橫斬前搖計時 ──────────────────────────────────────────────
-    if (this.chargerState === 'melee_windup') {
-      this.chargerMeleeWindupTimer -= delta;
-      if (this.chargerMeleeWindupTimer <= 0) {
-        this.chargerMeleeWindupTimer = 0;
-        this.chargerState = 'idle';
-        // 前搖結束，執行霸刀橫斬傷害判定
-        // 使用前搖開始時記錄的方向（不追蹤玩家，與預警一致）
-        if (this.onChargerMeleeSlash) {
-          const dmg = Math.ceil(this.contactDamage * 0.85);
-          this.onChargerMeleeSlash(
-            this.x, this.y, dmg,
-            this.chargerMeleeWindupDirX, this.chargerMeleeWindupDirY
-          );
-        }
-        // 重置普通攻擊冷卻
-        this.chargerMeleeCooldown = this.CHARGER_MELEE_CD_MIN +
-          Math.random() * (this.CHARGER_MELEE_CD_MAX - this.CHARGER_MELEE_CD_MIN);
-      }
-      return;
-    }
+    // ── 霸刀橫斬前搖已移除 ──────────────────────────────────────────────
 
     // ── idle 狀態：技能選擇間隔計時 ──────────────────────────────────
     if (this.chargerSkillSelectTimer > 0) {
       this.chargerSkillSelectTimer -= delta;
-      if (this.chargerSkillSelectTimer > 0) {
-        // 間隔中可以嘗試普通攻擊
-        this.tryChargerMeleeSlash(delta, playerX, playerY);
-        return;
-      }
+      // 霸刀橫斬已移除，間隔中不再嘗試普通攻擊
+      return;
     }
 
     // ── 技能冷卻倒計時 ────────────────────────────────────────────────
@@ -766,8 +726,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
           break;
       }
     } else {
-      // 沒有技能可放：嘗試普通攻擊
-      this.tryChargerMeleeSlash(delta, playerX, playerY);
+      // 沒有技能可放：只進行追蹤移動（霸刀橫斬已移除，不再有普通攻擊）
     }
   }
 
@@ -779,35 +738,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.chargerSkillSelectTimer = this.CHARGER_SKILL_SELECT_INTERVAL;
   }
 
-  /**
-   * 嘗試霸刀橫斬（靠近玩家時觸發前搖）
-   */
-  private tryChargerMeleeSlash(delta: number, playerX: number, playerY: number): void {
-    if (this.chargerState !== 'idle') return;
-    this.chargerMeleeCooldown -= delta;
-    if (this.chargerMeleeCooldown > 0) return;
-
-    const dx = playerX - this.x;
-    const dy = playerY - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist <= this.CHARGER_MELEE_RANGE) {
-      // 記錄前搖開始時的攻擊方向（供 GameScene 繪製預警扇形）
-      this.chargerMeleeWindupDirX = dist > 0 ? dx / dist : 1;
-      this.chargerMeleeWindupDirY = dist > 0 ? dy / dist : 0;
-      // 進入前搖（停止移動）
-      this.chargerState = 'melee_windup';
-      this.chargerMeleeWindupTimer = this.CHARGER_MELEE_WINDUP;
-      // 通知 GameScene 顯示預警扇形
-      if (this.onChargerMeleeWindupStart) {
-        this.onChargerMeleeWindupStart(
-          this.x, this.y,
-          this.chargerMeleeWindupDirX, this.chargerMeleeWindupDirY,
-          this.CHARGER_MELEE_WINDUP
-        );
-      }
-    }
-  }
+  // ── tryChargerMeleeSlash 已移除（霸刀橫斬普通攻擊）──────────────────
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
     // ── 投射物彈幕 ──────────────────────────────────────────────────────
@@ -835,14 +766,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       }
     }
 
-    // ── 黑洞技能 ────────────────────────────────────────────────────────
-    this.blackholeCooldown -= delta;
-    if (this.blackholeCooldown <= 0) {
-      this.blackholeCooldown = this.BLACKHOLE_COOLDOWN;
-      if (this.onSpawnBlackHole) {
-        this.onSpawnBlackHole(this.x, this.y);
-      }
-    }
+    // ── 黑洞技能已移除 ────────────────────────────────────────────────
 
     // ── 外圍直線射擊技能 ─────────────────────────────────────────────────
     this.lineAttackCooldown -= delta;
@@ -931,12 +855,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   }
 
   private updateShield(delta: number, playerX?: number, playerY?: number): void {
-    // ── 護盾視覺跟隨（shieldActive 由震罡功控制，不再自動觸發）──────
-    if (this.shieldActive) {
-      if (this.shieldVisual && this.shieldVisual.active) {
-        this.shieldVisual.setPosition(this.x, this.y);
-      }
-    }
+    // ── 護盾視覺已移除（震罡功已移除）──────────────────────────────────
 
     // ── 技能施放中：等待 GameScene 呼叫 shieldEndCast() ──────────────
     if (this.shieldCasting) return;
@@ -948,14 +867,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     }
 
     // ── 技能冷卻倒計時 ────────────────────────────────────────────────
-    this.burstCooldown       -= delta;
+    // 震罡功已移除
     this.leapCooldown        -= delta;
     this.warCryCooldown      -= delta;
     this.comboStrikeCooldown -= delta;
 
     // ── 隨機選擇冷卻完成的技能 ────────────────────────────────────────
-    const available: Array<'burst' | 'leap' | 'warcry' | 'combo'> = [];
-    if (this.burstCooldown       <= 0) available.push('burst');
+    const available: Array<'leap' | 'warcry' | 'combo'> = [];
+    // 震罡功已移除
     if (this.leapCooldown        <= 0) available.push('leap');
     if (this.warCryCooldown      <= 0) available.push('warcry');
     if (this.comboStrikeCooldown <= 0) available.push('combo');
@@ -972,13 +891,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     const dirY = dist > 0 ? dy / dist : 0;
 
     switch (chosen) {
-      case 'burst':
-        this.burstCooldown = this.BURST_COOLDOWN_MIN +
-          Math.random() * (this.BURST_COOLDOWN_MAX - this.BURST_COOLDOWN_MIN);
-        if (this.onShieldBurst) {
-          this.onShieldBurst(this.x, this.y, Math.ceil(this.contactDamage * 1.1), this);
-        }
-        break;
+      // 震罡功已移除
 
       case 'leap':
         this.leapCooldown = this.LEAP_COOLDOWN_MIN +
@@ -1015,42 +928,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.skillSelectTimer = this.SKILL_SELECT_INTERVAL;
   }
 
-  /**
-   * 啟動護盾視覺（由 GameScene 在震罡功蓄力時呼叫）
-   */
-  public shieldActivate(): void {
-    this.shieldActive = true;
-    this.showShieldVisual();
-  }
-
-  /**
-   * 關閉護盾視覺（由 GameScene 在震罡功結束時呼叫）
-   */
-  public shieldDeactivate(): void {
-    this.shieldActive = false;
-    if (this.shieldVisual && this.shieldVisual.active) {
-      this.shieldVisual.destroy();
-      this.shieldVisual = undefined;
-    }
-  }
-
-  private showShieldVisual(): void {
-    if (this.shieldVisual && this.shieldVisual.active) this.shieldVisual.destroy();
-    const g = this.scene.add.graphics();
-    g.setPosition(this.x, this.y);
-    g.setDepth(9);
-    // 大範圍青色護盾（半徑 100px）
-    g.fillStyle(0x00ffcc, 0.15);
-    g.fillCircle(0, 0, this.SHIELD_RADIUS);
-    g.lineStyle(3, 0x00ffcc, 0.9);
-    g.strokeCircle(0, 0, this.SHIELD_RADIUS);
-    g.lineStyle(1.5, 0xffffff, 0.4);
-    g.strokeCircle(0, 0, this.SHIELD_RADIUS - 8);
-    // 內圈
-    g.fillStyle(0x00ffcc, 0.08);
-    g.fillCircle(0, 0, this.SHIELD_RADIUS * 0.6);
-    this.shieldVisual = g;
-  }
+  // ── 震罡功護盾方法已移除 ──────────────────────────────────────────────
+  // shieldActivate()、shieldDeactivate()、showShieldVisual() 已移除
 
   // ─────────────────────────────────────────────────────────────────────────
   // 視覺私有方法

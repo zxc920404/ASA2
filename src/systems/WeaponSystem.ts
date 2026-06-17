@@ -605,27 +605,11 @@ export class WeaponSystem {
   }
 
   /**
-   * 消除?�入 shield 護盾範�??��??�家?��???
-   * ?��??��?�?? Projectile（�?影響守�??�環繞�?�?
+   * 護盾範圍內銷毀玩家投射物（震罡功已移除，此方法已廢棄）
    */
   public destroyProjectilesInShieldRange(shieldEnemies: import('../objects/Enemy').Enemy[]): void {
-    const toRemove: Projectile[] = [];
-    for (const proj of this.projectiles) {
-      // 守�??�環繞�?不在 projectiles ???，跳??
-      if (proj.weaponId === 'guardian_ring') continue;
-      for (const shield of shieldEnemies) {
-        const dx = proj.x - shield.x;
-        const dy = proj.y - shield.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= shield.SHIELD_RADIUS) {
-          toRemove.push(proj);
-          break;
-        }
-      }
-    }
-    for (const proj of toRemove) {
-      this.removeProjectile(proj);
-    }
+    // 震罡功已移除，此方法不再使用，保留空實作以避免編譯錯誤
+    return;
   }
 
   /**

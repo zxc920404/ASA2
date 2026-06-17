@@ -11,7 +11,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.2,
     baseAttackRange: 120,
     projectileSpeed: 0,
-    iconKey: 'weapon_icon_guardian_ring',
+    iconKey: 'weapon_shouxin_ring',
     levelStats: [
       // Lv1：基礎，1 個環繞體
       { damage: 10, count: 1 },
@@ -41,7 +41,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.8,
     baseAttackRange: 200,
     projectileSpeed: 400,
-    iconKey: 'weapon_icon_swift_blade',
+    iconKey: 'weapon_jifeng_blade',
     levelStats: [
       // Lv1：基礎，單發
       { damage: 12, count: 1, interval: 0.8 },
@@ -71,7 +71,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.8,
     baseAttackRange: 150,
     projectileSpeed: 250,
-    iconKey: 'weapon_icon_flame_seal',
+    iconKey: 'weapon_chiyan_seal',
     levelStats: [
       // Lv1：前期傷害微幅提升
       { damage: 18, radius: 80, interval: 1.8 },
@@ -101,7 +101,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 1.0,
     baseAttackRange: 180,
     projectileSpeed: 350,
-    iconKey: 'weapon_icon_ice_spike',
+    iconKey: 'weapon_hanbing_spike',
     levelStats: [
       // Lv1：基礎，pierce 1
       { damage: 16, pierce: 1 },
@@ -131,7 +131,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.6,
     baseAttackRange: 160,
     projectileSpeed: 300,
-    iconKey: 'weapon_icon_thunder_claw',
+    iconKey: 'weapon_leiting_claw',
     levelStats: [
       // Lv1：基礎，單發，傷害提升
       { damage: 10, count: 1, interval: 0.6 },
@@ -161,7 +161,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 2.6,
     baseAttackRange: 130,
     projectileSpeed: 220,
-    iconKey: 'weapon_icon_poison_mist',
+    iconKey: 'weapon_duwu_powder',
     levelStats: [
       // Lv1：單發小毒霧
       { damage: 8,  range: 130, radius: 45, count: 1, interval: 2.6, duration: 2.2 },
@@ -191,7 +191,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.75,
     baseAttackRange: 220,
     projectileSpeed: 520,
-    iconKey: 'weapon_icon_light_shuttle',
+    iconKey: 'weapon_liuguang_shuttle',
     levelStats: [
       // Lv1：基礎，pierce 1
       { damage: 8,  count: 1, pierce: 1, interval: 0.75 },
@@ -221,7 +221,7 @@ export const WEAPONS: WeaponData[] = [
     baseAttackInterval: 0.55,
     baseAttackRange: 190,
     projectileSpeed: 460,
-    iconKey: 'weapon_icon_soul_chasing_needle',
+    iconKey: 'weapon_zhuihun_needle',
     levelStats: [
       // Lv1：基礎，單發
       { damage: 6,  count: 1, interval: 0.55 },

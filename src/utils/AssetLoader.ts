@@ -70,6 +70,16 @@ export class AssetLoader {
     // ── 宗門選擇背景圖（已確認存在）──────────────────────────────────
     AssetLoader.loadImage(scene, 'ui_bg_char_select', 'assets/ui/classback.png');
 
+    // ── 武器圖示（用於升級面板和 HUD 武器欄）───────────────────────────
+    AssetLoader.loadImage(scene, 'weapon_shouxin_ring',     'assets/icons/weapons/守心環.png');
+    AssetLoader.loadImage(scene, 'weapon_jifeng_blade',     'assets/icons/weapons/疾風刃.png');
+    AssetLoader.loadImage(scene, 'weapon_chiyan_seal',      'assets/icons/weapons/赤焰印.png');
+    AssetLoader.loadImage(scene, 'weapon_hanbing_spike',    'assets/icons/weapons/寒冰錐.png');
+    AssetLoader.loadImage(scene, 'weapon_leiting_claw',     'assets/icons/weapons/雷霆爪.png');
+    AssetLoader.loadImage(scene, 'weapon_duwu_powder',      'assets/icons/weapons/毒霧散.png');
+    AssetLoader.loadImage(scene, 'weapon_liuguang_shuttle', 'assets/icons/weapons/流光梭.png');
+    AssetLoader.loadImage(scene, 'weapon_zhuihun_needle',   'assets/icons/weapons/追魂針.png');
+
     // ── 宗門選擇 BGM ──────────────────────────────────────────────────
     AssetLoader.loadAudio(scene, 'bgm_char_select', 'assets/audio/bgm/char_select.mp3');
 
@@ -150,6 +160,30 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'guiyuan_run_06', 'assets/sprites/player/Guiyuan/Guiyuan_run/06.png');
     AssetLoader.loadImage(scene, 'guiyuan_run_07', 'assets/sprites/player/Guiyuan/Guiyuan_run/07.png');
     AssetLoader.loadImage(scene, 'guiyuan_run_08', 'assets/sprites/player/Guiyuan/Guiyuan_run/08.png');
+
+    // ── 第一關 Boss 動畫幀 ────────────────────────────────────────────
+    // boss1（三當家 / elite_shield）：8 幀奔跑動畫 + 13 幀技能動畫，10 fps
+    AssetLoader.loadImage(scene, 'boss1_01', 'assets/sprites/enemies/Level_1/boss1/run/01.png');
+    AssetLoader.loadImage(scene, 'boss1_02', 'assets/sprites/enemies/Level_1/boss1/run/02.png');
+    AssetLoader.loadImage(scene, 'boss1_03', 'assets/sprites/enemies/Level_1/boss1/run/03.png');
+    AssetLoader.loadImage(scene, 'boss1_04', 'assets/sprites/enemies/Level_1/boss1/run/04.png');
+    AssetLoader.loadImage(scene, 'boss1_05', 'assets/sprites/enemies/Level_1/boss1/run/05.png');
+    AssetLoader.loadImage(scene, 'boss1_06', 'assets/sprites/enemies/Level_1/boss1/run/06.png');
+    AssetLoader.loadImage(scene, 'boss1_07', 'assets/sprites/enemies/Level_1/boss1/run/07.png');
+    AssetLoader.loadImage(scene, 'boss1_08', 'assets/sprites/enemies/Level_1/boss1/run/08.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_01', 'assets/sprites/enemies/Level_1/boss1/skill1/1.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_02', 'assets/sprites/enemies/Level_1/boss1/skill1/2.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_03', 'assets/sprites/enemies/Level_1/boss1/skill1/3.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_04', 'assets/sprites/enemies/Level_1/boss1/skill1/4.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_05', 'assets/sprites/enemies/Level_1/boss1/skill1/5.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_06', 'assets/sprites/enemies/Level_1/boss1/skill1/6.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_07', 'assets/sprites/enemies/Level_1/boss1/skill1/7.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_08', 'assets/sprites/enemies/Level_1/boss1/skill1/8.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_09', 'assets/sprites/enemies/Level_1/boss1/skill1/9.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_10', 'assets/sprites/enemies/Level_1/boss1/skill1/10.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_11', 'assets/sprites/enemies/Level_1/boss1/skill1/11.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_12', 'assets/sprites/enemies/Level_1/boss1/skill1/12.png');
+    AssetLoader.loadImage(scene, 'boss1_skill1_13', 'assets/sprites/enemies/Level_1/boss1/skill1/13.png');
 
     // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
     // henchman（山賊嘍囉）：8 幀移動動畫，8 fps

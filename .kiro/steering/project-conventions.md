@@ -399,3 +399,367 @@ src/
 - [ ] 在 `types/index.ts` 的 `DifficultyId` 加入新值
 - [ ] 在 `difficulties.ts` 的 `DIFFICULTY_CONFIGS` 加入完整倍率設定
 - [ ] `getDifficultyConfig()` 的 fallback 邏輯不需修改
+
+
+---
+
+## 11. 角色與 Boss 視覺尺寸規則（Visual Size Management）
+
+### 11.1 問題背景
+
+**典型問題場景：**
+- 角色 / 敵人 / Boss 使用 `setDisplaySize` 或 `displayHeight` 控制顯示大小
+- 技能流程中使用 `boss.setScale(1)` 或 tween 修改 `scaleX` / `scaleY`
+- 技能結束後呼叫 `setScale(1)` 恢復，導致覆蓋原本的視覺縮放
+- **結果：角色放完技能後尺寸突然變大或變小**
+
+**根本原因：**
+- `setDisplaySize(w, h)` 會根據 texture 原始尺寸計算 `scaleX` / `scaleY`
+- 例如：texture 是 64×64，`setDisplaySize(200, 200)` 會設定 `scaleX = scaleY = 3.125`
+- 技能流程中硬寫 `setScale(1)` 會把 scale 重設為 1，讓角色變回原始 texture 大小（64×64）
+- 正確做法：**恢復到 `visualBaseScaleX` / `visualBaseScaleY`（setDisplaySize 後的實際 scale 值）**
+
+---
+
+### 11.2 統一視覺尺寸控制
+
+**原則 1：視覺尺寸必須由統一的 config 控制**
+
+所有角色、敵人、Boss 的顯示尺寸必須在模組頂層定義：
+
+```ts
+// ✅ 正確：統一管理視覺尺寸
+const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
+  boss1:    { w: 200, h: 200 },   // 三當家 Boss
+  henchman: { w: 125, h: 140 },
+  giant:    { w: 175, h: 175 },
+};
+
+const PLAYER_VISUAL_CONFIG = {
+  wave_stand: { displayHeight: 64, aspect: 1.0 },
+  wave_run:   { displayHeight: 80, aspect: 1.2 },
+};
+
+// ❌ 錯誤：在建構函式或 create() 中硬寫數字
+boss.setDisplaySize(200, 200);  // 魔術數字，無法追蹤來源
+```
+
+**原則 2：記錄基準 scale 值**
+
+使用 `setDisplaySize` 後，必須記錄實際的 scale 值：
+
+```ts
+// ✅ 正確
+const spr = scene.add.sprite(x, y, 'boss1_01');
+spr.setDisplaySize(vSize.w, vSize.h);  // 根據 texture 大小計算 scale
+this.visual = spr;
+this.visualBaseScaleX = spr.scaleX;    // 記錄基準 scale
+this.visualBaseScaleY = spr.scaleY;
+
+// ❌ 錯誤：沒有記錄基準 scale，技能流程無法正確恢復
+const spr = scene.add.sprite(x, y, 'boss1_01');
+spr.setDisplaySize(200, 200);
+this.visual = spr;  // 遺失 scale 資訊
+```
+
+---
+
+### 11.3 技能流程中的 scale 操作
+
+**原則 3：禁止在角色本體上硬寫 `setScale(1)`**
+
+技能、受擊、死亡流程中不要直接重設角色 scale：
+
+```ts
+// ❌ 錯誤：硬寫 setScale(1) 會覆蓋 displaySize 設定的 scale
+if (eliteVisual && eliteVisual.active) {
+  eliteVisual.setScale(1);  // 會讓 Boss 變回 texture 原始大小
+}
+
+// ✅ 正確：恢復到記錄的基準 scale
+if (eliteVisual && eliteVisual.active) {
+  const bsx = (elite as any).visualBaseScaleX ?? 1;
+  const bsy = (elite as any).visualBaseScaleY ?? 1;
+  eliteVisual.setScale(bsx, bsy);
+}
+```
+
+**原則 4：技能特效優先使用獨立 sprite / graphics**
+
+技能需要放大效果時，不要直接縮放角色本體：
+
+```ts
+// ❌ 錯誤：直接放大 Boss 本體
+this.tweens.add({
+  targets: boss.visual,
+  scaleX: 2.0, scaleY: 2.0,  // Boss 本體變大，容易忘記恢復
+  duration: 500,
+});
+
+// ✅ 正確：建立獨立的特效 sprite
+const effectSprite = this.add.sprite(boss.x, boss.y, 'skill_effect');
+effectSprite.setDepth(boss.visual.depth + 1);
+this.tweens.add({
+  targets: effectSprite,
+  scaleX: 2.0, scaleY: 2.0,
+  alpha: 0,
+  duration: 500,
+  onComplete: () => effectSprite.destroy(),
+});
+```
+
+**原則 5：技能 tween 必須相對於基準 scale**
+
+技能流程中的 scale tween 必須基於基準值計算：
+
+```ts
+// ❌ 錯誤：硬寫絕對 scale 值
+this.tweens.add({
+  targets: eliteVisual,
+  scaleX: 1.3, scaleY: 1.3,  // 假設基準是 1，但實際可能是 3.125
+  duration: 80,
+  yoyo: true,
+  onComplete: () => { eliteVisual.setScale(1); },  // 恢復錯誤
+});
+
+// ✅ 正確：基於基準 scale 計算相對倍率
+const bsx = (elite as any).visualBaseScaleX ?? 1;
+const bsy = (elite as any).visualBaseScaleY ?? 1;
+this.tweens.add({
+  targets: eliteVisual,
+  scaleX: bsx * 1.3, scaleY: bsy * 1.3,  // 在基準上放大 1.3 倍
+  duration: 80,
+  yoyo: true,
+  onComplete: () => { eliteVisual.setScale(bsx, bsy); },  // 正確恢復
+});
+```
+
+---
+
+### 11.4 技能清理與中斷處理
+
+**原則 6：所有退出路徑都要恢復 scale**
+
+技能結束、中斷、死亡、暫停時都要恢復角色 scale：
+
+```ts
+// ✅ 正確：所有退出路徑都恢復基準 scale
+private spawnSkill(boss: Enemy): void {
+  const eliteVisual = (boss as any).visual;
+  const bsx = (boss as any).visualBaseScaleX ?? 1;
+  const bsy = (boss as any).visualBaseScaleY ?? 1;
+
+  // 技能前搖
+  this.tweens.add({
+    targets: eliteVisual,
+    scaleX: bsx * 0.7, scaleY: bsy * 0.7,
+    duration: 400,
+  });
+
+  this.time.delayedCall(1000, () => {
+    // 退出路徑 1：遊戲暫停
+    if (this.isPaused || this.isGameOver || this.isVictory) {
+      if (eliteVisual && eliteVisual.active) {
+        eliteVisual.setScale(bsx, bsy);  // 恢復基準 scale
+      }
+      boss.skillEndCast();
+      return;
+    }
+
+    // 退出路徑 2：Boss 死亡
+    if (!boss.active || boss.isDying) {
+      if (eliteVisual && eliteVisual.active) {
+        eliteVisual.setScale(bsx, bsy);  // 恢復基準 scale
+      }
+      boss.skillEndCast();
+      return;
+    }
+
+    // 技能爆發
+    this.tweens.add({
+      targets: eliteVisual,
+      scaleX: bsx * 1.3, scaleY: bsy * 1.3,
+      duration: 80,
+      yoyo: true,
+      onComplete: () => {
+        if (eliteVisual && eliteVisual.active) {
+          eliteVisual.setScale(bsx, bsy);  // 退出路徑 3：正常結束
+        }
+      },
+    });
+
+    // 技能結束
+    this.time.delayedCall(300, () => { boss.skillEndCast(); });
+  });
+}
+```
+
+---
+
+### 11.5 動畫切換與尺寸一致性
+
+**原則 7：動畫切換後確保尺寸不變**
+
+`anims.play`、`setTexture` 後要確認角色尺寸、origin、body 未被重置：
+
+```ts
+// ✅ 正確：切換動畫後重新套用 displaySize
+if (this.visual instanceof Phaser.GameObjects.Sprite) {
+  const spr = this.visual;
+  spr.play('boss1_attack');  // 切換動畫
+  // 重新套用顯示尺寸，確保大小一致
+  const vSize = ENEMY_VISUAL_SIZE['boss1'] ?? { w: 200, h: 200 };
+  spr.setDisplaySize(vSize.w, vSize.h);
+  this.visualBaseScaleX = spr.scaleX;  // 更新基準 scale
+  this.visualBaseScaleY = spr.scaleY;
+}
+```
+
+**原則 8：所有動畫狀態共用同一套尺寸設定**
+
+新增角色動畫時，idle / run / attack / skill / hurt / death 必須使用統一的顯示尺寸：
+
+```ts
+// ✅ 正確：所有動畫狀態使用統一尺寸
+const BOSS1_DISPLAY_SIZE = { w: 200, h: 200 };
+
+// idle 動畫
+spr.play('boss1_idle');
+spr.setDisplaySize(BOSS1_DISPLAY_SIZE.w, BOSS1_DISPLAY_SIZE.h);
+
+// run 動畫
+spr.play('boss1_run');
+spr.setDisplaySize(BOSS1_DISPLAY_SIZE.w, BOSS1_DISPLAY_SIZE.h);
+
+// attack 動畫
+spr.play('boss1_attack');
+spr.setDisplaySize(BOSS1_DISPLAY_SIZE.w, BOSS1_DISPLAY_SIZE.h);
+
+// ❌ 錯誤：不同動畫使用不同尺寸
+spr.play('boss1_idle');
+spr.setDisplaySize(200, 200);
+spr.play('boss1_attack');
+spr.setDisplaySize(250, 250);  // attack 時變大，破壞一致性
+```
+
+---
+
+### 11.6 修改前檢查與測試
+
+**原則 9：修改前必須搜尋 scale 相關呼叫**
+
+修改角色技能或動畫時，必須搜尋以下關鍵字，確認不會覆蓋基礎尺寸：
+
+```bash
+# 必須檢查的關鍵字
+setScale
+setDisplaySize
+scaleX
+scaleY
+tween.*scale
+displayWidth
+displayHeight
+```
+
+搜尋到後逐一確認：
+- 是否在角色本體上直接呼叫？
+- 是否有恢復到基準 scale？
+- 是否在所有退出路徑（暫停、死亡、中斷）都有恢復？
+
+**原則 10：修改後必須完整測試角色尺寸**
+
+修改完成後，必須測試角色在以下情境的大小是否一致：
+
+測試 Checklist：
+- [ ] 角色生成時的尺寸正確
+- [ ] 角色移動時尺寸不變
+- [ ] 角色施放技能時尺寸正確（可以暫時放大/縮小）
+- [ ] **技能結束後尺寸恢復正常（重點）**
+- [ ] 角色受擊時尺寸不變（閃白效果不影響 scale）
+- [ ] 角色死亡時尺寸不變
+- [ ] 暫停/繼續遊戲後尺寸不變
+- [ ] 切換動畫（idle ↔ run ↔ attack）後尺寸一致
+
+---
+
+### 11.7 實戰案例：三當家技能尺寸修正
+
+**問題描述：**
+三當家 Boss 使用 `setDisplaySize(200, 200)` 設定顯示大小，技能流程中使用 `setScale(1)` 恢復，導致技能後尺寸變大。
+
+**錯誤代碼：**
+```ts
+// GameScene.ts - spawnLeapSlam()
+if (this.isPaused || this.isGameOver || this.isVictory) {
+  if (eliteVisual && eliteVisual.active) {
+    eliteVisual.setScale(1);  // ❌ 錯誤：覆蓋了 setDisplaySize 的 scale
+  }
+  elite.shieldEndCast();
+  return;
+}
+
+this.tweens.add({
+  targets: eliteVisual,
+  scaleX: 1.3, scaleY: 1.3,  // ❌ 錯誤：假設基準是 1
+  duration: 80,
+  yoyo: true,
+  onComplete: () => {
+    if (eliteVisual && eliteVisual.active) {
+      eliteVisual.setScale(1);  // ❌ 錯誤：恢復到錯誤的 scale
+    }
+  },
+});
+```
+
+**正確代碼：**
+```ts
+// GameScene.ts - spawnLeapSlam()
+const bsx = (elite as any).visualBaseScaleX ?? 1;
+const bsy = (elite as any).visualBaseScaleY ?? 1;
+
+if (this.isPaused || this.isGameOver || this.isVictory) {
+  if (eliteVisual && eliteVisual.active) {
+    eliteVisual.setScale(bsx, bsy);  // ✅ 正確：恢復到基準 scale
+  }
+  elite.shieldEndCast();
+  return;
+}
+
+this.tweens.add({
+  targets: eliteVisual,
+  scaleX: bsx * 1.3, scaleY: bsy * 1.3,  // ✅ 正確：相對於基準放大
+  duration: 80,
+  yoyo: true,
+  onComplete: () => {
+    if (eliteVisual && eliteVisual.active) {
+      eliteVisual.setScale(bsx, bsy);  // ✅ 正確：恢復到基準 scale
+    }
+  },
+});
+```
+
+**修正步驟：**
+1. 確認 `Enemy.ts` 中建立 sprite 時有記錄 `visualBaseScaleX` / `visualBaseScaleY`
+2. 在 `applyEliteVisual()` 中也記錄 Boss 的 `visualBaseScaleX` / `visualBaseScaleY`
+3. 搜尋 `GameScene.ts` 中所有 `setScale(1)` 呼叫，改為使用基準 scale
+4. 搜尋所有 scale tween，改為相對於基準 scale 計算
+5. 測試 Boss 生成、移動、施法、技能結束後的尺寸是否一致
+
+**參考文件：**
+- `BOSS1_SIZE_FIX.md`：詳細記錄此問題的根因與修正過程
+- `Enemy.ts` lines 237-243, 252-253, 557-558：`visualBaseScaleX/Y` 記錄位置
+- `GameScene.ts` lines 2165-2194：三當家技能 scale 恢復修正
+
+---
+
+### 11.8 快速參考
+
+| 情境 | ❌ 錯誤做法 | ✅ 正確做法 |
+|------|-----------|-----------|
+| 設定角色顯示尺寸 | `spr.setDisplaySize(200, 200);` 沒記錄 scale | `spr.setDisplaySize(vSize.w, vSize.h);`<br>`this.visualBaseScaleX = spr.scaleX;` |
+| 技能結束恢復尺寸 | `eliteVisual.setScale(1);` | `const bsx = elite.visualBaseScaleX ?? 1;`<br>`eliteVisual.setScale(bsx, bsy);` |
+| 技能 tween 放大 | `scaleX: 1.3, scaleY: 1.3` | `scaleX: bsx * 1.3, scaleY: bsy * 1.3` |
+| 技能特效 | `boss.visual.setScale(2.0);` | 建立獨立 `effectSprite` 並縮放 |
+| 動畫切換 | `spr.play('attack');` 不重新設定尺寸 | `spr.play('attack');`<br>`spr.setDisplaySize(vSize.w, vSize.h);` |
+| 受擊閃白 | `visual.setAlpha(0); visual.setScale(1);` | `visual.setAlpha(0);`<br>`visual.setScale(bsx, bsy);` |
+
