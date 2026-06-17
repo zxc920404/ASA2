@@ -23,8 +23,9 @@ export class MainMenuScene extends Phaser.Scene {
   private settingsOpen: boolean = false;
   private settings: Settings = SettingsManager.loadSettings();
 
-  // 離開確認
-  private exitContainer!: Phaser.GameObjects.Container;
+  // 遊戲提示彈窗
+  private tutorialContainer: Phaser.GameObjects.Container | null = null;
+  private tutorialOpen: boolean = false;
 
   constructor() {
     super({ key: 'MainMenuScene' });
@@ -65,6 +66,9 @@ export class MainMenuScene extends Phaser.Scene {
     // 若 audio key 已存在（場景重入），AssetLoader 會自動跳過
     AssetLoader.preloadMainMenuBGM(this);
 
+    // ── 遊戲提示教學圖片 ──────────────────────────────────────────────
+    AssetLoader.loadImage(this, 'ui_teach', 'assets/ui/teach.png');
+
     // ── 載入失敗靜默處理 ──────────────────────────────────────────────
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       console.warn(`[MainMenuScene] 資源載入失敗（已 fallback）: ${file.key} → ${file.url}`);
@@ -81,6 +85,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.particleTimer = 0;
     this.logoBreathTimer = 0;
     this.settingsOpen = false;
+    this.tutorialContainer = null;
+    this.tutorialOpen = false;
     
     // 載入設定並套用到 BGM / SFX
     this.settings = SettingsManager.loadSettings();
@@ -124,10 +130,6 @@ export class MainMenuScene extends Phaser.Scene {
     // ── 設定面板（初始隱藏）──────────────────────────────────────────────
     this.settingsContainer = this.add.container(0, 0).setDepth(50).setVisible(false);
     this.buildSettingsPanel(W, H);
-
-    // ── 離開確認面板（初始隱藏）──────────────────────────────────────────
-    this.exitContainer = this.add.container(0, 0).setDepth(50).setVisible(false);
-    this.buildExitPanel(W, H);
 
     // ── BGM ───────────────────────────────────────────────────────────────
     BGMManager.play(this, 'bgm_main_menu');
@@ -282,11 +284,11 @@ export class MainMenuScene extends Phaser.Scene {
         action: () => this.openSettings(),
       },
       {
-        label: '✕  離開',
-        color: '#aa8888',
-        borderColor: 0x553333,
-        fillColor: 0x0e0a0a,
-        action: () => this.openExit(),
+        label: '📖  遊戲提示',
+        color: '#ffe0a0',
+        borderColor: 0xaa8844,
+        fillColor: 0x201608,
+        action: () => this.openTutorial(),
       },
     ];
 
@@ -445,6 +447,97 @@ export class MainMenuScene extends Phaser.Scene {
   private closeSettings(): void {
     this.settingsOpen = false;
     this.settingsContainer.setVisible(false);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 遊戲提示彈窗
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 開啟教學彈窗：半透明遮罩 + 置中教學圖片 + 右上角關閉按鈕。
+   * 不切換場景，僅疊加在主選單上方。
+   * 點擊遮罩、圖片本身或關閉按鈕皆可關閉。
+   */
+  private openTutorial(): void {
+    if (this.tutorialOpen) return;
+    this.tutorialOpen = true;
+
+    const W = this.W;
+    const H = this.H;
+    const container = this.add.container(0, 0).setDepth(60);
+    this.tutorialContainer = container;
+
+    // ── 半透明黑色遮罩（點擊關閉）────────────────────────────────────
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, W, H);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, W, H), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => this.closeTutorial());
+    container.add(overlay);
+
+    // ── 教學圖片（置中，依畫面自動縮放）──────────────────────────────
+    let imgCenterX = W * 0.5;
+    let imgTopY = H * 0.5;
+    let imgHalfW = 0;
+    let imgHalfH = 0;
+
+    if (AssetLoader.hasTexture(this, 'ui_teach')) {
+      const img = this.add.image(W * 0.5, H * 0.5, 'ui_teach').setOrigin(0.5, 0.5);
+      // 寬度最多佔畫面 90%、高度最多佔畫面 85%，等比例縮放不變形
+      const maxW = W * 0.90;
+      const maxH = H * 0.85;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      img.setScale(scale);
+      img.setInteractive({ useHandCursor: true });
+      img.on('pointerdown', () => this.closeTutorial());
+      container.add(img);
+
+      imgCenterX = img.x;
+      imgTopY = img.y - img.displayHeight / 2;
+      imgHalfW = img.displayWidth / 2;
+      imgHalfH = img.displayHeight / 2;
+    } else {
+      // Fallback：圖片不存在時顯示文字提示
+      const txt = this.add.text(W * 0.5, H * 0.5, '教學圖片載入失敗',
+        uiText(16, '#ffd700', { fontStyle: 'bold' })
+      ).setOrigin(0.5, 0.5);
+      container.add(txt);
+      imgHalfW = txt.width / 2;
+      imgHalfH = txt.height / 2;
+      imgTopY = txt.y - imgHalfH;
+    }
+
+    // ── 右上角關閉按鈕（貼齊圖片右上角，並夾在畫面安全範圍內）──────────
+    const closeX = Math.min(imgCenterX + imgHalfW, W - 24);
+    const closeY = Math.max(imgTopY, 24);
+
+    const closeG = this.add.graphics();
+    closeG.fillStyle(0x330000, 0.85);
+    closeG.fillCircle(closeX, closeY, 14);
+    closeG.lineStyle(1.5, 0xaa4444, 0.9);
+    closeG.strokeCircle(closeX, closeY, 14);
+    container.add(closeG);
+
+    const closeTxt = this.add.text(closeX, closeY, '✕',
+      uiText(14, '#ff8888', { fontStyle: 'bold' })
+    ).setOrigin(0.5, 0.5);
+    container.add(closeTxt);
+
+    const closeHit = this.add.rectangle(closeX, closeY, 48, 48, 0, 0)
+      .setInteractive({ useHandCursor: true });
+    closeHit.on('pointerdown', () => {
+      SFXManager.playButtonClick(this);
+      this.closeTutorial();
+    });
+    container.add(closeHit);
+  }
+
+  private closeTutorial(): void {
+    this.tutorialOpen = false;
+    if (this.tutorialContainer) {
+      this.tutorialContainer.destroy(true);
+      this.tutorialContainer = null;
+    }
   }
 
   private buildSettingsPanel(W: number, H: number): void {
@@ -644,167 +737,5 @@ export class MainMenuScene extends Phaser.Scene {
     });
     
     this.settingsContainer.add(hit);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 離開確認面板
-  // ─────────────────────────────────────────────────────────────────────────
-
-  private openExit(): void {
-    this.exitContainer.setVisible(true);
-  }
-
-  private closeExit(): void {
-    this.exitContainer.setVisible(false);
-  }
-
-  private buildExitPanel(W: number, H: number): void {
-    const panelW = Math.min(360, W * 0.42);
-    const panelH = 190;
-    const cx = Math.round(W * 0.5);
-    const cy = Math.round(H * 0.5);
-    const px = Math.round(cx - panelW / 2);
-    const py = Math.round(cy - panelH / 2);
-    const r = 10;
-
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.70);
-    overlay.fillRect(0, 0, W, H);
-    this.exitContainer.add(overlay);
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x080818, 0.96);
-    panel.fillRoundedRect(px, py, panelW, panelH, r);
-    panel.lineStyle(1.5, 0xd4af37, 0.8);
-    panel.strokeRoundedRect(px, py, panelW, panelH, r);
-    this.exitContainer.add(panel);
-
-    const msg = this.add.text(cx, cy - 36, '確定要離開遊戲嗎？',
-      uiText(16, '#ffffff', { align: 'center', fontStyle: 'bold' })
-    ).setOrigin(0.5, 0.5);
-    this.exitContainer.add(msg);
-
-    // 按鈕列
-    const btnY = cy + 36;
-    const btnGap = 16;
-
-    // 取消按鈕
-    const cancelG = this.add.graphics();
-    const cancelX = cx - 70;
-    cancelG.fillStyle(0x1a1a28, 0.9);
-    cancelG.fillRoundedRect(cancelX - 60, btnY - 20, 120, 40, 6);
-    cancelG.lineStyle(1.5, 0x556677, 0.8);
-    cancelG.strokeRoundedRect(cancelX - 60, btnY - 20, 120, 40, 6);
-    this.exitContainer.add(cancelG);
-
-    const cancelTxt = this.add.text(cancelX, btnY, '取消', uiText(14, '#cccccc', { fontStyle: 'bold' }));
-    cancelTxt.setOrigin(0.5, 0.5);
-    this.exitContainer.add(cancelTxt);
-
-    const cancelHit = this.add.rectangle(cancelX, btnY, 140, 50, 0, 0).setInteractive({ useHandCursor: true });
-    cancelHit.on('pointerdown', () => {
-      SFXManager.playButtonClick(this);
-      this.closeExit();
-    });
-    this.exitContainer.add(cancelHit);
-
-    // 離開按鈕
-    const exitG = this.add.graphics();
-    const exitX = cx + 70;
-    exitG.fillStyle(0x5a0a0a, 0.9);
-    exitG.fillRoundedRect(exitX - 60, btnY - 20, 120, 40, 6);
-    exitG.lineStyle(1.5, 0xd4af37, 0.8);
-    exitG.strokeRoundedRect(exitX - 60, btnY - 20, 120, 40, 6);
-    this.exitContainer.add(exitG);
-
-    const exitTxt = this.add.text(exitX, btnY, '離開', uiText(14, '#ffffff', { fontStyle: 'bold' }));
-    exitTxt.setOrigin(0.5, 0.5);
-    this.exitContainer.add(exitTxt);
-
-    const exitHit = this.add.rectangle(exitX, btnY, 140, 50, 0, 0).setInteractive({ useHandCursor: true });
-    exitHit.on('pointerdown', () => {
-      SFXManager.playButtonClick(this);
-      this.exitGame();
-    });
-    this.exitContainer.add(exitHit);
-  }
-
-  private exitGame(): void {
-    // 立即停止 BGM
-    BGMManager.stopImmediate();
-    
-    // 銷毀 Phaser 遊戲實例（完全停止運行）
-    this.game.destroy(true, false);
-    
-    // 清空畫布
-    const canvas = document.querySelector('canvas');
-    if (canvas && canvas.parentElement) {
-      canvas.parentElement.removeChild(canvas);
-    }
-    
-    // 檢查是否在 Capacitor App 環境
-    // @ts-ignore - Capacitor 全域變數
-    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
-      // Android App：呼叫原生 API 關閉應用
-      // @ts-ignore - Capacitor 插件
-      if (typeof App !== 'undefined' && App.exitApp) {
-        // @ts-ignore
-        App.exitApp();
-        return; // 成功呼叫，直接返回
-      }
-      // 備用方法：使用 Capacitor.Plugins.App
-      // @ts-ignore
-      if (Capacitor.Plugins && Capacitor.Plugins.App && Capacitor.Plugins.App.exitApp) {
-        // @ts-ignore
-        Capacitor.Plugins.App.exitApp();
-        return; // 成功呼叫，直接返回
-      }
-    }
-    
-    // Web 版：嘗試關閉視窗
-    try {
-      window.close();
-    } catch (e) {
-      // window.close() 失敗，顯示告別訊息
-      this.showExitMessage();
-    }
-  }
-
-  private showExitMessage(): void {
-    // 在 body 上顯示告別訊息（Phaser 已銷毀）
-    document.body.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(to bottom, #060818, #080622);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        font-family: 'Microsoft YaHei', 'PingFang TC', sans-serif;
-        color: #ffd700;
-        text-align: center;
-        z-index: 9999;
-      ">
-        <h1 style="
-          font-size: 42px;
-          margin: 0 0 24px 0;
-          text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-        ">感謝遊玩武俠幸存者！</h1>
-        <p style="
-          font-size: 20px;
-          color: #d4af37;
-          margin: 0 0 16px 0;
-        ">願你武道長進，再見！</p>
-        <p style="
-          font-size: 14px;
-          color: #888888;
-          margin-top: 40px;
-        ">（請關閉此分頁）</p>
-      </div>
-    `;
   }
 }

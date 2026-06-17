@@ -54,12 +54,9 @@ export class AssetLoader {
    * 宗門選擇畫面所需資源：
    * - 宗門小圖示（64×64）— 已確認存在
    * - 宗門選擇背景圖 — 已確認存在
+   * - 武器圖示（icons/weapons/*.png）— 用於 LevelUpPanel 卡片與 HUD 武器欄
+   * - 被動圖示（icons/passives/*.png）— 用於 LevelUpPanel 卡片與 HUD 被動欄
    * - BGM
-   *
-   * 注意：以下素材目前尚未提供，已移除 preload 避免 404：
-   * - 武器圖示（icons/weapons/*.png）→ LevelUpPanel 使用文字 fallback
-   * - 被動圖示（icons/passives/*.png）→ LevelUpPanel 使用文字 fallback
-   * - 升級面板 UI 圖（panel_levelup.png、panel_hud.png）→ 使用程式繪製
    */
   static preloadMenuAssets(scene: Phaser.Scene): void {
     // ── 宗門圖示（64×64，已確認存在）────────────────────────────────
@@ -79,6 +76,14 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'weapon_duwu_powder',      'assets/icons/weapons/毒霧散.png');
     AssetLoader.loadImage(scene, 'weapon_liuguang_shuttle', 'assets/icons/weapons/流光梭.png');
     AssetLoader.loadImage(scene, 'weapon_zhuihun_needle',   'assets/icons/weapons/追魂針.png');
+
+    // ── 被動圖示（用於升級面板和 HUD 被動欄）───────────────────────────
+    AssetLoader.loadImage(scene, 'passive_icon_swift_step',     'assets/icons/passives/迅捷步.png');
+    AssetLoader.loadImage(scene, 'passive_icon_life_jade',      'assets/icons/passives/生命玉.png');
+    AssetLoader.loadImage(scene, 'passive_icon_break_seal',     'assets/icons/passives/破勢印.png');
+    AssetLoader.loadImage(scene, 'passive_icon_spirit_bead',    'assets/icons/passives/引靈珠.png');
+    AssetLoader.loadImage(scene, 'passive_icon_vein_talisman',  'assets/icons/passives/擴脈符.png');
+    AssetLoader.loadImage(scene, 'passive_icon_swift_strike',   'assets/icons/passives/急攻令.png');
 
     // ── 宗門選擇 BGM ──────────────────────────────────────────────────
     AssetLoader.loadAudio(scene, 'bgm_char_select', 'assets/audio/bgm/char_select.mp3');

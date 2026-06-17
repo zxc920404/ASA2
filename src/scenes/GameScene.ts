@@ -2115,26 +2115,24 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
   /**
    * 霸山墜：跳躍砸地
-   * 三當家跳起後朝玩家位置砸落，落地前有預警圈，落地造成範圍傷害與擊退
-   * 使用 boss1_skill1 動畫（13 幀）同步技能效果
-   * 
-   * 節奏設計（13 幀 @ 8 fps = 1625ms）：
-   * - 預警期（0-500ms）：紅圈出現，Boss 尚未播放動畫
-   * - 動畫開始（500ms）：Boss 播放 boss1_skill1
-   * - 第 1-2 幀（500-750ms）：起跳蓄力
-   * - 第 3-8 幀（750-1500ms）：Boss 隱藏（空中）
-   * - 第 9-10 幀（1500-1750ms）：落地砸擊，觸發傷害
-   * - 第 11-13 幀（1750-2125ms）：收招
-   * 總計玩家反應時間：約 1500ms（紅圈出現到落地）
+   * 三當家施放瞬間立即停止移動與走路動畫，改播放 boss1_skill1（13 幀）。
+   * 逐幀節奏在 boss1_skill1 動畫定義中設定（generateSpriteTextures 附近）：
+   * - 第 1 幀：蓄力準備（停留 300ms）
+   * - 第 2 幀：起跳前動作（停留 250ms）
+   * - 第 3-8 幀：跳起與空中（Boss 隱藏，只留預警圈，各約 130ms）
+   * - 第 9-12 幀：下墜與落地攻擊（Boss 在落點重現，各約 90ms 稍快）
+   * - 第 13 幀：落地收尾（停留 150ms）
+   * 傷害與眩暈在落地幀（第 11 幀）觸發一次（hasImpacted 保證單次）。
+   * 玩家反應時間：紅圈出現到落地約 1.5 秒。
    */
   private spawnLeapSlam(fromX: number, fromY: number, targetX: number, targetY: number, dmg: number, elite: Enemy): void {
     if (!this.scene.isActive()) return;
 
     const SLAM_RADIUS  = 150; // 傷害半徑（px）
-    const IMPACT_FRAME = 9;   // 落地幀：第 9 幀觸發傷害
-    const HIDE_START_FRAME = 3;   // 隱藏開始：第 3 幀
-    const HIDE_END_FRAME = 8;     // 隱藏結束：第 8 幀
-    const WARNING_DURATION = 500; // 預警圈提前顯示時間（ms）
+    const IMPACT_FRAME = 11;  // 落地幀：第 11 幀觸發傷害與眩暈
+    const HIDE_START_FRAME = 3;   // 隱藏開始：第 3 幀（跳起）
+    const HIDE_END_FRAME = 8;     // 隱藏結束：第 8 幀（空中）
+    const SLAM_STUN_DURATION = 500; // 霸山墜命中眩暈時間（ms）
 
     // 落點：玩家當前位置（鎖定）
     const landX = Phaser.Math.Clamp(targetX, 32, WORLD_WIDTH  - 32);
@@ -2215,16 +2213,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           onComplete: () => { if (impactG && impactG.active) impactG.destroy(); },
         });
 
-        // 傷害與擊退
+        // 傷害與眩暈
         const dx = this.player.x - landX;
         const dy = this.player.y - landY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist <= SLAM_RADIUS + 14) {
           this.player.takeDamage(dmg, this);
-          if (dist > 1) {
-            const knockDist = 110;
-            this.player.applyExternalMove((dx / dist) * knockDist, (dy / dist) * knockDist);
-          }
+          // 命中眩暈（不擊退）：沿用現有 playerStunTimer 定身機制
+          this.playerStunTimer = Math.max(this.playerStunTimer, SLAM_STUN_DURATION);
         }
 
         this.time.delayedCall(300, () => { elite.shieldEndCast(); });
@@ -2235,23 +2231,32 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // ── 動畫同步邏輯：使用 boss1_skill1 動畫 ─────────────────────────
     const spr = eliteVisual as Phaser.GameObjects.Sprite;
     let hasImpacted = false; // 傷害只觸發一次
-    let animStarted = false;  // 動畫是否已開始
 
-    // 動畫幀更新監聽
+    // 動畫幀更新監聽（frame.index 為 1-based：第 1 幀 index=1）
     const onAnimUpdate = (anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
       if (anim.key !== 'boss1_skill1') return;
-      
-      const frameIndex = frame.index; // 當前幀索引（從 0 開始）
 
-      // 第 3-8 幀：隱藏 Boss（在空中）
-      if (frameIndex >= HIDE_START_FRAME - 1 && frameIndex <= HIDE_END_FRAME - 1) {
+      const frameIndex = frame.index;
+
+      // 第 3-8 幀：跳起與空中 → 隱藏 Boss，只留預警圈
+      if (frameIndex >= HIDE_START_FRAME && frameIndex <= HIDE_END_FRAME) {
         if (spr.visible) {
           spr.setVisible(false);
         }
+        return;
       }
 
-      // 第 9 幀：落地幀（重新出現 + 觸發傷害）
-      if (frameIndex === IMPACT_FRAME - 1 && !hasImpacted) {
+      // 第 9 幀起：下墜 → Boss 在落點重新出現（預警圈持續到落地幀）
+      if (frameIndex > HIDE_END_FRAME && !spr.visible) {
+        if (elite.active && !elite.isDying) {
+          elite.setPosition(landX, landY);
+          (elite as any).syncVisual?.();
+        }
+        spr.setVisible(true);
+      }
+
+      // 第 11 幀：落地幀（重新定位 + 觸發傷害與眩暈，僅一次）
+      if (frameIndex === IMPACT_FRAME && !hasImpacted) {
         hasImpacted = true;
 
         // 暫停/死亡/中斷檢查
@@ -2291,19 +2296,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         // ── 螢幕震動 ─────────────────────────────────────────────────
         this.cameras.main.shake(120, 0.006);
 
-        // ── 傷害與擊退判定 ───────────────────────────────────────────
+        // ── 傷害與眩暈判定 ───────────────────────────────────────────
         const dx = this.player.x - landX;
         const dy = this.player.y - landY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist <= SLAM_RADIUS + 14) {
           this.player.takeDamage(dmg, this);
-          if (dist > 1) {
-            const knockDist = 180;
-            this.player.applyExternalMove(
-              (dx / dist) * knockDist,
-              (dy / dist) * knockDist
-            );
-          }
+          // 命中眩暈（不擊退）：沿用現有 playerStunTimer 定身機制
+          this.playerStunTimer = Math.max(this.playerStunTimer, SLAM_STUN_DURATION);
         }
       }
     };
@@ -2338,20 +2338,17 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     spr.on(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
     spr.on(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
 
-    // ── 延遲播放動畫：讓預警圈先顯示 500ms ─────────────────────────
-    this.time.delayedCall(WARNING_DURATION, () => {
-      // 暫停/死亡/中斷檢查
-      if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
-        cleanup();
-        return;
-      }
-
-      // 播放技能動畫
-      if (spr.active && !animStarted) {
-        animStarted = true;
-        spr.play('boss1_skill1');
-      }
-    });
+    // ── 立即停止走路動畫、改播放霸山墜技能動畫（不再延遲）──────────────
+    // 蓄力停留（第 1-2 幀）由 boss1_skill1 的逐幀 duration 控制，
+    // 施放當下走路動畫立刻被技能動畫取代，不會出現「邊走邊放技能」。
+    if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+      cleanup();
+      return;
+    }
+    elite.isUsingSkill = true;   // 鎖定技能狀態，禁止走路 / 待機動畫覆蓋（雙保險）
+    spr.setVisible(true);
+    spr.setScale(bsx, bsy);
+    spr.play('boss1_skill1');
   }
 
   /**
@@ -3760,16 +3757,23 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     }
 
     if (!anims.exists('boss1_skill1')) {
-      const frames = [
+      // 霸山墜逐幀節奏：第 1-2 幀蓄力起跳停留久、第 3-8 幀空中正常、
+      // 第 9-12 幀下墜落地稍快、第 13 幀收尾停留。
+      // frameRate 20 → 每幀基礎 50ms，frame.duration 為「額外停留時間」，
+      // 故各幀實際顯示時間 = 50ms + duration。
+      const skillFrameKeys = [
         'boss1_skill1_01','boss1_skill1_02','boss1_skill1_03','boss1_skill1_04',
         'boss1_skill1_05','boss1_skill1_06','boss1_skill1_07','boss1_skill1_08',
         'boss1_skill1_09','boss1_skill1_10','boss1_skill1_11','boss1_skill1_12',
         'boss1_skill1_13',
-      ]
-        .filter(key => AssetLoader.hasTexture(this, key))
-        .map(key => ({ key }));
+      ];
+      // 各幀額外停留（ms），對應實際顯示：300/250/130×6/90×4/150
+      const skillFrameExtra = [250, 200, 80, 80, 80, 80, 80, 80, 40, 40, 40, 40, 100];
+      const frames = skillFrameKeys
+        .map((key, i) => ({ key, duration: skillFrameExtra[i] }))
+        .filter(f => AssetLoader.hasTexture(this, f.key));
       if (frames.length > 0) {
-        anims.create({ key: 'boss1_skill1', frames, frameRate: 8, repeat: 0 });
+        anims.create({ key: 'boss1_skill1', frames, frameRate: 20, repeat: 0 });
       }
     }
 

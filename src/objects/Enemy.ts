@@ -7,10 +7,10 @@ import { AssetLoader } from '../utils/AssetLoader';
  * Sprite 動畫敵人使用目標顯示尺寸（px），Graphics fallback 使用 w/h 作為繪製半徑基準。
  */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
-  boss1:    { w: 150, h: 150 },   // 三當家 Boss，比小怪大
+  boss1:    { w: 165, h: 175 },   // 三當家 Boss，比小怪大
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
-  giant:    { w: 175, h: 175 },   // 巨漢略大於玩家
+  giant:    { w: 165, h: 165 },   // 巨漢略大於玩家
   archer:   { w: 120, h: 135 },   // 射手，接近玩家大小
   // 舊 id 保留作 fallback，避免 scene restart 殘留物件出錯
   basic:  { w: 36, h: 36 },
@@ -132,6 +132,11 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ── shield 三當家：新技能組 ──────────────────────────────────────────
   /** 技能施放中（true 時不可再放技能） */
   public shieldCasting: boolean = false;
+  /**
+   * 霸山墜等技能動畫播放中：true 時不可被走路 / 待機動畫覆蓋。
+   * 由 updateShield 在施放霸山墜時設為 true，shieldEndCast 結束時設回 false。
+   */
+  public isUsingSkill: boolean = false;
   // 震罡功已移除
   /** 霸山墜冷卻（ms）：跳躍砸地 */
   private leapCooldown: number = 5000;
@@ -337,6 +342,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     sectorRepelX: number = 0, sectorRepelY: number = 0
   ): void {
     if (this.isDying) return;
+    // 技能動畫播放中（如霸山墜）：完全停止移動，避免覆蓋技能動畫
+    if (this.isUsingSkill) return;
     // charger 技能施放中：停止移動（霸刀橫斬前搖已移除）
     if (this.eliteType === 'charger' && this.chargerState === 'casting') return;
 
@@ -896,6 +903,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       case 'leap':
         this.leapCooldown = this.LEAP_COOLDOWN_MIN +
           Math.random() * (this.LEAP_COOLDOWN_MAX - this.LEAP_COOLDOWN_MIN);
+        // 進入霸山墜技能狀態：立即停止移動與走路動畫，改播技能動畫（由 GameScene 處理）
+        this.isUsingSkill = true;
         if (this.onLeapSlam && playerX !== undefined && playerY !== undefined) {
           this.onLeapSlam(this.x, this.y, playerX, playerY,
             Math.ceil(this.contactDamage * 1.3));
@@ -925,6 +934,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
    */
   public shieldEndCast(): void {
     this.shieldCasting = false;
+    this.isUsingSkill = false; // 解除技能動畫鎖，恢復走路 / 追蹤
     this.skillSelectTimer = this.SKILL_SELECT_INTERVAL;
   }
 
