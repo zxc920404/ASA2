@@ -11,7 +11,7 @@ const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
   boss2:    { w: 150, h: 155 },   // 二當家 Boss（shooter），與三當家相近
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
-  giant:    { w: 150, h: 160 },   // 巨漢略大於玩家
+  giant:    { w: 140, h: 160 },   // 巨漢略大於玩家
   archer:   { w: 120, h: 135 },   // 射手，接近玩家大小
   // 舊 id 保留作 fallback，避免 scene restart 殘留物件出錯
   basic:  { w: 36, h: 36 },
