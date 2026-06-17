@@ -8,6 +8,7 @@ import { AssetLoader } from '../utils/AssetLoader';
  */
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
   boss1:    { w: 165, h: 175 },   // 三當家 Boss，比小怪大
+  boss2:    { w: 165, h: 175 },   // 二當家 Boss（shooter），與三當家相近
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
   giant:    { w: 165, h: 165 },   // 巨漢略大於玩家
@@ -119,6 +120,12 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private shooterCooldown: number = 2000;   // 首次射擊等待（ms）
   private readonly SHOOTER_COOLDOWN = 1700; // 攻擊間隔
   private shooterPatternIndex: number = 0;  // 彈道模式輪替索引
+  /**
+   * 二當家施放彈幕技能（非直線射擊）時的動畫狀態：
+   * true 時停止移動、播放 boss2_skill1，且不可被 walk 動畫覆蓋。
+   * 由 updateShooter 觸發彈幕時設為 true，skill1 動畫結束後設回 false。
+   */
+  public isCastingSkill: boolean = false;
   /** 回呼：由 GameScene 注入，用於生成投射物 */
   public onShootProjectile?: (x: number, y: number, vx: number, vy: number, dmg: number) => void;
 
@@ -318,6 +325,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public playDeathEffect(): void {
     if (this.isDying) return;
     this.isDying = true;
+    // 清除技能施法狀態，避免死亡後殘留鎖定（動畫監聽隨 destroy 自動失效）
+    this.isCastingSkill = false;
+    this.isUsingSkill = false;
     this.destroy();
   }
 
@@ -344,6 +354,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     if (this.isDying) return;
     // 技能動畫播放中（如霸山墜）：完全停止移動，避免覆蓋技能動畫
     if (this.isUsingSkill) return;
+    // 二當家彈幕施法中：停止移動，避免邊走邊放技能
+    if (this.isCastingSkill) return;
     // charger 技能施放中：停止移動（霸刀橫斬前搖已移除）
     if (this.eliteType === 'charger' && this.chargerState === 'casting') return;
 
@@ -564,6 +576,22 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       this.visualBaseScaleY = spr.scaleY;
       return;
     }
+
+    // 二當家特殊處理（shooter）：優先使用動畫 Sprite，比照三當家做法
+    if (type === 'shooter' && this.scene.anims.exists('boss2_walk')) {
+      if (this.visual && this.visual.active) {
+        this.visual.destroy();
+      }
+      const spr = this.scene.add.sprite(this.x, this.y, 'boss2_01');
+      spr.setDepth(5);
+      const vSize = ENEMY_VISUAL_SIZE['boss2'] ?? { w: 165, h: 175 };
+      spr.setDisplaySize(vSize.w, vSize.h);
+      spr.play('boss2_walk');
+      this.visual = spr;
+      this.visualBaseScaleX = spr.scaleX;
+      this.visualBaseScaleY = spr.scaleY;
+      return;
+    }
     
     // 精英怪：銷毀原本的 Image，改用 Graphics
     if (this.visual && this.visual.active) {
@@ -748,6 +776,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ── tryChargerMeleeSlash 已移除（霸刀橫斬普通攻擊）──────────────────
 
   private updateShooter(delta: number, playerX: number, playerY: number): void {
+    // 彈幕技能施法動畫播放中：暫停所有 shooter 邏輯，避免邊走邊放或重複觸發
+    if (this.isCastingSkill) return;
+
     // ── 投射物彈幕 ──────────────────────────────────────────────────────
     this.shooterCooldown -= delta;
     if (this.shooterCooldown <= 0) {
@@ -769,6 +800,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
             case 2: this.fireRingPattern(); break;
             case 3: this.fireCrossPattern(dx, dy, dist); break;
           }
+
+          // 彈幕（非直線射擊）施放時播放 boss2_skill1 攻擊動畫並停止移動
+          this.playShooterCastAnim();
         }
       }
     }
@@ -792,6 +826,35 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
         this.lineAttackCount = 1;
       }
     }
+  }
+
+  /**
+   * 播放二當家彈幕施法動畫（boss2_skill1）。
+   * 僅當使用 Sprite 且 boss2_skill1 動畫存在時才執行；否則保留原本技能邏輯（不凍結、不崩潰）。
+   * 播放期間 isCastingSkill = true（停止移動、鎖定走路動畫），動畫結束後恢復 boss2_walk。
+   * 使用一次性動畫事件監聽，不使用 timer/delayedCall，Boss 銷毀時監聽自動失效，避免報錯。
+   */
+  private playShooterCastAnim(): void {
+    if (!(this.visual instanceof Phaser.GameObjects.Sprite) ||
+        !this.scene.anims.exists('boss2_skill1')) {
+      return; // 無動畫素材：保留原本彈幕邏輯，不凍結
+    }
+    const spr = this.visual;
+    this.isCastingSkill = true;
+    spr.play('boss2_skill1');
+
+    const onSkillDone = (anim: Phaser.Animations.Animation) => {
+      if (anim.key !== 'boss2_skill1') return;
+      spr.off(Phaser.Animations.Events.ANIMATION_COMPLETE, onSkillDone);
+      this.isCastingSkill = false;
+      // 恢復走路動畫（Boss 仍存活且未在播其他技能時）
+      if (!this.isDying &&
+          this.visual instanceof Phaser.GameObjects.Sprite && this.visual.active &&
+          this.scene.anims.exists('boss2_walk')) {
+        this.visual.play('boss2_walk');
+      }
+    };
+    spr.on(Phaser.Animations.Events.ANIMATION_COMPLETE, onSkillDone);
   }
 
   /** 模式 1：扇形散射 5 顆，60° 扇形 */

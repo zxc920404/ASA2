@@ -190,6 +190,24 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'boss1_skill1_12', 'assets/sprites/enemies/Level_1/boss1/skill1/12.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_13', 'assets/sprites/enemies/Level_1/boss1/skill1/13.png');
 
+    // ── 第一關 二當家（boss2 / elite_shooter）動畫幀 ────────────────────
+    // walk：8 幀移動動畫；attack1：7 幀攻擊動畫（對應 boss2_skill1）
+    AssetLoader.loadImage(scene, 'boss2_01', 'assets/sprites/enemies/Level_1/boss2/walk/01.png');
+    AssetLoader.loadImage(scene, 'boss2_02', 'assets/sprites/enemies/Level_1/boss2/walk/02.png');
+    AssetLoader.loadImage(scene, 'boss2_03', 'assets/sprites/enemies/Level_1/boss2/walk/03.png');
+    AssetLoader.loadImage(scene, 'boss2_04', 'assets/sprites/enemies/Level_1/boss2/walk/04.png');
+    AssetLoader.loadImage(scene, 'boss2_05', 'assets/sprites/enemies/Level_1/boss2/walk/05.png');
+    AssetLoader.loadImage(scene, 'boss2_06', 'assets/sprites/enemies/Level_1/boss2/walk/06.png');
+    AssetLoader.loadImage(scene, 'boss2_07', 'assets/sprites/enemies/Level_1/boss2/walk/07.png');
+    AssetLoader.loadImage(scene, 'boss2_08', 'assets/sprites/enemies/Level_1/boss2/walk/08.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_01', 'assets/sprites/enemies/Level_1/boss2/attack1/01.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_02', 'assets/sprites/enemies/Level_1/boss2/attack1/02.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_03', 'assets/sprites/enemies/Level_1/boss2/attack1/03.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_04', 'assets/sprites/enemies/Level_1/boss2/attack1/04.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_05', 'assets/sprites/enemies/Level_1/boss2/attack1/05.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_06', 'assets/sprites/enemies/Level_1/boss2/attack1/06.png');
+    AssetLoader.loadImage(scene, 'boss2_skill1_07', 'assets/sprites/enemies/Level_1/boss2/attack1/07.png');
+
     // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
     // henchman（山賊嘍囉）：8 幀移動動畫，8 fps
     AssetLoader.loadImage(scene, 'henchman_01', 'assets/sprites/enemies/Level_1/henchman/01.png');

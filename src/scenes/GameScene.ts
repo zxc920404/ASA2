@@ -3777,6 +3777,32 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
+    // ── boss2（二當家 / elite_shooter）：8 幀移動 + 7 幀攻擊動畫 ──────────
+    // walk：8 幀 @ 9 fps（自然移動）；skill1（attack1）：7 幀 @ 12 fps ≈ 583ms（略快施法）
+    if (!anims.exists('boss2_walk')) {
+      const frames = [
+        'boss2_01','boss2_02','boss2_03','boss2_04',
+        'boss2_05','boss2_06','boss2_07','boss2_08',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss2_walk', frames, frameRate: 9, repeat: -1 });
+      }
+    }
+
+    if (!anims.exists('boss2_skill1')) {
+      const frames = [
+        'boss2_skill1_01','boss2_skill1_02','boss2_skill1_03','boss2_skill1_04',
+        'boss2_skill1_05','boss2_skill1_06','boss2_skill1_07',
+      ]
+        .filter(key => AssetLoader.hasTexture(this, key))
+        .map(key => ({ key }));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss2_skill1', frames, frameRate: 12, repeat: 0 });
+      }
+    }
+
     // ── henchman（山賊嘍囉）：8 幀，8 fps ────────────────────────────
     if (!anims.exists('henchman_walk')) {
       const frames = ['henchman_01','henchman_02','henchman_03','henchman_04',
