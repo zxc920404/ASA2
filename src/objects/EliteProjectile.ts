@@ -5,7 +5,7 @@ import { AssetLoader } from '../utils/AssetLoader';
 const MAX_ELITE_PROJECTILES = 45;
 
 /** 箭矢 / 圖片投射物的目標最長邊（px），維持原圖比例縮放 */
-const ARROW_TARGET_SIZE = 28;
+const ARROW_TARGET_SIZE = 42;
 /**
  * 箭矢圖片的朝向補正（弧度）。
  * 預設假設 arrow.png 原圖朝右（→，0 弧度）。
