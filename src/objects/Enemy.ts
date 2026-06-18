@@ -9,7 +9,7 @@ import { AssetLoader } from '../utils/AssetLoader';
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
   boss1:    { w: 175, h: 180 },   // 三當家 Boss，比小怪大
   boss2:    { w: 140, h: 145 },   // 二當家 Boss（shooter），與三當家相近
-  boss3:    { w: 175, h: 180 },   // 大當家 Boss（charger），近戰猛將，與三當家相近
+  boss3:    { w: 190, h: 190 },   // 大當家 Boss（charger），近戰猛將，與三當家相近
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
   giant:    { w: 155, h: 165 },   // 巨漢略大於玩家
