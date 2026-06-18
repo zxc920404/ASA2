@@ -1819,11 +1819,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
         this.spawnChargerDash(fromX, fromY, targetX, targetY, charger);
       };
 
-      // 裂寨三斬：連續扇形斬擊
-      elite.onChargerTripleSlash = (cx, cy, dirX, dirY, charger) => {
-        if (this.isPaused || this.isGameOver || this.isVictory) return;
-        this.spawnChargerTripleSlash(cx, cy, dirX, dirY, charger);
-      };
+      // 裂寨三斬已移除，不再注入 onChargerTripleSlash 回呼
 
       // 連環破甲刺：連續直線戳擊
       elite.onChargerStab = (cx, cy, dirX, dirY, charger) => {
@@ -2945,14 +2941,14 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     if (!this.scene.isActive()) return;
 
     const WINDUP_DUR    = 1200;  // 初始蓄力時間（ms）：1.2 秒
-    const WARN_DUR      = 700;   // 每段衝刺前預警時間（ms）：0.7 秒
-    const DASH_SPEED    = 250;   // 衝刺速度（px/s）：降低至 250，玩家有充足反應時間
+    const WARN_DUR      = 500;   // 每段衝刺前預警時間（ms）：縮短至 0.5 秒（原 0.7 秒）
+    const DASH_SPEED    = 250;   // 衝刺速度（px/s）
     const DASH_DIST     = 210;   // 單次衝刺距離（px）
     const DASH_DUR      = Math.round((DASH_DIST / DASH_SPEED) * 1000); // 約 840ms
     const IMPACT_RADIUS = 120;   // 落點傷害半徑（px）
     const IMPACT_DMG    = Math.ceil(charger.contactDamage * 0.75);
-    const COMBO_COUNT   = 2;     // 固定 2 次衝刺
-    const PAUSE_BETWEEN = 450;   // 每次衝刺後停頓（ms）：0.45 秒硬直
+    const COMBO_COUNT   = 4;     // 連續衝刺次數（原 2 次 → 4 次，更有壓迫感）
+    const PAUSE_BETWEEN = 250;   // 每次衝刺後停頓（ms）：縮短至 0.25 秒（原 0.45 秒）
     const STAGGER_DUR   = 500;   // 最後衝刺後硬直（ms）
 
     // ── 蓄力視覺（紅色光圈收縮 + 地面震動線）──────────────────────

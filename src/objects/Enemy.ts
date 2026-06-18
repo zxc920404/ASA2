@@ -758,13 +758,13 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
 
     // ── 技能冷卻倒計時 ────────────────────────────────────────────────
     this.chargerSkill1Cooldown -= delta;
-    this.chargerSkill2Cooldown -= delta;
+    // 裂寨三斬已移除（chargerSkill2Cooldown 不再倒數）
     this.chargerSkill3Cooldown -= delta;
 
     // ── 隨機選擇冷卻完成的技能 ────────────────────────────────────────
-    const available: Array<'dash' | 'triple' | 'stab'> = [];
+    const available: Array<'dash' | 'stab'> = [];
     if (this.chargerSkill1Cooldown <= 0) available.push('dash');
-    if (this.chargerSkill2Cooldown <= 0) available.push('triple');
+    // 裂寨三斬已移除，不加入 'triple'
     if (this.chargerSkill3Cooldown <= 0) available.push('stab');
 
     if (available.length > 0) {
@@ -785,12 +785,7 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
           }
           break;
 
-        case 'triple':
-          this.chargerSkill2Cooldown = 7000 + Math.random() * 3000; // 7～10 秒
-          if (this.onChargerTripleSlash) {
-            this.onChargerTripleSlash(this.x, this.y, dirX, dirY, this);
-          }
-          break;
+        // 裂寨三斬（'triple'）已移除
 
         case 'stab':
           this.chargerSkill3Cooldown = 8000 + Math.random() * 4000; // 8～12 秒
