@@ -90,8 +90,8 @@ const SECTOR_DENSITY_LIMIT = 6;
 /** Sector repel 強度 */
 const SECTOR_REBALANCE_STRENGTH = 0.22;
 
-/** 勝利所需存活時間（毫秒）：10 分鐘 */
-const VICTORY_TIME_MS = 10 * 60 * 1000;
+/** 勝利所需存活時間（毫秒）：3 分鐘 */
+const VICTORY_TIME_MS = 3 * 60 * 1000;
 
 /** 最後怪潮開始時間（秒）：9 分鐘，與 DifficultyScaler 一致 */
 const FINAL_WAVE_START_SEC = 9 * 60;
@@ -784,7 +784,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       this.spawnEliteEnemy(3);
     }
 
-    // 勝利判定優先：存活達 10 分鐘（即使同幀 HP 歸零也以勝利為準）
+    // 勝利判定優先：存活達 3 分鐘（即使同幀 HP 歸零也以勝利為準）
     if (!this.isVictory && !this.isGameOver && this.elapsedSeconds * 1000 >= VICTORY_TIME_MS) {
       this.triggerVictory();
       return;
@@ -1105,7 +1105,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
   }
 
   /**
-   * 觸發勝利流程（存活 10 分鐘）
+   * 觸發勝利流程（存活 3 分鐘）
    * - 設定 isVictory = true，防止重複觸發
    * - 停止所有遊戲邏輯
    * - 顯示 VictoryPanel
