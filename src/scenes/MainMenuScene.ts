@@ -220,11 +220,11 @@ export class MainMenuScene extends Phaser.Scene {
     deco.fillCircle(cx, titleY - 36, 3);
 
     // 主標題陰影
-    this.add.text(cx + 3, titleY + 3, '武俠幸存者',
+    this.add.text(cx + 3, titleY + 3, '小俠浪天涯',
       uiTitle(50, '#3a1800')
     ).setOrigin(0.5, 0.5).setDepth(10);
     // 主標題
-    this.add.text(cx, titleY, '武俠幸存者',
+    this.add.text(cx, titleY, '小俠浪天涯',
       uiTitle(50, '#ffd700')
     ).setOrigin(0.5, 0.5).setDepth(11);
 
