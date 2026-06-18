@@ -125,30 +125,31 @@ export const WEAPONS: WeaponData[] = [
     id: 'thunder_claw',
     name: '雷霆爪',
     form: 'strike',
-    effects: ['autoTarget'],
-    usesAmountBonus: true,
-    baseDamagePerLevel: [10, 12, 10, 12, 12, 16, 16, 20], // 向下相容保留
+    effects: [],
+    usesAmountBonus: false,
+    baseDamagePerLevel: [10, 12, 12, 14, 14, 18, 18, 24], // 向下相容保留
     baseAttackInterval: 0.6,
-    baseAttackRange: 160,
+    baseAttackRange: 150,
     projectileSpeed: 300,
     iconKey: 'weapon_leiting_claw',
     levelStats: [
-      // Lv1：基礎，單發，傷害提升
-      { damage: 10, count: 1, interval: 0.6 },
-      // Lv2：傷害提升
-      { damage: 12, count: 1, interval: 0.6 },
-      // Lv3：投射物 +1，傷害略降以壓低爆發跳躍
-      { damage: 10, count: 2, interval: 0.6 },
-      // Lv4：傷害提升
-      { damage: 12, count: 2, interval: 0.6 },
-      // Lv5：攻擊範圍小幅提升
-      { damage: 12, count: 2, interval: 0.6, range: 185 },
-      // Lv6：傷害提升
-      { damage: 16, count: 2, interval: 0.6, range: 185 },
-      // Lv7：攻擊間隔縮短
-      { damage: 16, count: 2, interval: 0.5, range: 185 },
-      // Lv8：傷害大幅提升（滿級獎勵）
-      { damage: 20, count: 2, interval: 0.5, range: 185 },
+      // 扇形攻擊：朝玩家面朝方向揮出一次扇形爪擊，等級提升增加扇形範圍（半徑 + 角度）
+      // Lv1：基礎扇形
+      { damage: 10, interval: 0.6,  range: 150, arcDegrees: 60 },
+      // Lv2：傷害提升，扇形角度擴大
+      { damage: 12, interval: 0.6,  range: 160, arcDegrees: 70 },
+      // Lv3：半徑與角度擴大
+      { damage: 12, interval: 0.6,  range: 170, arcDegrees: 80 },
+      // Lv4：傷害提升，扇形範圍續增
+      { damage: 14, interval: 0.6,  range: 180, arcDegrees: 95 },
+      // Lv5：扇形範圍續增
+      { damage: 14, interval: 0.6,  range: 190, arcDegrees: 110 },
+      // Lv6：傷害提升，攻擊間隔略縮
+      { damage: 18, interval: 0.55, range: 200, arcDegrees: 120 },
+      // Lv7：攻擊間隔縮短，扇形範圍續增
+      { damage: 18, interval: 0.5,  range: 215, arcDegrees: 135 },
+      // Lv8：傷害大幅提升，扇形範圍最大（滿級獎勵）
+      { damage: 24, interval: 0.5,  range: 230, arcDegrees: 150 },
     ],
   },
   {

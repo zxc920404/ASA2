@@ -9,6 +9,7 @@ import { AssetLoader } from '../utils/AssetLoader';
 const ENEMY_VISUAL_SIZE: Record<string, { w: number; h: number }> = {
   boss1:    { w: 175, h: 180 },   // 三當家 Boss，比小怪大
   boss2:    { w: 140, h: 145 },   // 二當家 Boss（shooter），與三當家相近
+  boss3:    { w: 175, h: 180 },   // 大當家 Boss（charger），近戰猛將，與三當家相近
   henchman: { w: 125, h: 140 },   // 接近玩家大小
   scout:    { w: 120, h: 105 },   // 快速小怪，略小
   giant:    { w: 155, h: 165 },   // 巨漢略大於玩家
@@ -185,8 +186,8 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   private lineShotWaveIndex: number = 0;
   /** 下一波倒數計時（ms），由 updateShooter 累減 */
   private lineShotWaveTimer: number = 0;
-  /** 每一波警示時間（ms）：必須與 GameScene.spawnLineShot 的 WARNING_TIME 一致 */
-  private readonly LINE_SHOT_WARNING = 900;
+  /** 每一波警示時間（ms）：= 動畫前 7 幀總時長（120ms × 7），光束在第 8 幀出手發射，需與 GameScene.spawnLineShot 的 WARNING_TIME 一致 */
+  private readonly LINE_SHOT_WARNING = 840;
   /** 每一波射擊後到下一波的間隔（ms） */
   private readonly LINE_SHOT_INTERVAL = 300;
   /**
@@ -612,6 +613,22 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       return;
     }
     
+    // 大當家特殊處理（charger）：優先使用動畫 Sprite，比照三當家 / 二當家做法
+    if (type === 'charger' && this.scene.anims.exists('boss3_walk')) {
+      if (this.visual && this.visual.active) {
+        this.visual.destroy();
+      }
+      const spr = this.scene.add.sprite(this.x, this.y, 'boss3_01');
+      spr.setDepth(5);
+      const vSize = ENEMY_VISUAL_SIZE['boss3'] ?? { w: 175, h: 180 };
+      spr.setDisplaySize(vSize.w, vSize.h);
+      spr.play('boss3_walk');
+      this.visual = spr;
+      this.visualBaseScaleX = spr.scaleX;
+      this.visualBaseScaleY = spr.scaleY;
+      return;
+    }
+
     // 精英怪：銷毀原本的 Image，改用 Graphics
     if (this.visual && this.visual.active) {
       this.visual.destroy();
@@ -724,6 +741,9 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   // ─────────────────────────────────────────────────────────────────────────
 
   private updateCharger(delta: number, playerX: number, playerY: number): void {
+    // 走路動畫控制：idle（追蹤移動）播放 boss3_walk，casting（施放技能）停止 walk，不覆蓋技能狀態
+    this.updateChargerWalkAnim();
+
     // ── 技能施放中：等待 GameScene 呼叫 chargerEndCast() ──────────────
     if (this.chargerState === 'casting') return;
 
@@ -781,6 +801,32 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       }
     } else {
       // 沒有技能可放：只進行追蹤移動（霸刀橫斬已移除，不再有普通攻擊）
+    }
+  }
+
+  /**
+   * 大當家（charger）走路動畫控制。
+   * - chargerState === 'idle'（追蹤移動中）：確保播放 boss3_walk（loop）
+   * - chargerState === 'casting'（施放蠻王衝鋒 / 裂寨三斬 / 連環破甲刺等技能）：停止 walk，
+   *   避免 walk 覆蓋技能狀態或在技能蓄力 / 攻擊期間亂播。
+   * 僅在使用 Sprite 且 boss3_walk 動畫存在時生效；否則保留原顯示方式（Graphics fallback），不崩潰。
+   * 死亡時 updateEliteSkill 已提前 return，且 playDeathEffect 立即 destroy，動畫自動停止。
+   */
+  private updateChargerWalkAnim(): void {
+    if (!(this.visual instanceof Phaser.GameObjects.Sprite) || !this.visual.active) return;
+    if (!this.scene.anims.exists('boss3_walk')) return;
+    const spr = this.visual;
+
+    if (this.chargerState === 'casting') {
+      // 施放技能中：停止 walk（停在當前幀）
+      if (spr.anims.isPlaying && spr.anims.currentAnim?.key === 'boss3_walk') {
+        spr.anims.stop();
+      }
+    } else {
+      // idle（追蹤移動中）：確保播放 walk
+      if (spr.anims.currentAnim?.key !== 'boss3_walk' || !spr.anims.isPlaying) {
+        spr.play('boss3_walk');
+      }
     }
   }
 
@@ -1029,17 +1075,15 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     }
 
     // ── 技能冷卻倒計時 ────────────────────────────────────────────────
-    // 震罡功已移除
+    // 震罡功已移除；連續重擊已移除（不再倒數 / 觸發）
     this.leapCooldown        -= delta;
     this.warCryCooldown      -= delta;
-    this.comboStrikeCooldown -= delta;
 
     // ── 隨機選擇冷卻完成的技能 ────────────────────────────────────────
-    const available: Array<'leap' | 'warcry' | 'combo'> = [];
-    // 震罡功已移除
+    const available: Array<'leap' | 'warcry'> = [];
+    // 震罡功已移除；連續重擊已移除
     if (this.leapCooldown        <= 0) available.push('leap');
     if (this.warCryCooldown      <= 0) available.push('warcry');
-    if (this.comboStrikeCooldown <= 0) available.push('combo');
 
     if (available.length === 0) return;
 
@@ -1069,16 +1113,10 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
       case 'warcry':
         this.warCryCooldown = this.WARCRY_COOLDOWN_MIN +
           Math.random() * (this.WARCRY_COOLDOWN_MAX - this.WARCRY_COOLDOWN_MIN);
+        // 進入震撼咆哮技能狀態：停止移動與走路動畫，改播 skill2 動畫（由 GameScene 處理）
+        this.isUsingSkill = true;
         if (this.onWarCry) {
           this.onWarCry(this.x, this.y, dirX, dirY, this);
-        }
-        break;
-
-      case 'combo':
-        this.comboStrikeCooldown = this.COMBO_STRIKE_COOLDOWN_MIN +
-          Math.random() * (this.COMBO_STRIKE_COOLDOWN_MAX - this.COMBO_STRIKE_COOLDOWN_MIN);
-        if (this.onComboStrike) {
-          this.onComboStrike(this.x, this.y, dirX, dirY, this);
         }
         break;
     }

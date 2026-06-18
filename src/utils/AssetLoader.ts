@@ -183,6 +183,20 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'boss1_skill1_05', 'assets/sprites/enemies/Level_1/boss1/skill1/5.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_06', 'assets/sprites/enemies/Level_1/boss1/skill1/6.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_07', 'assets/sprites/enemies/Level_1/boss1/skill1/7.png');
+
+    // 震撼咆哮（skill2）：依資料夾排序載入 11 幀（變體幀在前，比照 skiil2 實際檔名與空格）
+    // 序：01-1, 01, 02 -2, 02, 03 -3, 03, 04, 05, 06, 07, 08
+    AssetLoader.loadImage(scene, 'boss1_skill2_01', 'assets/sprites/enemies/Level_1/boss1/skiil2/01-1.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_02', 'assets/sprites/enemies/Level_1/boss1/skiil2/01.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_03', 'assets/sprites/enemies/Level_1/boss1/skiil2/02 -2.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_04', 'assets/sprites/enemies/Level_1/boss1/skiil2/02.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_05', 'assets/sprites/enemies/Level_1/boss1/skiil2/03 -3.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_06', 'assets/sprites/enemies/Level_1/boss1/skiil2/03.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_07', 'assets/sprites/enemies/Level_1/boss1/skiil2/04.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_08', 'assets/sprites/enemies/Level_1/boss1/skiil2/05.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_09', 'assets/sprites/enemies/Level_1/boss1/skiil2/06.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_10', 'assets/sprites/enemies/Level_1/boss1/skiil2/07.png');
+    AssetLoader.loadImage(scene, 'boss1_skill2_11', 'assets/sprites/enemies/Level_1/boss1/skiil2/08.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_08', 'assets/sprites/enemies/Level_1/boss1/skill1/8.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_09', 'assets/sprites/enemies/Level_1/boss1/skill1/9.png');
     AssetLoader.loadImage(scene, 'boss1_skill1_10', 'assets/sprites/enemies/Level_1/boss1/skill1/10.png');
@@ -208,9 +222,13 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'boss2_skill1_06', 'assets/sprites/enemies/Level_1/boss2/attack1/06.png');
     AssetLoader.loadImage(scene, 'boss2_skill1_07', 'assets/sprites/enemies/Level_1/boss2/attack1/07.png');
 
-    // attack2：11 幀直線射擊（狙擊）準備動畫（對應 boss2_skill2，不套用 skill1）
+    // attack2：直線射擊（狙擊）準備動畫（對應 boss2_skill2，不套用 skill1）
+    // 完整幀序：01-1, 01, 02-1, 02, 03-1, 03, 04（前搖 7 幀）→ 05（第 8 幀，出手發射）→ 06~11
+    AssetLoader.loadImage(scene, 'boss2_skill2_01a', 'assets/sprites/enemies/Level_1/boss2/attack2/01-1.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_01', 'assets/sprites/enemies/Level_1/boss2/attack2/01.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_02a', 'assets/sprites/enemies/Level_1/boss2/attack2/02-1.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_02', 'assets/sprites/enemies/Level_1/boss2/attack2/02.png');
+    AssetLoader.loadImage(scene, 'boss2_skill2_03a', 'assets/sprites/enemies/Level_1/boss2/attack2/03-1.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_03', 'assets/sprites/enemies/Level_1/boss2/attack2/03.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_04', 'assets/sprites/enemies/Level_1/boss2/attack2/04.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_05', 'assets/sprites/enemies/Level_1/boss2/attack2/05.png');
@@ -220,6 +238,13 @@ export class AssetLoader {
     AssetLoader.loadImage(scene, 'boss2_skill2_09', 'assets/sprites/enemies/Level_1/boss2/attack2/09.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_10', 'assets/sprites/enemies/Level_1/boss2/attack2/10.png');
     AssetLoader.loadImage(scene, 'boss2_skill2_11', 'assets/sprites/enemies/Level_1/boss2/attack2/11.png');
+
+    // ── 第一關 大當家（boss3 / elite_charger）動畫幀 ────────────────────
+    // walk：4 幀移動動畫（依數字順序 01~04）
+    AssetLoader.loadImage(scene, 'boss3_01', 'assets/sprites/enemies/Level_1/boss3/walk/01.png');
+    AssetLoader.loadImage(scene, 'boss3_02', 'assets/sprites/enemies/Level_1/boss3/walk/02.png');
+    AssetLoader.loadImage(scene, 'boss3_03', 'assets/sprites/enemies/Level_1/boss3/walk/03.png');
+    AssetLoader.loadImage(scene, 'boss3_04', 'assets/sprites/enemies/Level_1/boss3/walk/04.png');
 
     // ── 第一關普通小怪動畫幀 ──────────────────────────────────────────
     // henchman（山賊嘍囉）：8 幀移動動畫，8 fps

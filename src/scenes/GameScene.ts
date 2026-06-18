@@ -2007,7 +2007,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     // 攻擊參數
     const LINE_LENGTH = 1600;  // 攻擊線長度（px）：延伸到畫面外 / 最大射程
     const LINE_WIDTH = 50;     // 攻擊線寬度（px）：手機畫面易讀（40~60）
-    const WARNING_TIME = 900;  // 警示時間（ms）：需與 Enemy.LINE_SHOT_WARNING 一致
+    const WARNING_TIME = 840;  // 警示時間（ms）：= 動畫前 7 幀總時長（120ms × 7），使光束在第 8 幀（素材05）出手發射；需與 Enemy.LINE_SHOT_WARNING 一致
 
     // 中高傷害：每條約玩家最大生命的 30%（連射三波，避免每條都過高造成秒殺），至少 35
     const maxHP = this.player?.stats?.maxHP ?? 100;
@@ -2373,10 +2373,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
 
     const WARCRY_RADIUS = 380;                          // 扇形距離（px）
     const WARCRY_ANGLE  = Math.PI * (120 / 180);        // 扇形角度 120°
-    const WINDUP_DUR    = 900;                          // 蓄力時間（ms）
+    const WINDUP_DUR    = 780;                          // fallback 蓄力時間（ms），對齊動畫第 6 幀爆發時間
     const STUN_DUR      = 400 + Math.random() * 300;   // 定身 0.4～0.7 秒
     const WARCRY_DMG    = Math.ceil(elite.contactDamage * 0.55);
     const baseAngle     = Math.atan2(castDirY, castDirX);
+    const BURST_FRAME   = 6;                            // boss1_skill2 第 6 幀：咆哮爆發（約動畫 55%）
 
     // 繪製扇形（相對座標，原點 = 三當家位置）
     const drawFan = (g: Phaser.GameObjects.Graphics, radius: number, lineColor: number, lineAlpha: number, fillColor: number, fillAlpha: number) => {
@@ -2404,7 +2405,7 @@ export class GameScene extends Phaser.Scene implements IGameScene {
     warnG.strokeCircle(0, 0, WARCRY_RADIUS * 0.15); // 中心小圓提示
 
     // alpha 閃爍表示蓄力，不做 scale
-    this.tweens.add({
+    const warnTween = this.tweens.add({
       targets: warnG,
       alpha: 0.4,
       duration: 180,
@@ -2413,20 +2414,11 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       ease: 'Sine.easeInOut',
     });
 
-    this.time.delayedCall(WINDUP_DUR, () => {
-      this.tweens.killTweensOf(warnG);
+    // ── 咆哮爆發判定（傷害 + 定身 + 爆發視覺），僅觸發一次 ─────────────
+    const doBurst = () => {
+      // 清除預警
+      if (warnTween) warnTween.stop();
       if (warnG && warnG.active) warnG.destroy();
-
-      if (this.isPaused || this.isGameOver || this.isVictory) {
-        elite.shieldEndCast();
-        return;
-      }
-
-      // BUG-A4 修正：三當家在蓄力期間死亡則不造成傷害
-      if (!elite.active || elite.isDying) {
-        elite.shieldEndCast();
-        return;
-      }
 
       // 使用三當家當前位置
       const bx = elite.active ? elite.x : castX;
@@ -2458,7 +2450,6 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       });
 
       // ── 傷害與定身判定（以 bx/by 為中心，castDirX/Y 為方向）──────────
-      // 重要：用玩家相對位置做角度判斷，不移動任何物件
       const pdx = this.player.x - bx;
       const pdy = this.player.y - by;
       const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
@@ -2485,10 +2476,80 @@ export class GameScene extends Phaser.Scene implements IGameScene {
           }
         }
       }
+    };
 
-      // 技能結束
-      this.time.delayedCall(350, () => { elite.shieldEndCast(); });
-    });
+    // ── 取得 Boss 視覺物件與基準 scale ───────────────────────────────
+    const eliteVisual = (elite as any).visual as Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | undefined;
+    const bsx = (elite as any).visualBaseScaleX ?? 1;
+    const bsy = (elite as any).visualBaseScaleY ?? 1;
+
+    // ── Fallback：無 Sprite 或 boss1_skill2 動畫不存在 → 沿用 timer-based 節奏 ──
+    if (!(eliteVisual instanceof Phaser.GameObjects.Sprite) || !this.anims.exists('boss1_skill2')) {
+      this.time.delayedCall(WINDUP_DUR, () => {
+        if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+          if (warnTween) warnTween.stop();
+          if (warnG && warnG.active) warnG.destroy();
+          elite.shieldEndCast();
+          return;
+        }
+        doBurst();
+        this.time.delayedCall(350, () => { elite.shieldEndCast(); });
+      });
+      return;
+    }
+
+    // ── 動畫驅動：播放 boss1_skill2，於第 6 幀觸發咆哮爆發 ─────────────
+    const spr = eliteVisual as Phaser.GameObjects.Sprite;
+    let hasBurst = false;
+
+    const onAnimUpdate = (anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
+      if (anim.key !== 'boss1_skill2') return;
+      if (frame.index === BURST_FRAME && !hasBurst) {
+        hasBurst = true;
+        // 暫停 / 死亡 / 中斷檢查：不造成傷害，僅清理預警
+        if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+          if (warnTween) warnTween.stop();
+          if (warnG && warnG.active) warnG.destroy();
+          return;
+        }
+        doBurst();
+      }
+    };
+
+    const onAnimComplete = (anim: Phaser.Animations.Animation) => {
+      if (anim.key !== 'boss1_skill2') return;
+      spr.off(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
+      spr.off(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
+
+      // 恢復基準 scale 與走路動畫
+      if (spr.active) {
+        spr.setScale(bsx, bsy);
+        if (this.anims.exists('boss1_walk')) {
+          spr.play('boss1_walk');
+        }
+      }
+      // 清除殘留預警（保險）
+      if (warnTween) warnTween.stop();
+      if (warnG && warnG.active) warnG.destroy();
+
+      elite.shieldEndCast();
+    };
+
+    spr.on(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
+    spr.on(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
+
+    // 立即停止走路動畫、改播放震撼咆哮技能動畫
+    if (this.isPaused || this.isGameOver || this.isVictory || !elite.active || elite.isDying) {
+      spr.off(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate);
+      spr.off(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete);
+      if (warnTween) warnTween.stop();
+      if (warnG && warnG.active) warnG.destroy();
+      elite.shieldEndCast();
+      return;
+    }
+    elite.isUsingSkill = true; // 鎖定技能狀態，禁止走路 / 待機動畫覆蓋（雙保險）
+    spr.setScale(bsx, bsy);
+    spr.play('boss1_skill2');
   }
 
   /**
@@ -3783,6 +3844,25 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
+    // 震撼咆哮（skill2）：11 幀扇形蓄力咆哮動畫
+    // frameRate 10 → 每幀基礎 100ms，frame.duration 為「額外停留時間」，實際顯示 = 100ms + duration。
+    // 前段（前 4 幀）蓄力略慢（170ms/幀），中後段正常（100ms/幀）；
+    // 第 6 幀對應「咆哮爆發」，由 spawnWarCry 在該幀觸發傷害 / 定身判定（約動畫 55%）。
+    if (!anims.exists('boss1_skill2')) {
+      const skillFrameKeys = [
+        'boss1_skill2_01','boss1_skill2_02','boss1_skill2_03','boss1_skill2_04',
+        'boss1_skill2_05','boss1_skill2_06','boss1_skill2_07','boss1_skill2_08',
+        'boss1_skill2_09','boss1_skill2_10','boss1_skill2_11',
+      ];
+      const skillFrameExtra = [70, 70, 70, 70, 0, 0, 0, 0, 0, 0, 0];
+      const frames = skillFrameKeys
+        .map((key, i) => ({ key, duration: skillFrameExtra[i] }))
+        .filter(f => AssetLoader.hasTexture(this, f.key));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss1_skill2', frames, frameRate: 10, repeat: 0 });
+      }
+    }
+
     // ── boss2（二當家 / elite_shooter）：8 幀移動 + 7 幀攻擊動畫 ──────────
     // walk：8 幀 @ 9 fps（自然移動）；skill1（attack1）：7 幀 @ 12 fps ≈ 583ms（略快施法）
     if (!anims.exists('boss2_walk')) {
@@ -3809,17 +3889,37 @@ export class GameScene extends Phaser.Scene implements IGameScene {
       }
     }
 
-    // skill2（attack2）：11 幀直線射擊準備動畫 @ 12 fps ≈ 0.92s（對齊每波 0.9s 警示出手，僅供直線射擊使用）
+    // skill2（attack2）：直線射擊準備動畫（僅供直線射擊使用，不套用 skill1）
+    // 完整幀序（14 幀）：01-1,01,02-1,02,03-1,03,04（前搖 7 幀，略慢）→ 05（第 8 幀：出手發射）→ 06~11
+    // frameRate 20 → 每幀基礎 50ms，frame.duration 為「額外停留時間」，實際顯示 = 50ms + duration。
+    // 前 7 幀額外停留 70ms（= 120ms/幀，略慢以符合前搖蓄力）；第 8 幀起不額外停留（50ms/幀，出手俐落）。
+    // 第 8 幀（05）起始時間 = 7 × 120ms = 840ms，與 spawnLineShot 的 WARNING_TIME 一致，使光束在出手幀發射。
     if (!anims.exists('boss2_skill2')) {
-      const frames = [
-        'boss2_skill2_01','boss2_skill2_02','boss2_skill2_03','boss2_skill2_04',
-        'boss2_skill2_05','boss2_skill2_06','boss2_skill2_07','boss2_skill2_08',
+      const skillFrameKeys = [
+        'boss2_skill2_01a','boss2_skill2_01','boss2_skill2_02a','boss2_skill2_02',
+        'boss2_skill2_03a','boss2_skill2_03','boss2_skill2_04', // 前搖 7 幀
+        'boss2_skill2_05', // 第 8 幀：出手發射
+        'boss2_skill2_06','boss2_skill2_07','boss2_skill2_08',
         'boss2_skill2_09','boss2_skill2_10','boss2_skill2_11',
+      ];
+      const skillFrameExtra = [70, 70, 70, 70, 70, 70, 70, 0, 0, 0, 0, 0, 0, 0];
+      const frames = skillFrameKeys
+        .map((key, i) => ({ key, duration: skillFrameExtra[i] }))
+        .filter(f => AssetLoader.hasTexture(this, f.key));
+      if (frames.length > 0) {
+        anims.create({ key: 'boss2_skill2', frames, frameRate: 20, repeat: 0 });
+      }
+    }
+
+    // ── boss3（大當家 / elite_charger）：4 幀移動動畫，9 fps，loop ──────────
+    if (!anims.exists('boss3_walk')) {
+      const frames = [
+        'boss3_01','boss3_02','boss3_03','boss3_04',
       ]
         .filter(key => AssetLoader.hasTexture(this, key))
         .map(key => ({ key }));
       if (frames.length > 0) {
-        anims.create({ key: 'boss2_skill2', frames, frameRate: 12, repeat: 0 });
+        anims.create({ key: 'boss3_walk', frames, frameRate: 9, repeat: -1 });
       }
     }
 

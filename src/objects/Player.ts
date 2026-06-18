@@ -44,6 +44,13 @@ export class Player extends Phaser.GameObjects.Rectangle {
   /** 已啟用的宗門大道 id 集合（透過升級選項取得） */
   public activeDaos: Set<string> = new Set();
 
+  /**
+   * 玩家面朝方向（正規化向量），由移動輸入更新，停止移動時保留最後方向，預設朝右。
+   * 供扇形 / 方向性武器（如雷霆爪）決定攻擊朝向。
+   */
+  public facingX: number = 1;
+  public facingY: number = 0;
+
   private charData: CharacterData;
 
   /** 視覺圖形：有動畫時為 Sprite，否則為 Image（fallback） */
@@ -465,6 +472,10 @@ export class Player extends Phaser.GameObjects.Rectangle {
     const len = Math.sqrt(vx * vx + vy * vy);
     vx /= len;
     vy /= len;
+
+    // 記錄面朝方向（正規化），供扇形 / 方向性武器使用
+    this.facingX = vx;
+    this.facingY = vy;
 
     const speed = this.stats.moveSpeed;
     const dt = delta / 1000;

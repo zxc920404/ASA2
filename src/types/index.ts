@@ -65,6 +65,7 @@ export interface WeaponLevelStats {
   range?: number;        // 攻擊範圍（px），覆蓋 baseAttackRange
   interval?: number;     // 攻擊間隔（秒），覆蓋 baseAttackInterval
   radius?: number;       // 爆炸半徑（px），赤焰印用
+  arcDegrees?: number;   // 扇形攻擊總角度（度），雷霆爪用；等級提升增加扇形範圍
   pierce?: number;       // 穿透數（寒冰錐用，資料保留但暫未啟用）
   duration?: number;     // 持續時間（秒），未來擴充用
   projectileSpeed?: number; // 投射物速度（px/s），覆蓋 baseProjectileSpeed

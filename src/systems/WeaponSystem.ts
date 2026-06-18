@@ -327,8 +327,9 @@ export class WeaponSystem {
               const explosionRadius = (stats.radius ?? 80) * player.stats.areaMultiplier;
               this.fireFlameSeal(player, target, finalDamage, projSpeed, explosionRadius, finalCount);
             } else if (inst.weaponId === 'thunder_claw') {
-              // 雷霆爪：近戰多段爪擊，對玩家附近敵人造成傷害並顯示紫藍爪痕
-              this.fireThunderClaw(player, finalDamage, finalRange, finalCount, enemies, deadEnemies);
+              // 雷霆爪：朝玩家面朝方向揮出一次扇形爪擊，命中扇形內所有敵人
+              const arcRad = Phaser.Math.DegToRad(stats.arcDegrees ?? 90);
+              this.fireThunderClaw(player, finalDamage, finalRange, arcRad, enemies, deadEnemies);
             } else if (inst.weaponId === 'ice_spike') {
               // 寒冰?��??�用穿透�?pierce ?��? levelStats 讀?��?finalCount ?�制?��??��???
               const pierceCount = stats.pierce ?? 1;
@@ -861,10 +862,6 @@ export class WeaponSystem {
     const baseAngle = Math.atan2(dy, dx);
     const angleSpread = count > 1 ? 0.18 : 0;
 
-    // 落點預兆圈：淡紅色圓，隨投射物飛行時間淡出，落地後接爆炸特效
-    const travelMs = (dist / speed) * 1000;
-    this.spawnFlameTelegraph(target.x, target.y, explosionRadius, travelMs);
-
     for (let i = 0; i < count; i++) {
       const offset = count > 1 ? (i - (count - 1) / 2) * angleSpread : 0;
       const angle = baseAngle + offset;
@@ -1090,81 +1087,100 @@ export class WeaponSystem {
   }
 
   /**
-   * 雷霆爪：近戰多段爪擊。
-   * 對玩家附近（range 內）最近的 count 個敵人造成一次傷害（同步處理，立即結算死亡），
-   * 並在玩家前方顯示短促紫藍爪痕（連續閃 2~3 次後自動 destroy）。
+   * 雷霆爪：朝玩家面朝方向揮出一次扇形爪擊。
+   * 命中扇形（半徑 range、總角度 arcRad、以玩家面朝方向為中心）內的所有敵人，各造成一次傷害
+   * （同步處理，立即結算死亡），並顯示一道紫藍色扇形爪痕。
+   * 等級提升會擴大扇形範圍（半徑與角度，由 levelStats 的 range / arcDegrees 控制）。
    * 不使用 delayedCall 處理傷害，避免場景關閉 / 武器銷毀時的清理風險。
    */
   private fireThunderClaw(
     player: Player,
     damage: number,
     range: number,
-    count: number,
-    _enemies: Enemy[],
+    arcRad: number,
+    enemies: Enemy[],
     deadEnemies: Enemy[]
   ): void {
-    // 找範圍內最近的 count 個敵人（cachedEnemies 已依距離排序）
-    const targets: Enemy[] = [];
-    for (const enemy of this.cachedEnemies) {
+    // 朝玩家面朝方向（最後移動方向，預設朝右）
+    const facingAngle = Math.atan2(player.facingY, player.facingX);
+    const halfArc = arcRad / 2;
+
+    // 命中扇形內所有敵人（半徑內 + 與面朝方向夾角在半扇形角內）
+    let hitAny = false;
+    for (const enemy of enemies) {
       if (enemy.isDying) continue;
       if (deadEnemies.includes(enemy)) continue;
+
       const dx = enemy.x - player.x;
       const dy = enemy.y - player.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= range) {
-        targets.push(enemy);
-        if (targets.length >= count) break;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > range) continue;
+
+      // 夾角判定（極近距離 dist≈0 視為命中）
+      if (dist > 0.001) {
+        const angleTo = Math.atan2(dy, dx);
+        const diff = Phaser.Math.Angle.Wrap(angleTo - facingAngle);
+        if (Math.abs(diff) > halfArc) continue;
       }
-    }
-    if (targets.length === 0) return; // 附近無敵人：不觸發爪擊
 
-    // 朝最近敵人方向
-    const primary = targets[0];
-    const angle = Math.atan2(primary.y - player.y, primary.x - player.x);
-
-    // 同步傷害結算 + 紫色雷光命中回饋
-    for (const enemy of targets) {
       const died = enemy.takeDamage(damage, player.x, player.y);
       if (died && !deadEnemies.includes(enemy)) {
         deadEnemies.push(enemy);
       }
       this.spawnHitEffect(enemy.x, enemy.y, 0xaa66ff);
+      hitAny = true;
     }
 
-    // 爪痕視覺（玩家前方，連續閃爍）
-    this.spawnClawSlash(player, angle, range, count);
+    // 扇形爪痕視覺（無論是否命中都揮出，朝面朝方向）
+    void hitAny;
+    this.spawnClawFan(player, facingAngle, range, arcRad);
   }
 
   /**
-   * 紫藍色爪痕特效：玩家前方 3 條斜向爪痕，連續閃 2~3 次後自動 destroy。
-   * 純視覺，短促有打擊感，不造成傷害。
+   * 紫藍色扇形爪痕特效：以玩家為圓心、朝面朝方向揮出一道扇形 + 3 條爪痕，
+   * 連續閃 1~2 次後自動 destroy。純視覺，短促有打擊感，不造成傷害。
    */
-  private spawnClawSlash(player: Player, angle: number, range: number, count: number): void {
-    const dist = Math.min(40, range * 0.28); // 出現在玩家前方一小段距離
-    const cx = player.x + Math.cos(angle) * dist;
-    const cy = player.y + Math.sin(angle) * dist;
+  private spawnClawFan(player: Player, facingAngle: number, radius: number, arcRad: number): void {
+    const halfArc = arcRad / 2;
+    const startA = facingAngle - halfArc;
+    const endA = facingAngle + halfArc;
 
     const g = this.scene.add.graphics();
-    g.setPosition(cx, cy);
-    g.setRotation(angle);
+    g.setPosition(player.x, player.y);
     g.setDepth(8);
 
-    // 3 條斜向爪痕（紫 → 藍）
-    const len = 22;
-    g.lineStyle(3, 0x9966ff, 0.9);
-    g.lineBetween(-len * 0.4, -10, len * 0.5, -3);
-    g.lineStyle(3, 0xaa88ff, 0.9);
-    g.lineBetween(-len * 0.4, 0, len * 0.5, 5);
-    g.lineStyle(3, 0x6699ff, 0.9);
-    g.lineBetween(-len * 0.4, 10, len * 0.5, 13);
+    // 扇形填色（淡紫，半透明）
+    g.fillStyle(0x9966ff, 0.22);
+    g.slice(0, 0, radius, startA, endA, false);
+    g.fillPath();
 
-    // 連續閃 2~3 次（count 越高閃越多次），結束後 destroy
-    const flashes = count > 1 ? 2 : 1; // repeat 次數：閃 2~3 次
+    // 扇形外弧線（亮紫）
+    g.lineStyle(3, 0xaa88ff, 0.9);
+    g.beginPath();
+    g.arc(0, 0, radius, startA, endA, false);
+    g.strokePath();
+
+    // 3 條放射狀爪痕（紫 → 藍），分布於扇形內
+    const clawColors = [0x9966ff, 0xaa88ff, 0x6699ff];
+    for (let i = 0; i < 3; i++) {
+      const t = 3 > 1 ? i / 2 : 0.5; // 0, 0.5, 1
+      const a = startA + (endA - startA) * t;
+      g.lineStyle(3, clawColors[i], 0.9);
+      g.lineBetween(
+        Math.cos(a) * radius * 0.25,
+        Math.sin(a) * radius * 0.25,
+        Math.cos(a) * radius,
+        Math.sin(a) * radius
+      );
+    }
+
+    // 連續閃 1~2 次後 destroy
     this.scene.tweens.add({
       targets: g,
       alpha: 0.15,
-      duration: 75,
+      duration: 80,
       yoyo: true,
-      repeat: flashes,
+      repeat: 1,
       ease: 'Sine.easeInOut',
       onComplete: () => g.destroy(),
     });
